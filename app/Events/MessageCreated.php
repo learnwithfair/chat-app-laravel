@@ -21,6 +21,16 @@ class MessageCreated implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
+        $a = $this->message->attachments->map(function ($att) {
+            return [
+                'url'           => Storage::url($att->path),
+                'mime'          => $att->mime,
+                'type'          => $att->type,
+                'original_name' => $att->original_name,
+                'size'          => $att->size,
+            ];
+        });
+
         return [
             'id'              => $this->message->id,
             'body'            => $this->message->body,
@@ -30,6 +40,7 @@ class MessageCreated implements ShouldBroadcastNow
             ],
             'conversation_id' => $this->message->conversation_id,
             'created_at'      => $this->message->created_at?->toIso8601String(),
+            'attachments'     => $a,
         ];
     }
 }

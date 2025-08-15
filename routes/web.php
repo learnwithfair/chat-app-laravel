@@ -45,6 +45,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/chat/{conversation}/messages', [MessageController::class, 'index'])->name('chat.messages.index');
     Route::post('/chat/{conversation}/messages', [MessageController::class, 'store'])->name('chat.messages.store');
     Route::post('/chat/{conversation}/messages/{message}/read', [MessageController::class, 'read'])->name('chat.messages.read');
+
+    Route::post('/chat/{conversation}/read-all', [MessageController::class, 'readAll'])->name('chat.messages.read_all');
+
 });
 
 require __DIR__ . '/settings.php';

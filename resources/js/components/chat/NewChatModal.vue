@@ -23,6 +23,20 @@ const loading = ref(false);
 const searching = ref(false);
 let timer: number | undefined;
 
+const emit = defineEmits<{
+  (
+    e: "created",
+    conv: {
+      id: number;
+      name: string | null;
+      is_group: boolean;
+      last_message: string | null;
+      last_at: string | null;
+      unread: number;
+    }
+  ): void;
+}>();
+
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const validEmail = computed(() => emailRegex.test(query.value.trim()));
@@ -53,22 +67,19 @@ async function startChat() {
   loading.value = true;
   try {
     if (selected.value) {
-      const { data } = await axios.post<{ id: number }>("/chat", {
-        user_id: selected.value.id,
-      });
-      router.visit(`/chat/${data.id}`);
+      const { data } = await axios.post("/chat", { user_id: selected.value.id });
+      emit("created", data.conversation);
       open.value = false;
       return;
     }
     if (validEmail.value) {
       const email = query.value.trim();
-      const { data } = await axios.post<{ id: number }>("/chat", { email });
-      router.visit(`/chat/${data.id}`);
+      const { data } = await axios.post("/chat", { email });
+      emit("created", data.conversation);
       open.value = false;
       return;
     }
   } catch (e: any) {
-    // Optional: show a simple inline error state
     alert(e?.response?.data?.message ?? "Unable to start chat");
   } finally {
     loading.value = false;
