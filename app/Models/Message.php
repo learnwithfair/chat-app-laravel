@@ -27,4 +27,9 @@ class Message extends Model
     {
         return $this->hasMany(MessageRead::class);
     }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(MessageAttachment::class);
+    }
 }

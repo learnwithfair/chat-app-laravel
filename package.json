@@ -18,7 +18,7 @@
         "eslint": "^9.17.0",
         "eslint-config-prettier": "^10.0.1",
         "eslint-plugin-vue": "^9.32.0",
-        "laravel-echo": "^2.2.0",
+        "laravel-echo": "^1.19.0",
         "prettier": "^3.4.2",
         "prettier-plugin-organize-imports": "^4.1.0",
         "prettier-plugin-tailwindcss": "^0.6.11",
@@ -45,6 +45,7 @@
         "typescript": "^5.2.2",
         "vite": "^7.0.4",
         "vue": "^3.5.13",
+        "vue3-emoji-picker": "^1.1.8",
         "ziggy-js": "^2.4.2"
     },
     "optionalDependencies": {

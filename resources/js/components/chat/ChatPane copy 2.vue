@@ -25,7 +25,7 @@ type Message = {
 type Paginator<T> = { data: T[] };
 type ConversationLite = { id: number; name: string | null; is_group: boolean };
 
-// Minimal surface for a presence channel
+// Minimal surface for a presence channel (Echo doesn't expose a `leave()` here)
 type PresenceChannel = {
   here(cb: (users: any[]) => void): PresenceChannel;
   joining(cb: (user: any) => void): PresenceChannel;
@@ -66,13 +66,11 @@ async function markReadAll(id: number) {
   await axios.post(`/chat/${id}/read-all`);
 }
 
-//  FUNCTION FOR REAL-TIME
 function join(id: number) {
-  const channelName = `chat.${id}`; // match Laravel backend: PresenceChannel("chat.{id}")
+  const channelName = `presence.chat.${id}`;
   currentChannel.value = channelName;
 
   presence = (window as any).Echo.join(channelName) as PresenceChannel;
-
   presence
     .here(() => {})
     .joining(() => {})

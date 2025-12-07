@@ -1,26 +1,51 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, nextTick } from "vue";
+import EmojiPicker from "./EmojiPicker.vue";
 import { Button } from "@/components/ui/button";
 import { Paperclip, Smile, SendHorizonal, X } from "lucide-vue-next";
-// import EmojiPicker from "./EmojiPicker.vue";
 
 const emit = defineEmits<{
   (e: "send", payload: { body: string; files: File[] }): void;
   (e: "typing"): void;
 }>();
+
 const body = ref("");
 const files = ref<File[]>([]);
 const showEmoji = ref(false);
+const textareaRef = ref<HTMLTextAreaElement | null>(null);
 
+// Insert emoji at cursor position
+function onPickEmoji(ch: string) {
+  const textarea = textareaRef.value;
+  if (!textarea) return;
+
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = body.value;
+
+  body.value = text.slice(0, start) + ch + text.slice(end);
+
+  nextTick(() => {
+    textarea.focus();
+    const pos = start + ch.length;
+    textarea.setSelectionRange(pos, pos);
+  });
+}
+
+// Trigger typing event
 function onInput() {
   emit("typing");
 }
+
+// Handle Enter key to send
 function onKey(e: KeyboardEvent) {
   if (e.key === "Enter" && !e.shiftKey) {
     e.preventDefault();
     submit();
   }
 }
+
+// Send message
 function submit() {
   if (!body.value.trim() && files.value.length === 0) return;
   emit("send", { body: body.value.trim(), files: files.value });
@@ -29,16 +54,15 @@ function submit() {
   showEmoji.value = false;
 }
 
-function onPickEmoji(ch: string) {
-  body.value += ch;
-}
-
+// File selection
 function onChoose(e: Event) {
   const t = e.target as HTMLInputElement;
   if (!t.files) return;
   files.value = [...files.value, ...Array.from(t.files)];
   t.value = "";
 }
+
+// Remove file
 function removeFile(idx: number) {
   files.value.splice(idx, 1);
 }
@@ -46,6 +70,7 @@ function removeFile(idx: number) {
 
 <template>
   <div class="flex flex-col gap-2">
+    <!-- Files preview -->
     <div v-if="files.length" class="flex gap-2 flex-wrap">
       <div
         v-for="(f, i) in files"
@@ -64,7 +89,9 @@ function removeFile(idx: number) {
       </div>
     </div>
 
-    <div class="flex items-center gap-2">
+    <!-- Input row -->
+    <div class="flex items-center gap-2 relative">
+      <!-- Emoji button -->
       <div class="relative">
         <button
           class="p-2 rounded hover:bg-gray-100"
@@ -74,11 +101,14 @@ function removeFile(idx: number) {
         >
           <Smile class="h-5 w-5" />
         </button>
-        <div v-if="showEmoji" class="absolute bottom-10 left-0 z-10">
+
+        <!-- Emoji picker -->
+        <div v-if="showEmoji" class="absolute bottom-10 left-0 z-10 shadow-lg rounded">
           <EmojiPicker @pick="onPickEmoji" />
         </div>
       </div>
 
+      <!-- File attachment -->
       <label class="p-2 rounded hover:bg-gray-100 cursor-pointer" aria-label="Attach">
         <Paperclip class="h-5 w-5" />
         <input
@@ -90,7 +120,9 @@ function removeFile(idx: number) {
         />
       </label>
 
+      <!-- Message textarea -->
       <textarea
+        ref="textareaRef"
         v-model="body"
         @input="onInput"
         @keydown="onKey"
@@ -99,6 +131,7 @@ function removeFile(idx: number) {
         class="flex-1 resize-none rounded-xl border px-3 py-2 focus:outline-none focus:ring max-h-40"
       />
 
+      <!-- Send button -->
       <Button
         type="button"
         @click="submit"

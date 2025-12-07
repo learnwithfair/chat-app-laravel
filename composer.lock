@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "bc7f1598f6e0c8df99b9615ac4e3a4b9",
+    "content-hash": "f206bb475f06fbdcb264a8210d57d16f",
     "packages": [
         {
             "name": "brick/math",
@@ -1578,16 +1578,16 @@
         },
         {
             "name": "laravel/reverb",
-            "version": "v1.5.1",
+            "version": "v1.6.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/laravel/reverb.git",
-                "reference": "c82751070c9a5397095d91ff743aefb0549917c3"
+                "reference": "b97d21650bcfaa462dfa4735048dbc33359514e1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/laravel/reverb/zipball/c82751070c9a5397095d91ff743aefb0549917c3",
-                "reference": "c82751070c9a5397095d91ff743aefb0549917c3",
+                "url": "https://api.github.com/repos/laravel/reverb/zipball/b97d21650bcfaa462dfa4735048dbc33359514e1",
+                "reference": "b97d21650bcfaa462dfa4735048dbc33359514e1",
                 "shasum": ""
             },
             "require": {
@@ -1607,8 +1607,8 @@
                 "symfony/http-foundation": "^6.3|^7.0"
             },
             "require-dev": {
-                "orchestra/testbench": "^8.0|^9.0|^10.0",
-                "pestphp/pest": "^2.0|^3.0",
+                "orchestra/testbench": "^8.36|^9.15|^10.8",
+                "pestphp/pest": "^2.0|^3.0|^4.0",
                 "phpstan/phpstan": "^1.10",
                 "ratchet/pawl": "^0.4.1",
                 "react/async": "^4.2",
@@ -1654,9 +1654,9 @@
             ],
             "support": {
                 "issues": "https://github.com/laravel/reverb/issues",
-                "source": "https://github.com/laravel/reverb/tree/v1.5.1"
+                "source": "https://github.com/laravel/reverb/tree/v1.6.3"
             },
-            "time": "2025-06-16T13:48:47+00:00"
+            "time": "2025-11-28T20:12:49+00:00"
         },
         {
             "name": "laravel/sanctum",
