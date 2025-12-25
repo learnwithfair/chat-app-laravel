@@ -6,20 +6,26 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
-        Schema::create('conversation_user', function (Blueprint $table) {
+        Schema::create('user_restricts', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('conversation_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('restricted_id')->constrained('users')->cascadeOnDelete();
             $table->timestamps();
-
-            $table->unique(['conversation_id', 'user_id']);
+            $table->unique(['user_id', 'restricted_id']);
         });
+
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
-        Schema::dropIfExists('conversation_user');
+        Schema::dropIfExists('user_restricts');
     }
 };

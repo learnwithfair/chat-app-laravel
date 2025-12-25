@@ -6,21 +6,26 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
-        Schema::create('message_attachments', function (Blueprint $table) {
+        Schema::create('message_deletions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('message_id')->constrained()->cascadeOnDelete();
-            $table->string('path');
-            $table->string('mime', 100)->nullable();
-            $table->string('type', 20)->nullable(); // image | video | file
-            $table->unsignedBigInteger('size')->nullable();
-            $table->string('original_name')->nullable();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
+
+            $table->unique(['message_id', 'user_id']);
         });
     }
+
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
-        Schema::dropIfExists('message_attachments');
+        Schema::dropIfExists('message_deletions');
     }
 };

@@ -2,34 +2,56 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Message extends Model
 {
-    protected $fillable = ['conversation_id', 'user_id', 'body'];
-
-    protected $casts = [
+    protected $guarded = [];
+    protected $casts   = [
         'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
-    public function conversation(): BelongsTo
+    public function conversation()
     {
         return $this->belongsTo(Conversation::class);
     }
-
-    public function sender(): BelongsTo
+    public function sender()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class, 'sender_id');
+    }
+    public function receiver()
+    {
+        return $this->belongsTo(User::class, 'receiver_id');
     }
 
-    public function reads(): HasMany
-    {
-        return $this->hasMany(MessageRead::class);
-    }
-
-    public function attachments(): HasMany
+    public function attachments()
     {
         return $this->hasMany(MessageAttachment::class);
     }
+
+    public function reactions()
+    {
+        return $this->hasMany(MessageReaction::class);
+    }
+
+    public function replyTo()
+    {
+        return $this->belongsTo(Message::class, 'reply_to_message_id');
+    }
+
+    public function replies()
+    {
+        return $this->hasMany(Message::class, 'reply_to_message_id');
+    }
+
+    public function statuses()
+    {
+        return $this->hasMany(MessageStatus::class);
+    }
+
+    public function deletions()
+    {
+        return $this->hasMany(MessageDeletion::class);
+    }
+
 }

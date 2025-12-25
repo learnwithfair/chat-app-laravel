@@ -6,19 +6,25 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
-        Schema::create('message_reads', function (Blueprint $table) {
+        Schema::create('user_blocks', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('message_id')->constrained()->cascadeOnDelete();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->timestamp('read_at');
-            $table->unique(['message_id', 'user_id']);
+            $table->foreignId('blocked_id')->constrained('users')->cascadeOnDelete();
+            $table->timestamps();
+            $table->unique(['user_id', 'blocked_id']);
         });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
-        Schema::dropIfExists('message_reads');
+        Schema::dropIfExists('user_blocks');
     }
 };

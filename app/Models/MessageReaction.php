@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class MessageAttachment extends Model
+class MessageReaction extends Model
 {
     protected $guarded = []; 
     protected $casts = [
@@ -15,5 +15,10 @@ class MessageAttachment extends Model
     public function message()
     {
         return $this->belongsTo(Message::class);
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

@@ -317,3 +317,15 @@ npm run dev
 ```
 
 That’s the complete, copy-pasteable implementation guide for your current chat. If you want a branded PDF version or need me to add delivery/read ticks next, say the word.
+
+
+
+## Push notificaton
+- php artisan queue:work --tries=3
+- composer require kreait/laravel-firebase
+- php artisan vendor:publish --provider="Kreait\Laravel\Firebase\ServiceProvider"
+
+
+````bash
+Note (production): Use Firebase Admin SDK (service account). I can provide kreait/laravel-firebase instructions if you want secure, robust v1 calls.
+````

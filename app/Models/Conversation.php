@@ -2,31 +2,42 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Conversation extends Model
 {
-    protected $fillable = ['name', 'is_group'];
+    protected $guarded = [];
 
-    public function users(): BelongsToMany
+    public function participants()
     {
-        return $this->belongsToMany(User::class)->withTimestamps();
+        return $this->hasMany(ConversationParticipant::class);
     }
 
-    public function messages(): HasMany
+    public function messages()
     {
-        return $this->hasMany(Message::class)->latest('id');
+        return $this->hasMany(Message::class)->latest();
     }
 
-    public function lastMessage(): HasOne
+    public function lastMessage()
     {
         return $this->hasOne(Message::class)->latestOfMany();
     }
 
-    public function scopeForUser($query, int $userId)
+    public function groupSetting()
     {
-        return $query->whereHas('users', fn($q) => $q->where('users.id', $userId));
+        return $this->hasOne(GroupSettings::class);
     }
+
+    public function unreadMessages()
+    {
+        return $this->hasMany(Message::class);
+    }
+    public function otherParticipant(User $currentUser)
+    {
+        if ($this->type !== 'private') {
+            return null;
+        }
+        // return the participant that is NOT the current user
+        return $this->participants->where('user_id', '!=', $currentUser->id)->first()?->user;
+    }
+
 }
