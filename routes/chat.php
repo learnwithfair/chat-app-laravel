@@ -1,50 +1,45 @@
 <?php
 
-use App\Http\Controllers\Api\Chat\V1\ConversationController;
-use App\Http\Controllers\Api\Chat\V1\GroupController;
-use App\Http\Controllers\Api\Chat\V1\MessageController;
-use App\Http\Controllers\Api\Chat\V1\ReactionController;
-use App\Http\Controllers\Api\Chat\V1\UserBlockController;
+use App\Http\Controllers\Web\V1\Chat\ChatController;
+use App\Http\Controllers\Web\V1\Chat\ConversationController;
+use App\Http\Controllers\Web\V1\Chat\GroupController;
+use App\Http\Controllers\Web\V1\Chat\MessageController;
+use App\Http\Controllers\Web\V1\Chat\ReactionController;
+use App\Http\Controllers\Web\V1\Chat\UserBlockController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1')->middleware(['auth:sanctum', 'last_seen'])->group(function () {
+Route::middleware(['auth', 'verified'])->prefix('chat')->name('chat.')->group(function () {
 
-    // -------------------- Conversations --------------------
-    Route::apiResource('conversations', ConversationController::class)->only(['index', 'store', 'destroy']);
-    Route::post('conversations/private', [ConversationController::class, 'startPrivateConversation']);
+// -------------------- Conversations --------------------
+    Route::get('/', [ChatController::class, 'index'])->name('index');                             // List conversations
+    Route::post('/start', [ConversationController::class, 'start'])->name('conversations.start'); // Start private conversation
+    Route::delete('/{conversation}', [ConversationController::class, 'delete'])->name('conversations.delete');
 
-// ----------------------- Messages ------------------------------
-    Route::apiResource('messages', MessageController::class)->only(['store', 'show', 'update']);
+    // -------------------- Messages --------------------
+    Route::post('messages', [MessageController::class, 'store'])->name('messages.store');
+    Route::put('messages/{message}', [MessageController::class, 'update'])->name('messages.update');
+    Route::delete('messages/{message}', [MessageController::class, 'deleteForMe'])->name('messages.delete');
 
-    Route::prefix('messages')->controller(MessageController::class)->group(function () {
-        Route::delete('delete-for-me', 'deleteForMe')->name('messages.deleteForMe');
-        Route::delete('delete-for-everyone', 'deleteForEveryone')->name('messages.deleteForEveryone');
-        Route::get('seen/{conversation}', 'markAsSeen')->name('messages.seen');
-        Route::get('delivered/{conversation}', 'markAsDelivered')->name('messages.delivered');
-    });
+    Route::get('messages/seen/{conversation}', [MessageController::class, 'markAsSeen'])->name('messages.seen');
+    Route::get('messages/delivered/{conversation}', [MessageController::class, 'markAsDelivered'])->name('messages.delivered');
 
     // -------------------- Reactions --------------------
-    Route::controller(ReactionController::class)->group(function () {
-        Route::post('messages/{message}/reaction', 'toggleReaction')->name('reactions.toggle');
-        Route::get('messages/{message}/reaction', 'index')->name('reactions.index');
-    });
+    Route::post('messages/{message}/reaction', [ReactionController::class, 'toggleReaction'])->name('reactions.toggle');
+    Route::get('messages/{message}/reaction', [ReactionController::class, 'index'])->name('reactions.index');
 
     // -------------------- Group Management --------------------
-    // Custom group routes
-    Route::prefix('group/{conversation}')->controller(GroupController::class)->group(function () {
-        Route::post('update', 'update')->name('group.update');
-        Route::post('members/add', 'addMembers')->name('group.members.add');
-        Route::post('members/remove', 'removeMember')->name('group.members.remove');
-        Route::get('members', 'getMembers')->name('group.members.show');
-        Route::post('admins/add', 'addAdmins')->name('group.admins.add');
-        Route::post('admins/remove', 'removeAdmins')->name('group.admins.remove');
-        Route::post('mute', 'muteToggleGroup')->name('group.mute'); // 0 = unmute, 1 = Unlimited mute, otherwise specify miniutes
-        Route::post('leave', 'leaveGroup')->name('group.leave');
+    Route::prefix('group/{conversation}')->group(function () {
+        Route::post('update', [GroupController::class, 'update'])->name('group.update');
+        Route::post('members/add', [GroupController::class, 'addMembers'])->name('group.members.add');
+        Route::post('members/remove', [GroupController::class, 'removeMember'])->name('group.members.remove');
+        Route::get('members', [GroupController::class, 'getMembers'])->name('group.members.show');
+        Route::post('admins/add', [GroupController::class, 'addAdmins'])->name('group.admins.add');
+        Route::post('admins/remove', [GroupController::class, 'removeAdmins'])->name('group.admins.remove');
+        Route::post('mute', [GroupController::class, 'muteToggleGroup'])->name('group.mute');
+        Route::post('leave', [GroupController::class, 'leaveGroup'])->name('group.leave');
     });
 
-    // -------------------- User Block / Restrict --------------------
-    Route::controller(UserBlockController::class)->group(function () {
-        Route::post('users/{user}/block-toggle', 'toggleBlock')->name('users.toggleBlock');
-        Route::post('users/{user}/restrict-toggle', 'toggleRestrict')->name('users.toggleRestrict');
-    });
+    // -------------------- Block / Restrict --------------------
+    Route::post('users/{user}/block-toggle', [UserBlockController::class, 'toggleBlock'])->name('users.toggleBlock');
+    Route::post('users/{user}/restrict-toggle', [UserBlockController::class, 'toggleRestrict'])->name('users.toggleRestrict');
 });

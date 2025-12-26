@@ -17,9 +17,11 @@ return Application::configure(basePath: dirname(__DIR__))
         channels: __DIR__ . '/../routes/channels.php',
         health: '/up',
         then: function () {
+            Route::middleware('web')
+                ->group(base_path('routes/chat.php'));
             Route::middleware('api')
                 ->prefix('api')
-                ->group(base_path('routes/chat.php'));
+                ->group(base_path('routes/chat_api.php'));
         }
     )
     ->withMiddleware(function (Middleware $middleware) {

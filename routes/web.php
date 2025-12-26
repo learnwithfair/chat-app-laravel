@@ -1,8 +1,6 @@
 <?php
 
-use App\Http\Controllers\Chat\ConversationController;
-use App\Http\Controllers\Chat\MessageController;
-use App\Http\Controllers\Chat\UserSearchController;
+
 use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -31,24 +29,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
 //     Route::post('/chat/{conversation}/messages/{message}/read', [MessageController::class, 'read'])->name('chat.messages.read');
 // });
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/chat', [ConversationController::class, 'index'])->name('chat.index');
-    Route::get('/chat/{conversation}', [ConversationController::class, 'show'])->name('chat.show');
+// Route::middleware(['auth', 'verified'])->group(function () {
+//     Route::get('/chat', [ConversationController::class, 'index'])->name('chat.index');
+//     Route::get('/chat/{conversation}', [ConversationController::class, 'show'])->name('chat.show');
 
-    // NEW: create/find a conversation
-    Route::post('/chat', [ConversationController::class, 'store'])->name('chat.store');
+//     // NEW: create/find a conversation
+//     Route::post('/chat', [ConversationController::class, 'store'])->name('chat.store');
 
-    // NEW: simple user search (JSON)
-    Route::get('/chat-users', UserSearchController::class)->name('chat.users.search');
+//     // NEW: simple user search (JSON)
+//     Route::get('/chat-users', UserSearchController::class)->name('chat.users.search');
 
-    // messages
-    Route::get('/chat/{conversation}/messages', [MessageController::class, 'index'])->name('chat.messages.index');
-    Route::post('/chat/{conversation}/messages', [MessageController::class, 'store'])->name('chat.messages.store');
-    Route::post('/chat/{conversation}/messages/{message}/read', [MessageController::class, 'read'])->name('chat.messages.read');
+//     // messages
+//     Route::get('/chat/{conversation}/messages', [MessageController::class, 'index'])->name('chat.messages.index');
+//     Route::post('/chat/{conversation}/messages', [MessageController::class, 'store'])->name('chat.messages.store');
+//     Route::post('/chat/{conversation}/messages/{message}/read', [MessageController::class, 'read'])->name('chat.messages.read');
 
-    Route::post('/chat/{conversation}/read-all', [MessageController::class, 'readAll'])->name('chat.messages.read_all');
+//     Route::post('/chat/{conversation}/read-all', [MessageController::class, 'readAll'])->name('chat.messages.read_all');
 
-});
+// });
 
 require __DIR__ . '/settings.php';
 require __DIR__ . '/auth.php';
