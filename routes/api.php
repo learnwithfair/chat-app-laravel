@@ -1,12 +1,12 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Auth\PasswordResetLinkController;
-use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Api\EmailSettingsController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\NewPasswordController;
+use App\Http\Controllers\Auth\PasswordResetLinkController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -29,11 +29,10 @@ Route::apiResource('users', UserController::class);
 // --- Authentication Routes ---
 
 // Login (Publicly accessible)
-Route::post('/login', [LoginController::class, 'login']);
+Route::post('/v1/login', [LoginController::class, 'login']);
 
 // Logout (Requires authentication)
 Route::middleware('auth:sanctum')->post('/logout', [LoginController::class, 'logout']);
-
 
 // Auth-protected routes (e.g., for logged-in users)
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
@@ -47,12 +46,11 @@ Route::middleware(['auth:sanctum'])->prefix('settings')->group(function () {
     Route::post('/email', [EmailSettingsController::class, 'saveSettings']);
 });
 
-
 // --- Guest-accessible Password Reset Routes ---
 Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])
-                ->middleware('guest')
-                ->name('password.email');
+    ->middleware('guest')
+    ->name('password.email');
 
 Route::post('/reset-password', [NewPasswordController::class, 'store'])
-                ->middleware('guest')
-                ->name('password.store');
+    ->middleware('guest')
+    ->name('password.store');

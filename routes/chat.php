@@ -17,6 +17,7 @@ Route::middleware(['auth', 'verified'])->prefix('chat')->name('chat.')->group(fu
 
     // -------------------- Messages --------------------
     Route::post('messages', [MessageController::class, 'store'])->name('messages.store');
+    Route::get('messages', [MessageController::class, 'store'])->name('messages.show');
     Route::put('messages/{message}', [MessageController::class, 'update'])->name('messages.update');
     Route::delete('messages/{message}', [MessageController::class, 'deleteForMe'])->name('messages.delete');
 

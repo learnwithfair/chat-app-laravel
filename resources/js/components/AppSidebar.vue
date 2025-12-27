@@ -19,6 +19,11 @@ const mainNavItems: NavItem[] = [
         href: '/products',
         icon: Package,
     },
+    {
+        title: 'Chat',
+        href: '/chat',
+        icon: Package,
+    },
 ];
 
 const footerNavItems: NavItem[] = [

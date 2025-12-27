@@ -1,10 +1,10 @@
 <?php
 
-use App\Http\Controllers\Api\Chat\V1\ConversationController;
-use App\Http\Controllers\Api\Chat\V1\GroupController;
-use App\Http\Controllers\Api\Chat\V1\MessageController;
-use App\Http\Controllers\Api\Chat\V1\ReactionController;
-use App\Http\Controllers\Api\Chat\V1\UserBlockController;
+use App\Http\Controllers\Api\V1\Chat\ConversationController;
+use App\Http\Controllers\Api\V1\Chat\GroupController;
+use App\Http\Controllers\Api\V1\Chat\MessageController;
+use App\Http\Controllers\Api\V1\Chat\ReactionController;
+use App\Http\Controllers\Api\V1\Chat\UserBlockController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->middleware(['auth:sanctum', 'last_seen'])->group(function () {

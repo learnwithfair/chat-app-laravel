@@ -1,45 +1,45 @@
 <?php
-
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 
 class LoginController extends Controller
 {
+    use ApiResponse;
     /**
      * Handle a login request to the application.
      */
     public function login(Request $request)
     {
         // 1. Validate the incoming request
-        $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
+        $validator = Validator::make($request->all(), [
+            'email'    => 'required|email|exists:users,email',
+            'password' => 'required|string|min:6',
         ]);
 
-        // 2. Attempt to authenticate the user
-        if (!Auth::attempt($request->only('email', 'password'))) {
-            // 3. If authentication fails, throw an exception
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials do not match our records.'],
-            ]);
+        if ($validator->fails()) {
+            return $this->error($validator->errors(), 'Validation failed', 422);
+        }
+        $user = User::where('email', $request->email)->first();
+        if (! Hash::check($request->password, $user->password)) {
+            return $this->error(null, 'Invalid email or password', 401);
         }
 
-        // 4. If successful, get the authenticated user
-        $user = Auth::user();
+        $user = User::where('email', $request->email)->first();
 
-        // 5. Create a new Sanctum token for the user
-        $token = $user->createToken('auth_token')->plainTextToken;
+        // Create token
+        $token = $user->createToken('postman')->plainTextToken;
 
-        // 6. Return the user and the token in the response
-        return response()->json([
-            'user' => $user,
-            'token' => $token,
+        return $this->success([
+            'user'       => $user,
+            'token'      => $token,
             'token_type' => 'Bearer',
-        ]);
+        ], 'Login successful');
     }
 
     /**
@@ -51,7 +51,7 @@ class LoginController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response()->json([
-            'message' => 'Successfully logged out'
+            'message' => 'Successfully logged out',
         ]);
     }
 }

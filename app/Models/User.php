@@ -1,16 +1,18 @@
 <?php
 namespace App\Models;
 
-use App\Notifications\CustomResetPasswordNotification;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens;
+
+    /** @use HasFactory<\Database\Factories\UserFactory> */
+    use HasFactory;
+    use Notifiable;
 
     protected $fillable = [
         'name',
@@ -32,14 +34,7 @@ class User extends Authenticatable
             'last_seen'         => 'datetime',
             'password'          => 'hashed',
         ];
-    }
-
-    public function sendPasswordResetNotification($token): void
-    {
-        $settings = DB::table('settings')->pluck('value', 'key');
-        $url      = config('app.frontend_url') . '/reset-password?token=' . $token . '&email=' . urlencode($this->email);
-        $this->notify(new CustomResetPasswordNotification($token, $settings, $url));
-    }
+    }    
 
     // Scopes
     public function scopeVerified($q)
@@ -85,6 +80,6 @@ class User extends Authenticatable
         return $this->last_seen_at &&
         $this->last_seen_at->greaterThan(now()->subMinutes(2));
     }
-    public function tokens()
-    {return $this->hasMany(DeviceToken::class);}
+    // public function tokens()
+    // {return $this->hasMany(DeviceToken::class);}
 }

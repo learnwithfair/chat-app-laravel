@@ -76,6 +76,7 @@ class ConversationRepository
             ->paginate($perPage);
 
         return ConversationResource::collection($conversations)->withQueryString();
+        // return ConversationResource::collection($conversations)->resolve();
     }
 
     public function findPrivateBetween(int $userId1, int $userId2): ?Conversation
