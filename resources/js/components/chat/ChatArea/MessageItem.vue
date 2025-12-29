@@ -1,5 +1,8 @@
 <template>
-  <div :class="['flex', message.isMine ? 'justify-end' : 'justify-start']">
+  <div
+    :class="['flex', message.isMine ? 'justify-end' : 'justify-start']"
+    :id="`message-${message.id}`"
+  >
     <div
       :class="[
         'max-w-xs lg:max-w-md xl:max-w-lg',
@@ -38,10 +41,11 @@
         <div
           @click="$emit('show-details')"
           :class="[
-            'rounded-lg p-3 shadow-sm cursor-pointer relative group',
+            'rounded-lg p-3 shadow-sm cursor-pointer relative group transition-all',
             message.isMine ? 'bg-blue-500 text-white' : 'bg-white text-gray-800',
             message.replyTo ? 'rounded-t-none' : '',
             message.isDeleted ? 'italic opacity-60' : '',
+            isHighlighted ? 'ring-4 ring-yellow-400 ring-opacity-50' : '',
           ]"
         >
           <!-- Message Actions (hover) -->
@@ -62,8 +66,12 @@
             >(edited)</span
           >
 
-          <!-- Text Content -->
-          <p v-if="!message.isDeleted" class="text-sm break-words">{{ message.text }}</p>
+          <!-- Text Content with Search Highlighting -->
+          <p
+            v-if="!message.isDeleted"
+            class="text-sm break-words"
+            v-html="highlightedText"
+          ></p>
           <p v-else class="text-sm">
             {{ message.isMine ? "You deleted this message" : "This message was deleted" }}
           </p>
@@ -106,19 +114,11 @@
             />
           </div>
         </div>
-        <!-- Reactions (Messenger Style) -->
-        <MessageReactions
-          v-if="!message.isDeleted"
-          :reactions="message.reactions || []"
-          :align-right="message.isMine"
-          :message-id="message.id"
-          @add-reaction="handleAddReaction"
-        />
+
         <!-- Seen By Avatars (Below message, right aligned) -->
         <div
           v-if="message.isMine && message.seenBy && message.seenBy.length > 0"
-          class="flex justify-end"
-          style="margin-top: -20px;"
+          class="flex justify-end mt-1 mb-1"
         >
           <button
             @click.stop="$emit('show-seen-by')"
@@ -137,12 +137,22 @@
             </span>
           </button>
         </div>
+
+        <!-- Reactions (Messenger Style) -->
+        <MessageReactions
+          v-if="!message.isDeleted"
+          :reactions="message.reactions || []"
+          :align-right="message.isMine"
+          :message-id="message.id"
+          @add-reaction="$emit('add-reaction', $event)"
+        />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { computed } from "vue";
 import MessageActions from "./MessageActions.vue";
 import MessageStatus from "./MessageStatus.vue";
 import MessageReactions from "./MessageReactions.vue";
@@ -156,9 +166,17 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  searchQuery: {
+    type: String,
+    default: "",
+  },
+  isHighlighted: {
+    type: Boolean,
+    default: false,
+  },
 });
 
-const emit = defineEmits([
+defineEmits([
   "show-details",
   "reply",
   "edit",
@@ -168,7 +186,37 @@ const emit = defineEmits([
   "add-reaction",
 ]);
 
-const handleAddReaction = (data) => {
-  emit("add-reaction", data);
+// Highlight search query in message text
+const highlightedText = computed(() => {
+  if (!props.searchQuery || props.message.isDeleted) {
+    return props.message.text;
+  }
+
+  const regex = new RegExp(`(${escapeRegex(props.searchQuery)})`, "gi");
+  return props.message.text.replace(
+    regex,
+    '<mark class="bg-yellow-300 text-gray-900 rounded px-1">$1</mark>'
+  );
+});
+
+const escapeRegex = (string) => {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 };
 </script>
+
+<style scoped>
+/* Smooth highlight transition */
+.ring-4 {
+  animation: highlight-pulse 1s ease-in-out;
+}
+
+@keyframes highlight-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+</style>

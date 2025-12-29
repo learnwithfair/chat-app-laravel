@@ -408,18 +408,28 @@ export function useChat() {
         modals.value.addMember = true;
     };
 
-    const addMemberToGroup = (user) => {
+    const addMembersToGroup = (userIds) => {
         if (!activeConversation.value || activeConversation.value.type !== 'group') return;
 
-        const isMember = activeConversation.value.members.some(m => m.id === user.id);
-        if (isMember) {
-            alert('User is already a member');
-            return;
-        }
+        userIds.forEach((userId) => {
+            const alreadyMember = activeConversation.value.members.some(
+                member => member.id === userId
+            );
 
-        activeConversation.value.members.push({ ...user, role: 'Member' });
+            if (!alreadyMember) {
+                const user = availableUsers.value.find(u => u.id === userId);
+
+                if (user) {
+                    activeConversation.value.members.push({
+                        ...user,
+                        role: 'Member',
+                    });
+                }
+            }
+        });
         closeModal('addMember');
     };
+
 
     const makeAdmin = (member) => {
         const m = activeConversation.value.members.find(mem => mem.id === member.id);
@@ -587,7 +597,7 @@ export function useChat() {
         openCreateGroupModal,
         createGroup,
         openAddMemberModal,
-        addMemberToGroup,
+        addMembersToGroup,
         makeAdmin,
         removeAdmin,
         removeMember,
