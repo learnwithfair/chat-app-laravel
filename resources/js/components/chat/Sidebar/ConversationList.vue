@@ -2,38 +2,38 @@
   <div
     :class="[
       'bg-white border-r border-gray-200 flex flex-col transition-all duration-300 w-full md:w-96',
-      activeConversation ? 'hidden md:flex' : 'flex'
+      activeConversation ? 'hidden md:flex' : 'flex',
     ]"
   >
     <!-- Header -->
-    <div class="p-4 border-b border-gray-200">
+    <div class="p-4 pb-0">
       <div class="flex items-center justify-between mb-4">
         <h1 class="text-2xl font-bold text-gray-800">Messages</h1>
         <button
           @click="$emit('create-group')"
-          class="p-2 text-blue-500 hover:bg-blue-50 rounded-full transition-colors"
+          class="p-2 text-blue-500 bg-blue-50 rounded-full transition-colors cursor-pointer hover:bg-blue-100"
           title="Create Group"
         >
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            <!-- Users / Group -->
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M17 20h-10M7 20v-2a3 3 0 015.356-1.857M17 20v-2a3 3 0 00-5.356-1.857
+               M15 7a3 3 0 11-6 0 3 3 0 016 0
+               M7 10a2 2 0 11-4 0 2 2 0 014 0
+               M17 10a2 2 0 11-4 0 2 2 0 014 0"
+            />
+
+            <!-- Plus Sign -->
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 8v4M21 10h-4"
+            />
           </svg>
-        </button>
-      </div>
-      
-      <!-- Tabs -->
-      <div class="flex space-x-1 mb-4 bg-gray-100 rounded-lg p-1">
-        <button
-          v-for="tab in tabs"
-          :key="tab.value"
-          @click="$emit('update-tab', tab.value)"
-          :class="[
-            'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors',
-            activeTab === tab.value
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-800'
-          ]"
-        >
-          {{ tab.label }}
         </button>
       </div>
 
@@ -51,6 +51,23 @@
       @start-chat="$emit('start-chat', $event)"
     />
 
+    <!-- Tabs -->
+    <div class="flex space-x-1 mb-1 bg-gray-100 rounded-lg p-1">
+      <button
+        v-for="tab in tabs"
+        :key="tab.value"
+        @click="$emit('update-tab', tab.value)"
+        :class="[
+          'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors',
+          activeTab === tab.value
+            ? 'bg-white text-blue-600 shadow-sm'
+            : 'text-gray-600 hover:text-gray-800',
+        ]"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
+
     <!-- Conversation List -->
     <div class="flex-1 overflow-y-auto">
       <ConversationItem
@@ -65,14 +82,14 @@
 </template>
 
 <script setup>
-import ConversationItem from './ConversationItem.vue';
-import OnlineUsers from './OnlineUsers.vue';
-import SearchBar from './SearchBar.vue';
+import ConversationItem from "./ConversationItem.vue";
+import OnlineUsers from "./OnlineUsers.vue";
+import SearchBar from "./SearchBar.vue";
 
 const tabs = [
-  { label: 'All', value: 'all' },
-  { label: 'Groups', value: 'group' },
-  { label: 'Personal', value: 'private' }
+  { label: "All", value: "all" },
+  { label: "Personal", value: "private" },
+  { label: "Groups", value: "group" },
 ];
 
 defineProps({
@@ -80,8 +97,8 @@ defineProps({
   activeConversation: Object,
   activeTab: String,
   searchQuery: String,
-  onlineUsers: Array
+  onlineUsers: Array,
 });
 
-defineEmits(['select', 'update-tab', 'update-search', 'create-group', 'start-chat']);
+defineEmits(["select", "update-tab", "update-search", "create-group", "start-chat"]);
 </script>
