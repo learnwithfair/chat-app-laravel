@@ -110,7 +110,7 @@ export function useChat() {
             file: null,
             seenBy: null
         },
-         {
+        {
             id: 4,
             text: 'I\'m doing great! Thanks for asking.',
             isMine: true,
@@ -459,6 +459,68 @@ export function useChat() {
         if (modalName === 'messageDetails') selectedMessageDetails.value = null;
     };
 
+    // Add reaction handler
+    const handleAddReaction = ({ messageId, emoji }) => {
+        const message = messages.value.find(m => m.id === messageId);
+        if (!message) return;
+
+        // Initialize reactions array if it doesn't exist
+        if (!message.reactions) {
+            message.reactions = [];
+        }
+
+        // Check if this emoji already exists in reactions
+        const existingReaction = message.reactions.find(r => r.emoji === emoji);
+
+        if (existingReaction) {
+            // Check if current user already reacted with this emoji
+            // In real app, you'd check against user ID
+            // For now, we'll just increment the count
+            existingReaction.count++;
+        } else {
+            // Add new reaction
+            message.reactions.push({
+                emoji: emoji,
+                count: 1,
+                users: [
+                    {
+                        id: 1, // Current user ID
+                        name: 'You',
+                        avatar: 'https://i.pravatar.cc/150?img=50'
+                    }
+                ]
+            });
+        }
+
+        // In real app, make API call here:
+        // await axios.post(`/api/messages/${messageId}/reaction`, { emoji });
+
+        console.log('Reaction added:', { messageId, emoji });
+    };
+
+    const handleRemoveReaction = ({ messageId, emoji }) => {
+        const message = messages.value.find(m => m.id === messageId);
+        if (!message || !message.reactions) return;
+
+        const reactionIndex = message.reactions.findIndex(r => r.emoji === emoji);
+        if (reactionIndex === -1) return;
+
+        const reaction = message.reactions[reactionIndex];
+
+        if (reaction.count > 1) {
+            reaction.count--;
+        } else {
+            // Remove reaction if count is 1
+            message.reactions.splice(reactionIndex, 1);
+        }
+
+        // In real app, make API call here:
+        // await axios.delete(`/api/messages/${messageId}/reaction`, { data: { emoji } });
+
+        console.log('Reaction removed:', { messageId, emoji });
+    };
+
+
     const scrollToBottom = () => {
         if (messageContainer.value) {
             messageContainer.value.scrollTop = messageContainer.value.scrollHeight;
@@ -518,6 +580,8 @@ export function useChat() {
         handleSearch,
         handleAudioCall,
         handleVideoCall,
+        handleAddReaction,
+        handleRemoveReaction,
 
         // Group Management
         openCreateGroupModal,
