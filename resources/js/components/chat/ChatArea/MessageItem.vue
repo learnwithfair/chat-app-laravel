@@ -78,12 +78,87 @@
 
           <!-- File Attachment -->
           <div v-if="message.file && !message.isDeleted" class="mt-2">
+            <!-- Image -->
             <img
               v-if="message.file.type === 'image'"
               :src="message.file.url"
               alt="Image"
               class="rounded-lg max-w-full"
             />
+
+            <!-- VOICE MESSAGE (ADD THIS) -->
+            <div
+              v-else-if="message.file.type === 'audio'"
+              class="flex items-center space-x-3 p-2 rounded-lg bg-black bg-opacity-10"
+            >
+              <!-- Play/Pause Button -->
+              <button
+                @click="toggleAudioPlayback"
+                class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center hover:bg-black hover:bg-opacity-10 transition-colors"
+                :class="message.isMine ? 'bg-blue-400' : 'bg-gray-300'"
+              >
+                <svg
+                  v-if="!isPlaying"
+                  class="w-5 h-5"
+                  :class="message.isMine ? 'text-white' : 'text-gray-700'"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
+                  />
+                </svg>
+                <svg
+                  v-else
+                  class="w-5 h-5"
+                  :class="message.isMine ? 'text-white' : 'text-gray-700'"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+              </button>
+
+              <!-- Waveform / Progress -->
+              <div class="flex-1">
+                <div class="h-1 bg-black bg-opacity-20 rounded-full overflow-hidden">
+                  <div
+                    class="h-full transition-all duration-300"
+                    :class="message.isMine ? 'bg-white' : 'bg-blue-500'"
+                    :style="{ width: audioProgress + '%' }"
+                  ></div>
+                </div>
+                <div class="flex justify-between mt-1">
+                  <span
+                    class="text-xs"
+                    :class="message.isMine ? 'text-blue-100' : 'text-gray-600'"
+                  >
+                    {{ formatAudioTime(currentAudioTime) }}
+                  </span>
+                  <span
+                    class="text-xs"
+                    :class="message.isMine ? 'text-blue-100' : 'text-gray-600'"
+                  >
+                    {{ formatAudioTime(message.file.duration || 0) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- Hidden Audio Element -->
+              <audio
+                ref="audioPlayer"
+                :src="message.file.url"
+                @timeupdate="updateAudioProgress"
+                @ended="audioEnded"
+                @loadedmetadata="audioLoaded"
+              ></audio>
+            </div>
+
+            <!-- Document (existing) -->
             <div
               v-else
               class="flex items-center space-x-2 p-2 bg-black bg-opacity-10 rounded"
@@ -115,10 +190,20 @@
           </div>
         </div>
 
+        <!-- Reactions (Messenger Style) -->
+        <MessageReactions
+          v-if="!message.isDeleted"
+          :reactions="message.reactions || []"
+          :align-right="message.isMine"
+          :message-id="message.id"
+          @add-reaction="$emit('add-reaction', $event)"
+        />
+
         <!-- Seen By Avatars (Below message, right aligned) -->
         <div
           v-if="message.isMine && message.seenBy && message.seenBy.length > 0"
-          class="flex justify-end mt-1 mb-1"
+          class="flex justify-end mt-0 mb-0"
+          style="margin-top: -25px;"
         >
           <button
             @click.stop="$emit('show-seen-by')"
@@ -137,15 +222,6 @@
             </span>
           </button>
         </div>
-
-        <!-- Reactions (Messenger Style) -->
-        <MessageReactions
-          v-if="!message.isDeleted"
-          :reactions="message.reactions || []"
-          :align-right="message.isMine"
-          :message-id="message.id"
-          @add-reaction="$emit('add-reaction', $event)"
-        />
       </div>
     </div>
   </div>
@@ -153,6 +229,8 @@
 
 <script setup>
 import { computed } from "vue";
+import { ref, onBeforeUnmount } from "vue";
+
 import MessageActions from "./MessageActions.vue";
 import MessageStatus from "./MessageStatus.vue";
 import MessageReactions from "./MessageReactions.vue";
@@ -185,6 +263,57 @@ defineEmits([
   "show-seen-by",
   "add-reaction",
 ]);
+
+// Audio playback state
+const audioPlayer = ref(null);
+const isPlaying = ref(false);
+const currentAudioTime = ref(0);
+const audioProgress = ref(0);
+
+const toggleAudioPlayback = () => {
+  if (!audioPlayer.value) return;
+
+  if (isPlaying.value) {
+    audioPlayer.value.pause();
+    isPlaying.value = false;
+  } else {
+    audioPlayer.value.play();
+    isPlaying.value = true;
+  }
+};
+
+const updateAudioProgress = () => {
+  if (!audioPlayer.value) return;
+
+  currentAudioTime.value = audioPlayer.value.currentTime;
+  const duration = audioPlayer.value.duration || 1;
+  audioProgress.value = (currentAudioTime.value / duration) * 100;
+};
+
+const audioEnded = () => {
+  isPlaying.value = false;
+  audioProgress.value = 0;
+  currentAudioTime.value = 0;
+};
+
+const audioLoaded = () => {
+  // Audio metadata loaded
+  if (audioPlayer.value && props.message.file) {
+    props.message.file.duration = Math.floor(audioPlayer.value.duration);
+  }
+};
+
+const formatAudioTime = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+
+onBeforeUnmount(() => {
+  if (audioPlayer.value) {
+    audioPlayer.value.pause();
+  }
+});
 
 // Highlight search query in message text
 const highlightedText = computed(() => {

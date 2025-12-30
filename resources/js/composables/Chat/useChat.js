@@ -53,7 +53,19 @@ export function useChat() {
                 allow_members_to_change_group_info: false,
                 admins_must_approve_new_members: true
             }
-        }
+        },
+        {
+            id: 4,
+            type: 'private',
+            name: 'Mike Johnson',
+            avatar: 'https://i.pravatar.cc/150?img=3',
+            lastMessage: 'You cannot message this person',
+            lastMessageTime: '1d',
+            unreadCount: 0,
+            isOnline: false,
+            isBlocked: true,
+            created_by: 1
+        },
     ]);
 
     const messages = ref([
@@ -127,6 +139,151 @@ export function useChat() {
                 { id: 1, name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1', seenAt: '10:33 AM' }
             ]
         },
+
+        {
+            id: 5,
+            text: 'Hey! How are you?',
+            isMine: false,
+            time: '10:30 AM',
+            status: 'seen',
+            senderName: 'John Doe',
+            senderAvatar: 'https://i.pravatar.cc/150?img=1',
+            reactions: [
+                { emoji: '👍', count: 2 },
+                { emoji: '❤️', count: 1 }
+            ],
+            isDeleted: false,
+            isEdited: false,
+            replyTo: null,
+            file: null,
+            seenBy: null
+        },
+        {
+            id: 6,
+            text: 'I\'m doing great! Thanks for asking. How about you?',
+            isMine: true,
+            time: '10:32 AM',
+            status: 'seen',
+            senderName: 'You',
+            senderAvatar: '',
+            reactions: [],
+            isDeleted: false,
+            isEdited: false,
+            replyTo: null,
+            file: null,
+            seenBy: [
+                { id: 1, name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1', seenAt: '10:33 AM' }
+            ]
+        },
+        {
+            id: 7,
+            text: 'Did you get my previous message about the project?',
+            isMine: false,
+            time: '10:35 AM',
+            status: 'delivered',
+            senderName: 'John Doe',
+            senderAvatar: 'https://i.pravatar.cc/150?img=1',
+            reactions: [],
+            isDeleted: false,
+            isEdited: false,
+            replyTo: {
+                senderName: 'You',
+                text: 'I\'m doing great! Thanks for asking.'
+            },
+            file: null,
+            seenBy: null
+        },
+        {
+            id: 8,
+            text: 'Yes! I saw it. Let me check that for you. Here\'s the screenshot.',
+            isMine: true,
+            time: '10:37 AM',
+            status: 'delivered',
+            senderName: 'You',
+            senderAvatar: '',
+            reactions: [
+                { emoji: '🔥', count: 1 }
+            ],
+            isDeleted: false,
+            isEdited: false,
+            replyTo: null,
+            file: {
+                type: 'image',
+                url: 'https://picsum.photos/400/300',
+                name: 'screenshot.png'
+            },
+            seenBy: [
+                { id: 1, name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1', seenAt: '10:38 AM' }
+            ]
+        },
+        {
+            id: 9,
+            text: 'This was an important message',
+            isMine: true,
+            time: '10:40 AM',
+            status: 'sent',
+            senderName: 'You',
+            senderAvatar: '',
+            reactions: [],
+            isDeleted: true,
+            isEdited: false,
+            replyTo: null,
+            file: null,
+            seenBy: []
+        },
+        {
+            id: 10,
+            text: 'Perfect! Let me know if you need anything else.',
+            isMine: false,
+            time: '10:45 AM',
+            status: 'delivered',
+            senderName: 'John Doe',
+            senderAvatar: 'https://i.pravatar.cc/150?img=1',
+            reactions: [],
+            isDeleted: false,
+            isEdited: false,
+            replyTo: null,
+            file: null,
+            seenBy: null
+        },
+        // {
+        //     id: 11,
+        //     text: 'I also have this document that might help.',
+        //     isMine: false,
+        //     time: '10:47 AM',
+        //     status: 'delivered',
+        //     senderName: 'John Doe',
+        //     senderAvatar: 'https://i.pravatar.cc/150?img=1',
+        //     reactions: [],
+        //     isDeleted: false,
+        //     isEdited: false,
+        //     replyTo: null,
+        //     file: {
+        //         type: 'document',
+        //         url: '#',
+        //         name: 'project-requirements.pdf'
+        //     },
+        //     seenBy: null
+        // },
+        {
+            id: 12,
+            text: 'Thanks! I\'ll review it and get back to you by end of day.',
+            isMine: true,
+            time: '10:50 AM',
+            status: 'sent',
+            senderName: 'You',
+            senderAvatar: '',
+            reactions: [
+                { emoji: '👍', count: 1 }
+            ],
+            isDeleted: false,
+            isEdited: true,
+            replyTo: null,
+            file: null,
+            seenBy: [
+                { id: 1, name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1', seenAt: '10:51 AM' }
+            ]
+        }
     ]);
 
     const onlineUsers = ref([
@@ -149,6 +306,9 @@ export function useChat() {
     const newMessage = ref('');
     const replyingTo = ref(null);
     const editingMessage = ref(null);
+
+    const typingUsers = ref({}); // { conversationId: ['User 1', 'User 2'] }
+    let typingTimeout = null;
 
     // Modal states
     const modals = ref({
@@ -530,6 +690,162 @@ export function useChat() {
         console.log('Reaction removed:', { messageId, emoji });
     };
 
+    // ==================== VOICE MESSAGE HANDLER ====================
+    const handleSendVoice = async (audioBlob, duration) => {
+        if (!activeConversation.value) return;
+
+        // Create a URL for the audio blob (for immediate playback)
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        const voiceMsg = {
+            id: Date.now(),
+            text: 'Voice message',
+            isMine: true,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: 'sent',
+            senderName: 'You',
+            senderAvatar: '',
+            type: 'voice',
+            file: {
+                type: 'audio',
+                url: audioUrl,
+                duration: duration,
+                blob: audioBlob,
+                name: 'voice-message.webm'
+            },
+            isDeleted: false,
+            isEdited: false,
+            reactions: [],
+            seenBy: [],
+            replyTo: replyingTo.value ? {
+                senderName: replyingTo.value.senderName,
+                text: replyingTo.value.text
+            } : null
+        };
+
+        messages.value.push(voiceMsg);
+
+        // Clear reply if exists
+        if (replyingTo.value) {
+            replyingTo.value = null;
+        }
+
+        // Scroll to bottom
+        nextTick(() => {
+            scrollToBottom();
+        });
+
+        // Simulate status updates (remove in production)
+        setTimeout(() => {
+            voiceMsg.status = 'delivered';
+        }, 1000);
+
+        setTimeout(() => {
+            voiceMsg.status = 'seen';
+            voiceMsg.seenBy = activeConversation.value.type === 'group'
+                ? activeConversation.value.members.slice(0, 2).map(m => ({
+                    id: m.id,
+                    name: m.name,
+                    avatar: m.avatar,
+                    seenAt: 'Just now'
+                }))
+                : [{
+                    id: 1,
+                    name: activeConversation.value.name,
+                    avatar: activeConversation.value.avatar,
+                    seenAt: 'Just now'
+                }];
+        }, 2000);
+
+        // Upload to server
+        await uploadVoiceMessage(audioBlob, voiceMsg, activeConversation.value.id);
+    };
+
+    // Upload voice message to server
+    const uploadVoiceMessage = async (audioBlob, message, conversationId) => {
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'voice-message.webm');
+        formData.append('conversation_id', conversationId);
+        formData.append('duration', message.file.duration);
+
+        if (message.replyTo) {
+            formData.append('reply_to_id', message.replyTo.id);
+        }
+
+        try {
+            // Uncomment when backend is ready
+            // const response = await axios.post('/api/v1/messages/voice', formData, {
+            //   headers: { 'Content-Type': 'multipart/form-data' }
+            // });
+
+            // Update message with server response
+            // const msg = messages.value.find(m => m.id === message.id);
+            // if (msg && response.data) {
+            //   msg.id = response.data.id;
+            //   msg.file.url = response.data.file_url;
+            //   msg.status = 'sent';
+            // }
+
+            console.log('Voice message uploaded:', {
+                conversationId,
+                duration: message.file.duration,
+                size: audioBlob.size
+            });
+
+        } catch (error) {
+            console.error('Failed to upload voice message:', error);
+
+            // Mark message as failed
+            const msg = messages.value.find(m => m.id === message.id);
+            if (msg) {
+                msg.status = 'failed';
+            }
+
+            // Optionally show error notification
+            // toast.error('Failed to send voice message');
+        }
+    };
+
+    // Listen for typing events from others
+    const listenForTyping = (conversationId) => {
+        // Example with Pusher/Echo
+        // Echo.private(`conversation.${conversationId}`)
+        //   .listenForWhisper('typing', (e) => {
+        //     if (!typingUsers.value[conversationId]) {
+        //       typingUsers.value[conversationId] = [];
+        //     }
+        //     
+        //     const existingIndex = typingUsers.value[conversationId]
+        //       .findIndex(u => u.id === e.user_id);
+        //     
+        //     if (existingIndex === -1) {
+        //       typingUsers.value[conversationId].push({
+        //         id: e.user_id,
+        //         name: e.user_name,
+        //         avatar: e.user_avatar
+        //       });
+        //     }
+        //   })
+        //   .listenForWhisper('stop-typing', (e) => {
+        //     if (typingUsers.value[conversationId]) {
+        //       typingUsers.value[conversationId] = typingUsers.value[conversationId]
+        //         .filter(u => u.id !== e.user_id);
+        //     }
+        //   });
+
+        // MOCK for testing (remove in production)
+        setTimeout(() => {
+            typingUsers.value[conversationId] = [
+                { id: 1, name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1' }
+            ];
+
+            setTimeout(() => {
+                typingUsers.value[conversationId] = [];
+            }, 3000);
+        }, 2000);
+    };
+
+
 
     const scrollToBottom = () => {
         if (messageContainer.value) {
@@ -592,6 +908,9 @@ export function useChat() {
         handleVideoCall,
         handleAddReaction,
         handleRemoveReaction,
+        handleSendVoice,
+        typingUsers,
+        listenForTyping,
 
         // Group Management
         openCreateGroupModal,

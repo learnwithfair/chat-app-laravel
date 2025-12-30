@@ -305,4 +305,7 @@ defineExpose({
 .transition-all {
   transition: all 0.3s ease-in-out;
 }
+button{
+  cursor: pointer;
+}
 </style>

@@ -58,7 +58,7 @@
         :key="tab.value"
         @click="$emit('update-tab', tab.value)"
         :class="[
-          'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors',
+          'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer',
           activeTab === tab.value
             ? 'bg-white text-blue-600 shadow-sm'
             : 'text-gray-600 hover:text-gray-800',

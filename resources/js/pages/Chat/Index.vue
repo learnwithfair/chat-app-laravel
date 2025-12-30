@@ -45,6 +45,7 @@
         :is-group="activeConversation.type === 'group'"
         :search-query="messageSearchQuery"
         :highlighted-message-id="highlightedMessageId"
+        :typing-users="getTypingUsers"
         @reply="replyToMessage"
         @edit="editMessage"
         @forward="forwardMessage"
@@ -66,7 +67,10 @@
         v-model="newMessage"
         :is-blocked="activeConversation.isBlocked"
         :is-editing="!!editingMessage"
+        :conversation-id="activeConversation.id"
         @send="handleSendMessage"
+        @send-voice="handleSendVoice"
+        @typing-change="(isTyping) => listenForTyping(activeConversation.id, isTyping)"
       />
     </div>
 
@@ -113,13 +117,6 @@
       @close="closeModal('createGroup')"
       @create="createGroup"
     />
-
-    <!-- <AddMemberModal
-      v-if="modals.addMember"
-      :available-users="availableUsers"
-      @close="closeModal('addMember')"
-      @add="addMemberToGroup"
-    /> -->
 
     <AddMemberModal
       v-if="modals.addMember"
@@ -203,7 +200,9 @@ const {
   selectedMessageDetails,
   messageToDelete,
   messageToForward,
-
+  typingUsers,
+  listenForTyping,
+  
   // Computed
   filteredConversations,
   getConversationSubtitle,
@@ -214,6 +213,7 @@ const {
   closeChatOnMobile,
   startPrivateChat,
   handleSendMessage,
+  handleSendVoice,
   replyToMessage,
   cancelReply,
   editMessage,
@@ -245,7 +245,7 @@ const {
   closeModal,
 } = useChat();
 
-// Search functionality
+// Search functionality (UI-specific logic, stays here)
 const chatHeaderRef = ref(null);
 const messageListRef = ref(null);
 const messageSearchQuery = ref("");
@@ -275,7 +275,6 @@ const handleSearchQueryChange = (query) => {
     return;
   }
 
-  // Filter messages that match the search query
   const results = messages.value.filter((msg) =>
     msg.text.toLowerCase().includes(query.toLowerCase())
   );
@@ -283,10 +282,8 @@ const handleSearchQueryChange = (query) => {
   searchResultsIds.value = results.map((msg) => msg.id);
   currentSearchIndex.value = 0;
 
-  // Update header with results count
   chatHeaderRef.value?.setSearchResults(searchResultsIds.value.length);
 
-  // Highlight first result
   if (searchResultsIds.value.length > 0) {
     highlightedMessageId.value = searchResultsIds.value[0];
     scrollToMessage(searchResultsIds.value[0]);
@@ -295,26 +292,34 @@ const handleSearchQueryChange = (query) => {
 
 const handleSearchNext = (index) => {
   if (searchResultsIds.value.length === 0) return;
-
   highlightedMessageId.value = searchResultsIds.value[index];
   scrollToMessage(highlightedMessageId.value);
 };
 
 const handleSearchPrevious = (index) => {
   if (searchResultsIds.value.length === 0) return;
-
   highlightedMessageId.value = searchResultsIds.value[index];
   scrollToMessage(highlightedMessageId.value);
 };
 
 const scrollToMessage = (messageId) => {
-  // Scroll to the highlighted message
-  // This would be implemented in MessageList component
   console.log("Scrolling to message:", messageId);
 };
 
 const triggerSearchFromRightPanel = () => {
-  // Open search from right panel button
   chatHeaderRef.value?.openSearch();
 };
+
+const getTypingUsers = computed(() => {
+  if (!activeConversation.value) return [];
+
+  const users = typingUsers.value[activeConversation.value.id] || [];
+
+  // Return array of user objects with avatar
+  return users.map((user) => ({
+    id: user.id,
+    name: user.name,
+    avatar: user.avatar || "https://i.pravatar.cc/150?img=1", // fallback
+  }));
+});
 </script>

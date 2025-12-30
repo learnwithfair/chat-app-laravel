@@ -1,24 +1,27 @@
 <template>
-  <div class="flex items-center gap-1 mt-0" :class="alignRight ? 'justify-start' : 'justify-end'">
-    <!-- Existing Reactions Display -->
+  <div
+    class="flex items-center gap-1 mt-0"
+    :class="alignRight ? 'justify-end flex-row-reverse' : 'justify-end'"
+  >
+    <!-- Existing Reactions -->
     <button
       v-if="hasReactions"
       @click.stop="showReactionDetails"
-      class="flex items-center space-x-1 bg-white border border-gray-200 rounded-full px-2 py-1 text-xs hover:bg-gray-50 transition-colors shadow-sm"
+      class="flex items-center space-x-1 bg-white border border-gray-200 rounded-full px-2 py-1 text-xs hover:bg-gray-50 shadow-sm"
     >
-      <!-- Show up to 3 unique emojis -->
       <span v-for="emoji in uniqueEmojis.slice(0, 3)" :key="emoji" class="text-sm">
         {{ emoji }}
       </span>
-      <!-- Total count -->
-      <span class="font-semibold text-gray-700 ml-1">{{ totalReactionCount }}</span>
+      <span class="font-semibold text-gray-700 ml-1">
+        {{ totalReactionCount }}
+      </span>
     </button>
 
-    <!-- Add Reaction Button -->
+    <!-- Add Reaction -->
     <div class="relative">
       <button
         @click.stop="toggleReactionPicker"
-        class="flex items-center justify-center w-7 h-7 bg-white border border-gray-200 rounded-full hover:bg-gray-50 transition-colors shadow-sm"
+        class="flex items-center justify-center w-7 h-7 bg-white border border-gray-200 rounded-full hover:bg-gray-50 shadow-sm cursor-pointer"
         title="Add reaction"
       >
         <svg
@@ -31,11 +34,11 @@
             stroke-linecap="round"
             stroke-linejoin="round"
             stroke-width="2"
-            d="M12 4v16m8-8H4"
+            d="M14.828 14.828a4 4 0 01-5.656 0M15 11h.01M9 11h.01M12 2a10 10 0 100 20 10 10 0 000-20z"
           />
         </svg>
-      </button>
-
+      </button>    
+      
       <!-- Reaction Picker Dropdown -->
       <div
         v-if="showPicker"

@@ -1,5 +1,6 @@
 <template>
   <div class="flex-1 overflow-y-auto p-4 space-y-4" ref="messageContainer">
+    <!-- Existing Messages -->
     <MessageItem
       v-for="message in messages"
       :key="message.id"
@@ -17,12 +18,20 @@
       @show-seen-by="$emit('show-seen-by', message)"
       @add-reaction="$emit('add-reaction', $event)"
     />
+
+    <!-- Typing Indicator -->
+    <TypingIndicatorMessage
+      v-if="typingUsers && typingUsers.length > 0"
+      :typing-users="typingUsers"
+      :is-group="isGroup"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, watch, nextTick, onMounted } from "vue";
 import MessageItem from "./MessageItem.vue";
+import TypingIndicatorMessage from "./TypingIndicatorMessage.vue";
 
 const props = defineProps({
   messages: {
@@ -41,6 +50,7 @@ const props = defineProps({
     type: [String, Number],
     default: null,
   },
+  typingUsers: Array,
 });
 
 defineEmits([
