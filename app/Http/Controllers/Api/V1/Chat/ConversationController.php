@@ -3,11 +3,13 @@ namespace App\Http\Controllers\Api\V1\Chat;
 
 use App\Http\Controllers\Controller;
 use App\Services\Chat\ChatService;
+use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class ConversationController extends Controller
 {
+    use ApiResponse;
     public function __construct(protected ChatService $chatService)
     {}
 
@@ -16,7 +18,7 @@ class ConversationController extends Controller
     {
         $perPage       = (int) $request->get('per_page', 30);
         $conversations = $this->chatService->listConversations(Auth::user(), $perPage, $request->query('q'));
-        return response()->json(['conversations' => $conversations]);
+        return $this->success($conversations, 'Conversations list Fetched Successfully');
     }
 
     public function startPrivateConversation(Request $request)

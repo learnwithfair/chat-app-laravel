@@ -7,7 +7,8 @@ use App\Http\Controllers\Api\V1\Chat\ReactionController;
 use App\Http\Controllers\Api\V1\Chat\UserBlockController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('v1')->middleware(['auth:sanctum', 'last_seen'])->group(function () {
+// Route::prefix('v1')->middleware(['auth:sanctum', 'last_seen'])->group(function () {
+Route::prefix('v1')->middleware(['auth', 'last_seen'])->group(function () {
 
     // -------------------- Conversations --------------------
     Route::apiResource('conversations', ConversationController::class)->only(['index', 'store', 'destroy']);

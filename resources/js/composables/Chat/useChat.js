@@ -1,303 +1,14 @@
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, nextTick, toRaw } from 'vue';
 import { router } from '@inertiajs/vue3';
+import axios from 'axios';
+import { generateAvatar } from '../../Utils/Chat/avatarHelper';
 
 export function useChat() {
     // State
-    const conversations = ref([
-        {
-            id: 1,
-            type: 'private',
-            name: 'John Doe',
-            avatar: 'https://i.pravatar.cc/150?img=1',
-            lastMessage: 'Hey! How are you doing?',
-            lastMessageTime: '2m',
-            unreadCount: 2,
-            isOnline: true,
-            isBlocked: false,
-            created_by: 1
-        },
-        {
-            id: 2,
-            type: 'private',
-            name: 'Sarah Wilson',
-            avatar: 'https://i.pravatar.cc/150?img=5',
-            lastMessage: 'See you tomorrow! 👋',
-            lastMessageTime: '1h',
-            unreadCount: 0,
-            isOnline: true,
-            isBlocked: false,
-            created_by: 1
-        },
-        {
-            id: 3,
-            type: 'group',
-            name: 'Team Discussion',
-            avatar: null,
-            lastMessage: 'Alice: The meeting is at 3 PM',
-            lastMessageTime: '3h',
-            unreadCount: 5,
-            isOnline: false,
-            isBlocked: false,
-            created_by: 1,
-            members: [
-                { id: 1, name: 'Alice Johnson', avatar: 'https://i.pravatar.cc/150?img=20', role: 'Super Admin' },
-                { id: 2, name: 'Bob Smith', avatar: 'https://i.pravatar.cc/150?img=21', role: 'Admin' },
-                { id: 3, name: 'Charlie Brown', avatar: 'https://i.pravatar.cc/150?img=22', role: 'Member' },
-                { id: 4, name: 'Diana Prince', avatar: 'https://i.pravatar.cc/150?img=23', role: 'Member' }
-            ],
-            settings: {
-                description: 'Team discussion group',
-                type: 'private',
-                allow_members_to_send_messages: true,
-                allow_members_to_add_remove_participants: false,
-                allow_members_to_change_group_info: false,
-                admins_must_approve_new_members: true
-            }
-        },
-        {
-            id: 4,
-            type: 'private',
-            name: 'Mike Johnson',
-            avatar: 'https://i.pravatar.cc/150?img=3',
-            lastMessage: 'You cannot message this person',
-            lastMessageTime: '1d',
-            unreadCount: 0,
-            isOnline: false,
-            isBlocked: true,
-            created_by: 1
-        },
-    ]);
-
-    const messages = ref([
-        {
-            id: 1,
-            text: 'Hey! How are you?',
-            isMine: false,
-            time: '10:30 AM',
-            status: 'seen',
-            senderName: 'John Doe',
-            senderAvatar: 'https://i.pravatar.cc/150?img=1',
-            reactions: [
-                { emoji: '👍', count: 2 },
-                { emoji: '❤️', count: 1 }
-            ],
-            isDeleted: false,
-            isEdited: false,
-            replyTo: null,
-            file: null,
-            seenBy: null
-        },
-        {
-            id: 2,
-            text: 'I\'m doing great! Thanks for asking.',
-            isMine: true,
-            time: '10:32 AM',
-            status: 'delivered',
-            senderName: 'You',
-            senderAvatar: '',
-            reactions: [],
-            isDeleted: false,
-            isEdited: false,
-            replyTo: null,
-            file: null,
-            seenBy: [
-                { id: 1, name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1', seenAt: '10:33 AM' }
-            ]
-        },
-        {
-            id: 3,
-            text: 'Did you get my previous message?',
-            isMine: false,
-            time: '10:35 AM',
-            status: 'delivered',
-            senderName: 'John Doe',
-            senderAvatar: 'https://i.pravatar.cc/150?img=1',
-            reactions: [],
-            isDeleted: false,
-            isEdited: false,
-            replyTo: {
-                senderName: 'You',
-                text: 'I\'m doing great! Thanks for asking.'
-            },
-            file: null,
-            seenBy: null
-        },
-        {
-            id: 4,
-            text: 'I\'m doing great! Thanks for asking.',
-            isMine: true,
-            time: '10:32 AM',
-            status: 'sent',
-            senderName: 'You',
-            senderAvatar: '',
-            reactions: [],
-            isDeleted: false,
-            isEdited: false,
-            replyTo: null,
-            file: null,
-            seenBy: [
-                { id: 1, name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1', seenAt: '10:33 AM' }
-            ]
-        },
-
-        {
-            id: 5,
-            text: 'Hey! How are you?',
-            isMine: false,
-            time: '10:30 AM',
-            status: 'seen',
-            senderName: 'John Doe',
-            senderAvatar: 'https://i.pravatar.cc/150?img=1',
-            reactions: [
-                { emoji: '👍', count: 2 },
-                { emoji: '❤️', count: 1 }
-            ],
-            isDeleted: false,
-            isEdited: false,
-            replyTo: null,
-            file: null,
-            seenBy: null
-        },
-        {
-            id: 6,
-            text: 'I\'m doing great! Thanks for asking. How about you?',
-            isMine: true,
-            time: '10:32 AM',
-            status: 'seen',
-            senderName: 'You',
-            senderAvatar: '',
-            reactions: [],
-            isDeleted: false,
-            isEdited: false,
-            replyTo: null,
-            file: null,
-            seenBy: [
-                { id: 1, name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1', seenAt: '10:33 AM' }
-            ]
-        },
-        {
-            id: 7,
-            text: 'Did you get my previous message about the project?',
-            isMine: false,
-            time: '10:35 AM',
-            status: 'delivered',
-            senderName: 'John Doe',
-            senderAvatar: 'https://i.pravatar.cc/150?img=1',
-            reactions: [],
-            isDeleted: false,
-            isEdited: false,
-            replyTo: {
-                senderName: 'You',
-                text: 'I\'m doing great! Thanks for asking.'
-            },
-            file: null,
-            seenBy: null
-        },
-        {
-            id: 8,
-            text: 'Yes! I saw it. Let me check that for you. Here\'s the screenshot.',
-            isMine: true,
-            time: '10:37 AM',
-            status: 'delivered',
-            senderName: 'You',
-            senderAvatar: '',
-            reactions: [
-                { emoji: '🔥', count: 1 }
-            ],
-            isDeleted: false,
-            isEdited: false,
-            replyTo: null,
-            file: {
-                type: 'image',
-                url: 'https://picsum.photos/400/300',
-                name: 'screenshot.png'
-            },
-            seenBy: [
-                { id: 1, name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1', seenAt: '10:38 AM' }
-            ]
-        },
-        {
-            id: 9,
-            text: 'This was an important message',
-            isMine: true,
-            time: '10:40 AM',
-            status: 'sent',
-            senderName: 'You',
-            senderAvatar: '',
-            reactions: [],
-            isDeleted: true,
-            isEdited: false,
-            replyTo: null,
-            file: null,
-            seenBy: []
-        },
-        {
-            id: 10,
-            text: 'Perfect! Let me know if you need anything else.',
-            isMine: false,
-            time: '10:45 AM',
-            status: 'delivered',
-            senderName: 'John Doe',
-            senderAvatar: 'https://i.pravatar.cc/150?img=1',
-            reactions: [],
-            isDeleted: false,
-            isEdited: false,
-            replyTo: null,
-            file: null,
-            seenBy: null
-        },
-        // {
-        //     id: 11,
-        //     text: 'I also have this document that might help.',
-        //     isMine: false,
-        //     time: '10:47 AM',
-        //     status: 'delivered',
-        //     senderName: 'John Doe',
-        //     senderAvatar: 'https://i.pravatar.cc/150?img=1',
-        //     reactions: [],
-        //     isDeleted: false,
-        //     isEdited: false,
-        //     replyTo: null,
-        //     file: {
-        //         type: 'document',
-        //         url: '#',
-        //         name: 'project-requirements.pdf'
-        //     },
-        //     seenBy: null
-        // },
-        {
-            id: 12,
-            text: 'Thanks! I\'ll review it and get back to you by end of day.',
-            isMine: true,
-            time: '10:50 AM',
-            status: 'sent',
-            senderName: 'You',
-            senderAvatar: '',
-            reactions: [
-                { emoji: '👍', count: 1 }
-            ],
-            isDeleted: false,
-            isEdited: true,
-            replyTo: null,
-            file: null,
-            seenBy: [
-                { id: 1, name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1', seenAt: '10:51 AM' }
-            ]
-        }
-    ]);
-
-    const onlineUsers = ref([
-        { id: 10, name: 'Alex', avatar: 'https://i.pravatar.cc/150?img=11', isOnline: true },
-        { id: 11, name: 'Sam', avatar: 'https://i.pravatar.cc/150?img=12', isOnline: true },
-        { id: 12, name: 'Jordan', avatar: 'https://i.pravatar.cc/150?img=13', isOnline: true }
-    ]);
-
-    const availableUsers = ref([
-        { id: 20, name: 'Chris Evans', avatar: 'https://i.pravatar.cc/150?img=33' },
-        { id: 21, name: 'Emma Stone', avatar: 'https://i.pravatar.cc/150?img=34' },
-        { id: 22, name: 'Ryan Gosling', avatar: 'https://i.pravatar.cc/150?img=35' }
-    ]);
-
+    const conversations = ref([]);
+    const messages = ref([]);
+    const onlineUsers = ref([]);
+    const availableUsers = ref([]);
     const activeConversation = ref(null);
     const searchQuery = ref('');
     const activeTab = ref('all');
@@ -306,8 +17,10 @@ export function useChat() {
     const newMessage = ref('');
     const replyingTo = ref(null);
     const editingMessage = ref(null);
+    const loading = ref(false);
+    const messagesLoading = ref(false);
 
-    const typingUsers = ref({}); // { conversationId: ['User 1', 'User 2'] }
+    const typingUsers = ref({});
     let typingTimeout = null;
 
     // Modal states
@@ -328,7 +41,442 @@ export function useChat() {
     const messageToForward = ref(null);
     const messageContainer = ref(null);
 
-    // Computed
+    // API Base URL
+    const API_BASE = '/api/v1';
+
+    // ==================== API CALLS ====================
+
+    // Fetch conversations
+    // const fetchConversations = async (query = null) => {
+    //     loading.value = true;
+    //     try {
+    //         const params = {};
+    //         if (query) params.query = query;
+
+    //         const response = await axios.get(`${API_BASE}/conversations`, { params });
+    //         // console.log(response.data.data.data);
+    //         conversations.value = response.data.data.data.map(conv => ({
+    //             id: conv.id,
+    //             type: conv.type,
+    //             name: conv.type === 'private' ? conv.receiver?.name : conv.name,
+    //             avatar: conv.type === 'private' ? conv.receiver?.avatar_path : null,
+    //             lastMessage: conv.last_message?.message || '',
+    //             lastMessageTime: conv.last_message?.created_at ? formatTime(conv.last_message.created_at) : '',
+    //             unreadCount: conv.unread_count || 0,
+    //             isOnline: conv.receiver?.is_online || false,
+    //             isBlocked: conv.is_blocked || false,
+    //             created_by: conv.is_admin ? 1 : 0,
+    //             members: conv.participants || [],
+    //             settings: conv.group_setting || null,
+    //             isMuted: conv.is_muted || false,
+    //             receiver: conv.receiver || null
+    //         }));
+    //     } catch (error) {
+    //         console.error('Failed to fetch conversations:', error);
+    //     } finally {
+    //         loading.value = false;
+    //     }
+    // };
+    const fetchConversations = async (query = null) => {
+        loading.value = true;
+        try {
+            const params = {};
+            if (query) params.query = query;
+
+            const response = await axios.get(`${API_BASE}/conversations`, { params });
+
+            conversations.value = response.data.data.data.map(conv => {
+                const name = conv.type === 'private' ? conv.receiver?.name : conv.name;
+                const avatarPath = conv.type === 'private' ? conv.receiver?.avatar_path : null;
+
+                return {
+                    id: conv.id,
+                    type: conv.type,
+                    name: name || 'Unknown',
+                    avatar: avatarPath || generateAvatar(name),
+                    lastMessage: conv.last_message?.message || '',
+                    lastMessageTime: conv.last_message?.created_at ? formatTime(conv.last_message.created_at) : '',
+                    unreadCount: conv.unread_count || 0,
+                    isOnline: conv.receiver?.is_online || false,
+                    isBlocked: conv.is_blocked || false,
+                    created_by: conv.is_admin ? 1 : 0,
+                    members: conv.participants || [],
+                    settings: conv.group_setting || null,
+                    isMuted: conv.is_muted || false,
+                    receiver: conv.receiver || null
+                };
+            });
+        } catch (error) {
+            console.error('Failed to fetch conversations:', error);
+        } finally {
+            loading.value = false;
+        }
+    };
+
+    // Fetch messages for a conversation
+    const fetchMessages = async (conversationId) => {
+        messagesLoading.value = true;
+        try {
+            const response = await axios.get(`${API_BASE}/messages/${conversationId}`);
+
+            messages.value = response.data.data.map(msg => ({
+                id: msg.id,
+                text: msg.message,
+                isMine: msg.sender.id === getCurrentUserId(),
+                time: formatTime(msg.created_at),
+                status: getMessageStatus(msg.statuses),
+                senderName: msg.sender.name || 'Unknown',
+                senderAvatar: msg.sender.avatar_path || generateAvatar(msg.sender.name),
+                reactions: formatReactions(msg.reactions),
+                isDeleted: msg.is_deleted_for_everyone || false,
+                isEdited: false,
+                replyTo: msg.reply ? {
+                    senderName: msg.reply.sender.name,
+                    text: msg.reply.message
+                } : null,
+                file: msg.attachments?.length > 0 ? formatAttachment(msg.attachments[0]) : null,
+                seenBy: msg.statuses?.filter(s => s.status === 'seen').map(s => ({
+                    id: s.user_id,
+                    name: s.user?.name || 'Unknown',
+                    avatar: s.user?.avatar_path || generateAvatar(s.user?.name || 'User'),
+                    seenAt: formatTime(s.created_at || msg.created_at)
+                })) || []
+            }));
+
+            // Mark as seen
+            await markMessagesAsSeen(conversationId);
+        } catch (error) {
+            console.error('Failed to fetch messages:', error);
+        } finally {
+            messagesLoading.value = false;
+        }
+    };
+
+    // Start private conversation
+    const startPrivateConversationAPI = async (userId) => {
+        try {
+            const response = await axios.post(`${API_BASE}/conversations/private`, {
+                receiver_id: userId
+            });
+
+            const conv = response.data.data;
+            const newConv = {
+                id: conv.id,
+                type: 'private',
+                name: conv.receiver?.name || '',
+                avatar: conv.receiver?.avatar_path || '',
+                lastMessage: '',
+                lastMessageTime: 'Just now',
+                unreadCount: 0,
+                isOnline: conv.receiver?.is_online || false,
+                isBlocked: conv.is_blocked || false,
+                created_by: 1,
+                receiver: conv.receiver
+            };
+
+            const existing = conversations.value.find(c => c.id === newConv.id);
+            if (!existing) {
+                conversations.value.unshift(newConv);
+            }
+
+            return newConv;
+        } catch (error) {
+            console.error('Failed to start private conversation:', error);
+            throw error;
+        }
+    };
+
+    // Send message
+    const sendMessageAPI = async (conversationId, messageData) => {
+        try {
+            const response = await axios.post(`${API_BASE}/messages`, {
+                conversation_id: conversationId,
+                message: messageData.text,
+                reply_to_message_id: messageData.replyToId || null
+            });
+
+            return response.data.data;
+        } catch (error) {
+            console.error('Failed to send message:', error);
+            throw error;
+        }
+    };
+
+    // Update message
+    const updateMessageAPI = async (messageId, newText) => {
+        try {
+            const response = await axios.put(`${API_BASE}/messages/${messageId}`, {
+                message: newText
+            });
+            return response.data.data;
+        } catch (error) {
+            console.error('Failed to update message:', error);
+            throw error;
+        }
+    };
+
+    // Delete message for me
+    const deleteMessageForMeAPI = async (messageIds) => {
+        try {
+            await axios.delete(`${API_BASE}/messages/delete-for-me`, {
+                data: { message_ids: messageIds }
+            });
+        } catch (error) {
+            console.error('Failed to delete message:', error);
+            throw error;
+        }
+    };
+
+    // Delete message for everyone
+    const deleteMessageForEveryoneAPI = async (messageIds) => {
+        try {
+            await axios.delete(`${API_BASE}/messages/delete-for-everyone`, {
+                data: { message_ids: messageIds }
+            });
+        } catch (error) {
+            console.error('Failed to delete message for everyone:', error);
+            throw error;
+        }
+    };
+
+    // Mark messages as seen
+    const markMessagesAsSeen = async (conversationId) => {
+        try {
+            await axios.get(`${API_BASE}/messages/seen/${conversationId}`);
+        } catch (error) {
+            console.error('Failed to mark messages as seen:', error);
+        }
+    };
+
+    // Toggle reaction
+    const toggleReactionAPI = async (messageId, emoji) => {
+        try {
+            const response = await axios.post(`${API_BASE}/messages/${messageId}/reaction`, {
+                reaction: emoji
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to toggle reaction:', error);
+            throw error;
+        }
+    };
+
+    // Get reactions for a message
+    const getReactionsAPI = async (messageId) => {
+        try {
+            const response = await axios.get(`${API_BASE}/messages/${messageId}/reaction`);
+            return response.data.data;
+        } catch (error) {
+            console.error('Failed to fetch reactions:', error);
+            throw error;
+        }
+    };
+
+    // Create group
+    const createGroupAPI = async (groupData) => {
+        try {
+            const response = await axios.post(`${API_BASE}/conversations`, {
+                type: 'group',
+                name: groupData.name,
+                participants: groupData.members, // array of user IDs
+                group: {
+                    description: groupData.description,
+                    type: groupData.type
+                }
+            });
+            return response.data.data;
+        } catch (error) {
+            console.error('Failed to create group:', error);
+            throw error;
+        }
+    };
+
+    // Add members to group
+    const addMembersToGroupAPI = async (conversationId, memberIds) => {
+        try {
+            const response = await axios.post(`${API_BASE}/group/${conversationId}/members/add`, {
+                user_ids: memberIds
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to add members:', error);
+            throw error;
+        }
+    };
+
+    // Remove member from group
+    const removeMemberAPI = async (conversationId, memberIds) => {
+        try {
+            const response = await axios.post(`${API_BASE}/group/${conversationId}/members/remove`, {
+                user_ids: memberIds
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to remove member:', error);
+            throw error;
+        }
+    };
+
+    // Add admin
+    const addAdminAPI = async (conversationId, userIds) => {
+        try {
+            const response = await axios.post(`${API_BASE}/group/${conversationId}/admins/add`, {
+                user_ids: userIds
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to add admin:', error);
+            throw error;
+        }
+    };
+
+    // Remove admin
+    const removeAdminAPI = async (conversationId, userIds) => {
+        try {
+            const response = await axios.post(`${API_BASE}/group/${conversationId}/admins/remove`, {
+                user_ids: userIds
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to remove admin:', error);
+            throw error;
+        }
+    };
+
+    // Leave group
+    const leaveGroupAPI = async (conversationId) => {
+        try {
+            await axios.post(`${API_BASE}/group/${conversationId}/leave`);
+        } catch (error) {
+            console.error('Failed to leave group:', error);
+            throw error;
+        }
+    };
+
+    // Update group info
+    const updateGroupInfoAPI = async (conversationId, data) => {
+        try {
+            const formData = new FormData();
+            formData.append('name', data.name);
+
+            if (data.group) {
+                Object.keys(data.group).forEach(key => {
+                    if (data.group[key] !== null && data.group[key] !== undefined) {
+                        formData.append(`group[${key}]`, data.group[key]);
+                    }
+                });
+            }
+
+            const response = await axios.post(`${API_BASE}/group/${conversationId}/update`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            return response.data.data;
+        } catch (error) {
+            console.error('Failed to update group:', error);
+            throw error;
+        }
+    };
+
+    // Mute/Unmute group
+    const muteGroupAPI = async (conversationId, minutes = 0) => {
+        try {
+            const response = await axios.post(`${API_BASE}/group/${conversationId}/mute`, {
+                minutes
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to mute/unmute group:', error);
+            throw error;
+        }
+    };
+
+    // Toggle block user
+    const toggleBlockAPI = async (userId) => {
+        try {
+            const response = await axios.post(`${API_BASE}/users/${userId}/block-toggle`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to toggle block:', error);
+            throw error;
+        }
+    };
+
+    // Toggle restrict user
+    const toggleRestrictAPI = async (userId) => {
+        try {
+            const response = await axios.post(`${API_BASE}/users/${userId}/restrict-toggle`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to toggle restrict:', error);
+            throw error;
+        }
+    };
+
+    // Delete conversation
+    const deleteConversationAPI = async (conversationId) => {
+        try {
+            await axios.delete(`${API_BASE}/conversations/${conversationId}`);
+        } catch (error) {
+            console.error('Failed to delete conversation:', error);
+            throw error;
+        }
+    };
+
+    // ==================== HELPER FUNCTIONS ====================
+
+    const formatTime = (datetime) => {
+        const date = new Date(datetime);
+        const now = new Date();
+        const diff = now - date;
+
+        // Less than 1 minute
+        if (diff < 60000) return 'Just now';
+        // Less than 1 hour
+        if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
+        // Less than 1 day
+        if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
+        // Less than 1 week
+        if (diff < 604800000) return `${Math.floor(diff / 86400000)}d`;
+
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+
+    const formatReactions = (reactions) => {
+        if (!reactions || !reactions.reactions) return [];
+
+        return Object.entries(reactions.reactions).map(([emoji, count]) => ({
+            emoji,
+            count
+        }));
+    };
+
+    const formatAttachment = (attachment) => {
+        return {
+            type: attachment.type,
+            url: attachment.url,
+            name: attachment.name
+        };
+    };
+
+    const getMessageStatus = (statuses) => {
+        if (!statuses || statuses.length === 0) return 'sent';
+
+        const hasSeenStatus = statuses.some(s => s.status === 'seen');
+        if (hasSeenStatus) return 'seen';
+
+        const hasDeliveredStatus = statuses.some(s => s.status === 'delivered');
+        if (hasDeliveredStatus) return 'delivered';
+
+        return 'sent';
+    };
+
+    const getCurrentUserId = () => {
+        // Get from your auth store or window object
+        return window.authUser?.id || 1;
+    };
+
+    // ==================== COMPUTED ====================
+
     const filteredConversations = computed(() => {
         let filtered = conversations.value;
 
@@ -339,8 +487,13 @@ export function useChat() {
         if (searchQuery.value) {
             const query = searchQuery.value.toLowerCase();
             filtered = filtered.filter(conv => {
-                return conv.name.toLowerCase().includes(query) ||
-                    conv.lastMessage.toLowerCase().includes(query);
+                const rawConv = toRaw(conv);
+                // Safe name check
+                const nameMatch = rawConv.name ? rawConv.name.toLowerCase().includes(query) : false;
+                // Safe lastMessage check
+                const messageMatch = rawConv.lastMessage ? rawConv.lastMessage.toLowerCase().includes(query) : false;
+
+                return nameMatch || messageMatch;
             });
         }
 
@@ -362,9 +515,11 @@ export function useChat() {
         return activeConversation.value.avatar || activeConversation.value.members?.[0]?.avatar || '';
     });
 
-    // Methods
-    const selectConversation = (conversation) => {
+    // ==================== METHODS ====================
+
+    const selectConversation = async (conversation) => {
         activeConversation.value = conversation;
+        await fetchMessages(conversation.id);
         nextTick(() => {
             scrollToBottom();
         });
@@ -374,78 +529,69 @@ export function useChat() {
         activeConversation.value = null;
     };
 
-    const startPrivateChat = (user) => {
-        const existing = conversations.value.find(c => c.type === 'private' && c.name === user.name);
-        if (existing) {
-            selectConversation(existing);
-            return;
+    const startPrivateChat = async (user) => {
+        try {
+            const newConv = await startPrivateConversationAPI(user.id);
+            selectConversation(newConv);
+        } catch (error) {
+            console.error('Failed to start chat:', error);
         }
-
-        const newConv = {
-            id: Date.now(),
-            type: 'private',
-            name: user.name,
-            avatar: user.avatar,
-            lastMessage: '',
-            lastMessageTime: 'Just now',
-            unreadCount: 0,
-            isOnline: user.isOnline,
-            isBlocked: false,
-            created_by: 1
-        };
-
-        conversations.value.unshift(newConv);
-        selectConversation(newConv);
     };
 
-    const handleSendMessage = () => {
-        if (!newMessage.value.trim()) return;
+    const handleSendMessage = async () => {
+        if (!newMessage.value.trim() || !activeConversation.value) return;
 
-        if (editingMessage.value) {
-            const msg = messages.value.find(m => m.id === editingMessage.value.id);
-            if (msg) {
-                msg.text = newMessage.value;
-                msg.isEdited = true;
+        const messageText = newMessage.value;
+        const replyToId = replyingTo.value?.id || null;
+
+        try {
+            if (editingMessage.value) {
+                // Update existing message
+                await updateMessageAPI(editingMessage.value.id, messageText);
+
+                const msg = messages.value.find(m => m.id === editingMessage.value.id);
+                if (msg) {
+                    msg.text = messageText;
+                    msg.isEdited = true;
+                }
+                editingMessage.value = null;
+            } else {
+                // Send new message
+                const sentMsg = await sendMessageAPI(activeConversation.value.id, {
+                    text: messageText,
+                    replyToId
+                });
+
+                // Add to messages array
+                messages.value.push({
+                    id: sentMsg.id,
+                    text: sentMsg.message,
+                    isMine: true,
+                    time: formatTime(sentMsg.created_at),
+                    status: 'sent',
+                    senderName: 'You',
+                    senderAvatar: '',
+                    reactions: [],
+                    isDeleted: false,
+                    isEdited: false,
+                    replyTo: replyingTo.value ? {
+                        senderName: replyingTo.value.senderName,
+                        text: replyingTo.value.text
+                    } : null,
+                    file: null,
+                    seenBy: []
+                });
+
+                replyingTo.value = null;
             }
-            editingMessage.value = null;
-        } else {
-            const newMsg = {
-                id: Date.now(),
-                text: newMessage.value,
-                isMine: true,
-                time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                status: 'sent',
-                senderName: 'You',
-                senderAvatar: '',
-                reactions: [],
-                isDeleted: false,
-                isEdited: false,
-                replyTo: replyingTo.value ? {
-                    senderName: replyingTo.value.senderName,
-                    text: replyingTo.value.text
-                } : null,
-                file: null,
-                seenBy: []
-            };
 
-            messages.value.push(newMsg);
-
-            setTimeout(() => {
-                newMsg.status = 'delivered';
-            }, 1000);
-
-            setTimeout(() => {
-                newMsg.status = 'seen';
-                newMsg.seenBy = [{ id: 1, name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1', seenAt: 'Just now' }];
-            }, 2000);
-
-            replyingTo.value = null;
+            newMessage.value = '';
+            nextTick(() => {
+                scrollToBottom();
+            });
+        } catch (error) {
+            console.error('Failed to send message:', error);
         }
-
-        newMessage.value = '';
-        nextTick(() => {
-            scrollToBottom();
-        });
     };
 
     const replyToMessage = (message) => {
@@ -473,9 +619,9 @@ export function useChat() {
         modals.value.forwardMessage = true;
     };
 
-    const handleForwardMessage = ({ message, conversationIds }) => {
+    const handleForwardMessage = async ({ message, conversationIds }) => {
+        // Implement forward logic with API
         console.log('Forwarding message to:', conversationIds);
-        // Implement forward logic
     };
 
     const showDeleteMenu = (message) => {
@@ -483,26 +629,38 @@ export function useChat() {
         modals.value.deleteMessage = true;
     };
 
-    const deleteMessageForMe = () => {
-        messages.value = messages.value.filter(m => m.id !== messageToDelete.value.id);
-        closeModal('deleteMessage');
-    };
-
-    const deleteMessageForEveryone = () => {
-        const msg = messages.value.find(m => m.id === messageToDelete.value.id);
-        if (msg) {
-            msg.isDeleted = true;
-            msg.text = 'This message was deleted';
+    const deleteMessageForMe = async () => {
+        try {
+            await deleteMessageForMeAPI([messageToDelete.value.id]);
+            messages.value = messages.value.filter(m => m.id !== messageToDelete.value.id);
+            closeModal('deleteMessage');
+        } catch (error) {
+            console.error('Failed to delete message:', error);
         }
-        closeModal('deleteMessage');
     };
 
-    const openReactionModal = ({ message, reaction }) => {
-        selectedReactionUsers.value = [
-            { id: 1, name: 'Alice Johnson', avatar: 'https://i.pravatar.cc/150?img=20', reaction: reaction.emoji },
-            { id: 2, name: 'Bob Smith', avatar: 'https://i.pravatar.cc/150?img=21', reaction: reaction.emoji }
-        ];
-        modals.value.reaction = true;
+    const deleteMessageForEveryone = async () => {
+        try {
+            await deleteMessageForEveryoneAPI([messageToDelete.value.id]);
+            const msg = messages.value.find(m => m.id === messageToDelete.value.id);
+            if (msg) {
+                msg.isDeleted = true;
+                msg.text = 'This message was deleted';
+            }
+            closeModal('deleteMessage');
+        } catch (error) {
+            console.error('Failed to delete message for everyone:', error);
+        }
+    };
+
+    const openReactionModal = async ({ message, reaction }) => {
+        try {
+            const reactions = await getReactionsAPI(message.id);
+            selectedReactionUsers.value = reactions.filter(r => r.reaction === reaction.emoji);
+            modals.value.reaction = true;
+        } catch (error) {
+            console.error('Failed to fetch reactions:', error);
+        }
     };
 
     const openMessageDetails = (message) => {
@@ -517,7 +675,7 @@ export function useChat() {
     };
 
     const handleSearch = () => {
-        console.log('Search in conversation');
+        fetchConversations(searchQuery.value);
     };
 
     const handleAudioCall = () => {
@@ -533,92 +691,116 @@ export function useChat() {
         modals.value.createGroup = true;
     };
 
-    const createGroup = ({ name, description, type, members }) => {
-        const newGroup = {
-            id: Date.now(),
-            type: 'group',
-            name,
-            avatar: null,
-            lastMessage: 'Group created',
-            lastMessageTime: 'Just now',
-            unreadCount: 0,
-            isOnline: false,
-            isBlocked: false,
-            created_by: 1,
-            members: members.map(userId => {
-                const user = availableUsers.value.find(u => u.id === userId);
-                return { ...user, role: 'Member' };
-            }),
-            settings: {
+    const createGroup = async ({ name, description, type, members }) => {
+        try {
+            const newGroup = await createGroupAPI({
+                name,
                 description,
                 type,
-                allow_members_to_send_messages: true,
-                allow_members_to_add_remove_participants: false,
-                allow_members_to_change_group_info: false,
-                admins_must_approve_new_members: true
-            }
-        };
+                members
+            });
 
-        conversations.value.unshift(newGroup);
-        selectConversation(newGroup);
-        closeModal('createGroup');
+            conversations.value.unshift({
+                id: newGroup.id,
+                type: 'group',
+                name: newGroup.name,
+                avatar: null,
+                lastMessage: 'Group created',
+                lastMessageTime: 'Just now',
+                unreadCount: 0,
+                isOnline: false,
+                isBlocked: false,
+                created_by: 1,
+                members: newGroup.participants || [],
+                settings: newGroup.group_setting || null
+            });
+
+            selectConversation(conversations.value[0]);
+            closeModal('createGroup');
+        } catch (error) {
+            console.error('Failed to create group:', error);
+        }
     };
 
     const openAddMemberModal = () => {
         modals.value.addMember = true;
     };
 
-    const addMembersToGroup = (userIds) => {
+    const addMembersToGroup = async (userIds) => {
         if (!activeConversation.value || activeConversation.value.type !== 'group') return;
 
-        userIds.forEach((userId) => {
-            const alreadyMember = activeConversation.value.members.some(
-                member => member.id === userId
-            );
+        try {
+            await addMembersToGroupAPI(activeConversation.value.id, userIds);
 
-            if (!alreadyMember) {
+            // Refresh conversation or add members locally
+            userIds.forEach((userId) => {
                 const user = availableUsers.value.find(u => u.id === userId);
-
                 if (user) {
                     activeConversation.value.members.push({
                         ...user,
-                        role: 'Member',
+                        role: 'Member'
                     });
                 }
-            }
-        });
-        closeModal('addMember');
-    };
+            });
 
-
-    const makeAdmin = (member) => {
-        const m = activeConversation.value.members.find(mem => mem.id === member.id);
-        if (m) m.role = 'Admin';
-    };
-
-    const removeAdmin = (member) => {
-        const m = activeConversation.value.members.find(mem => mem.id === member.id);
-        if (m) m.role = 'Member';
-    };
-
-    const removeMember = (member) => {
-        if (confirm(`Remove ${member.name} from the group?`)) {
-            activeConversation.value.members = activeConversation.value.members.filter(m => m.id !== member.id);
+            closeModal('addMember');
+        } catch (error) {
+            console.error('Failed to add members:', error);
         }
     };
 
-    const leaveGroup = () => {
-        if (confirm('Are you sure you want to leave this group?')) {
+    const makeAdmin = async (member) => {
+        try {
+            await addAdminAPI(activeConversation.value.id, [member.id]);
+            const m = activeConversation.value.members.find(mem => mem.id === member.id);
+            if (m) m.role = 'admin';
+        } catch (error) {
+            console.error('Failed to make admin:', error);
+        }
+    };
+
+    const removeAdmin = async (member) => {
+        try {
+            await removeAdminAPI(activeConversation.value.id, [member.id]);
+            const m = activeConversation.value.members.find(mem => mem.id === member.id);
+            if (m) m.role = 'member';
+        } catch (error) {
+            console.error('Failed to remove admin:', error);
+        }
+    };
+
+    const removeMember = async (member) => {
+        if (!confirm(`Remove ${member.name} from the group?`)) return;
+
+        try {
+            await removeMemberAPI(activeConversation.value.id, [member.id]);
+            activeConversation.value.members = activeConversation.value.members.filter(m => m.id !== member.id);
+        } catch (error) {
+            console.error('Failed to remove member:', error);
+        }
+    };
+
+    const leaveGroup = async () => {
+        if (!confirm('Are you sure you want to leave this group?')) return;
+
+        try {
+            await leaveGroupAPI(activeConversation.value.id);
             conversations.value = conversations.value.filter(c => c.id !== activeConversation.value.id);
             activeConversation.value = null;
             showRightPanel.value = false;
+        } catch (error) {
+            console.error('Failed to leave group:', error);
         }
     };
 
-    const updateGroupSettings = (settings) => {
-        if (activeConversation.value && activeConversation.value.type === 'group') {
-            activeConversation.value.settings = { ...activeConversation.value.settings, ...settings };
-            console.log('Group settings updated:', settings);
+    const updateGroupSettings = async (settings) => {
+        if (!activeConversation.value || activeConversation.value.type !== 'group') return;
+
+        try {
+            const updated = await updateGroupInfoAPI(activeConversation.value.id, settings);
+            activeConversation.value.settings = { ...activeConversation.value.settings, ...updated.group_setting };
+        } catch (error) {
+            console.error('Failed to update group settings:', error);
         }
     };
 
@@ -630,71 +812,58 @@ export function useChat() {
     };
 
     // Add reaction handler
-    const handleAddReaction = ({ messageId, emoji }) => {
-        const message = messages.value.find(m => m.id === messageId);
-        if (!message) return;
+    const handleAddReaction = async ({ messageId, emoji }) => {
+        try {
+            await toggleReactionAPI(messageId, emoji);
 
-        // Initialize reactions array if it doesn't exist
-        if (!message.reactions) {
-            message.reactions = [];
+            const message = messages.value.find(m => m.id === messageId);
+            if (!message) return;
+
+            if (!message.reactions) {
+                message.reactions = [];
+            }
+
+            const existingReaction = message.reactions.find(r => r.emoji === emoji);
+
+            if (existingReaction) {
+                existingReaction.count++;
+            } else {
+                message.reactions.push({
+                    emoji: emoji,
+                    count: 1
+                });
+            }
+        } catch (error) {
+            console.error('Failed to add reaction:', error);
         }
-
-        // Check if this emoji already exists in reactions
-        const existingReaction = message.reactions.find(r => r.emoji === emoji);
-
-        if (existingReaction) {
-            // Check if current user already reacted with this emoji
-            // In real app, you'd check against user ID
-            // For now, we'll just increment the count
-            existingReaction.count++;
-        } else {
-            // Add new reaction
-            message.reactions.push({
-                emoji: emoji,
-                count: 1,
-                users: [
-                    {
-                        id: 1, // Current user ID
-                        name: 'You',
-                        avatar: 'https://i.pravatar.cc/150?img=50'
-                    }
-                ]
-            });
-        }
-
-        // In real app, make API call here:
-        // await axios.post(`/api/messages/${messageId}/reaction`, { emoji });
-
-        console.log('Reaction added:', { messageId, emoji });
     };
 
-    const handleRemoveReaction = ({ messageId, emoji }) => {
-        const message = messages.value.find(m => m.id === messageId);
-        if (!message || !message.reactions) return;
+    const handleRemoveReaction = async ({ messageId, emoji }) => {
+        try {
+            await toggleReactionAPI(messageId, emoji);
 
-        const reactionIndex = message.reactions.findIndex(r => r.emoji === emoji);
-        if (reactionIndex === -1) return;
+            const message = messages.value.find(m => m.id === messageId);
+            if (!message || !message.reactions) return;
 
-        const reaction = message.reactions[reactionIndex];
+            const reactionIndex = message.reactions.findIndex(r => r.emoji === emoji);
+            if (reactionIndex === -1) return;
 
-        if (reaction.count > 1) {
-            reaction.count--;
-        } else {
-            // Remove reaction if count is 1
-            message.reactions.splice(reactionIndex, 1);
+            const reaction = message.reactions[reactionIndex];
+
+            if (reaction.count > 1) {
+                reaction.count--;
+            } else {
+                message.reactions.splice(reactionIndex, 1);
+            }
+        } catch (error) {
+            console.error('Failed to remove reaction:', error);
         }
-
-        // In real app, make API call here:
-        // await axios.delete(`/api/messages/${messageId}/reaction`, { data: { emoji } });
-
-        console.log('Reaction removed:', { messageId, emoji });
     };
 
-    // ==================== VOICE MESSAGE HANDLER ====================
+    // Voice message handler
     const handleSendVoice = async (audioBlob, duration) => {
         if (!activeConversation.value) return;
 
-        // Create a URL for the audio blob (for immediate playback)
         const audioUrl = URL.createObjectURL(audioBlob);
 
         const voiceMsg = {
@@ -725,43 +894,17 @@ export function useChat() {
 
         messages.value.push(voiceMsg);
 
-        // Clear reply if exists
         if (replyingTo.value) {
             replyingTo.value = null;
         }
 
-        // Scroll to bottom
         nextTick(() => {
             scrollToBottom();
         });
 
-        // Simulate status updates (remove in production)
-        setTimeout(() => {
-            voiceMsg.status = 'delivered';
-        }, 1000);
-
-        setTimeout(() => {
-            voiceMsg.status = 'seen';
-            voiceMsg.seenBy = activeConversation.value.type === 'group'
-                ? activeConversation.value.members.slice(0, 2).map(m => ({
-                    id: m.id,
-                    name: m.name,
-                    avatar: m.avatar,
-                    seenAt: 'Just now'
-                }))
-                : [{
-                    id: 1,
-                    name: activeConversation.value.name,
-                    avatar: activeConversation.value.avatar,
-                    seenAt: 'Just now'
-                }];
-        }, 2000);
-
-        // Upload to server
         await uploadVoiceMessage(audioBlob, voiceMsg, activeConversation.value.id);
     };
 
-    // Upload voice message to server
     const uploadVoiceMessage = async (audioBlob, message, conversationId) => {
         const formData = new FormData();
         formData.append('audio', audioBlob, 'voice-message.webm');
@@ -773,79 +916,35 @@ export function useChat() {
         }
 
         try {
-            // Uncomment when backend is ready
-            // const response = await axios.post('/api/v1/messages/voice', formData, {
-            //   headers: { 'Content-Type': 'multipart/form-data' }
-            // });
-
-            // Update message with server response
-            // const msg = messages.value.find(m => m.id === message.id);
-            // if (msg && response.data) {
-            //   msg.id = response.data.id;
-            //   msg.file.url = response.data.file_url;
-            //   msg.status = 'sent';
-            // }
-
-            console.log('Voice message uploaded:', {
-                conversationId,
-                duration: message.file.duration,
-                size: audioBlob.size
+            const response = await axios.post(`${API_BASE}/messages`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
 
+            const msg = messages.value.find(m => m.id === message.id);
+            if (msg && response.data) {
+                msg.id = response.data.id;
+                msg.file.url = response.data.file_url;
+                msg.status = 'delivered';
+            }
         } catch (error) {
             console.error('Failed to upload voice message:', error);
-
-            // Mark message as failed
             const msg = messages.value.find(m => m.id === message.id);
             if (msg) {
                 msg.status = 'failed';
             }
-
-            // Optionally show error notification
-            // toast.error('Failed to send voice message');
         }
     };
 
-    // Listen for typing events from others
     const listenForTyping = (conversationId) => {
-        // Example with Pusher/Echo
-        // Echo.private(`conversation.${conversationId}`)
-        //   .listenForWhisper('typing', (e) => {
-        //     if (!typingUsers.value[conversationId]) {
-        //       typingUsers.value[conversationId] = [];
-        //     }
-        //     
-        //     const existingIndex = typingUsers.value[conversationId]
-        //       .findIndex(u => u.id === e.user_id);
-        //     
-        //     if (existingIndex === -1) {
-        //       typingUsers.value[conversationId].push({
-        //         id: e.user_id,
-        //         name: e.user_name,
-        //         avatar: e.user_avatar
-        //       });
-        //     }
-        //   })
-        //   .listenForWhisper('stop-typing', (e) => {
-        //     if (typingUsers.value[conversationId]) {
-        //       typingUsers.value[conversationId] = typingUsers.value[conversationId]
-        //         .filter(u => u.id !== e.user_id);
-        //     }
-        //   });
-
-        // MOCK for testing (remove in production)
-        setTimeout(() => {
-            typingUsers.value[conversationId] = [
-                { id: 1, name: 'John Doe', avatar: 'https://i.pravatar.cc/150?img=1' }
-            ];
-
-            setTimeout(() => {
-                typingUsers.value[conversationId] = [];
-            }, 3000);
-        }, 2000);
+        // Implement with Laravel Echo/Pusher
+        // window.Echo.private(`conversation.${conversationId}`)
+        //     .listenForWhisper('typing', (e) => {
+        //         if (!typingUsers.value[conversationId]) {
+        //             typingUsers.value[conversationId] = [];
+        //         }
+        //         // Add typing user logic
+        //     });
     };
-
-
 
     const scrollToBottom = () => {
         if (messageContainer.value) {
@@ -853,7 +952,9 @@ export function useChat() {
         }
     };
 
-    onMounted(() => {
+    onMounted(async () => {
+        await fetchConversations();
+
         if (window.innerWidth >= 768 && conversations.value.length > 0) {
             selectConversation(conversations.value[0]);
         }
@@ -927,4 +1028,4 @@ export function useChat() {
         closeModal,
         scrollToBottom
     };
-}
+};

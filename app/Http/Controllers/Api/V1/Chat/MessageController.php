@@ -1,17 +1,18 @@
 <?php
 namespace App\Http\Controllers\Api\V1\Chat;
 
-
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Chat\DeleteMessageRequest;
 use App\Http\Requests\Chat\SendMessageRequest;
 use App\Models\Message;
 use App\Services\Chat\ChatService;
+use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class MessageController extends Controller
 {
+    use ApiResponse;
     public function __construct(protected ChatService $chatService)
     {}
 
@@ -19,18 +20,20 @@ class MessageController extends Controller
     {
         // message = Conversation id
         $messages = $this->chatService->getMessages(Auth::user(), $message, $request->query("q"));
-        return response()->json(['messages' => $messages]);
+        return $this->success($messages, 'Messages Fetched Successfully');
     }
 
     public function store(SendMessageRequest $request)
     {
         $message = $this->chatService->sendMessage(Auth::user(), $request->validated());
-        return response()->json(['status' => 'success', 'message' => $message]);
+        // return response()->json(['status' => 'success', 'message' => $message]);
+        return $this->success($message, 'Message Sent Successfully', 201);
     }
     public function update(SendMessageRequest $request, Message $message)
     {
         $message = $this->chatService->updateMessage(Auth::user(), $request->validated(), $message);
-        return response()->json(['status' => 'success', 'message' => $message]);
+        // return response()->json(['status' => 'success', 'message' => $message]);
+        return $this->success($message, 'Message Updated Successfully', 201);
     }
 
     public function typing(Request $request, int $conversationId)

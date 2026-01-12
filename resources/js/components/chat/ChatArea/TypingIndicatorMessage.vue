@@ -16,7 +16,7 @@
         </p>
 
         <!-- Typing Bubble -->
-        <div class="rounded-lg p-3 bg-white text-gray-800 shadow-sm">
+        <div class="rounded-xl px-2 py-3 bg-white text-gray-800 shadow-sm">
           <div class="flex items-center space-x-1">
             <div class="typing-dot"></div>
             <div class="typing-dot" style="animation-delay: 0.2s"></div>

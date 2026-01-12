@@ -19,7 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
         then: function () {
             Route::middleware('web')
                 ->group(base_path('routes/chat.php'));
-            Route::middleware('api')
+            Route::middleware('web') //api
+            // Route::middleware('api') //api
                 ->prefix('api')
                 ->group(base_path('routes/chat_api.php'));
         }
