@@ -1,3 +1,63 @@
+<script setup>
+import { ref, computed, watch } from "vue";
+
+import GroupMembers from "./GroupMembers.vue";
+import MediaGallery from "./MediaGallery.vue";
+import FilesList from "./FilesList.vue";
+import LinksList from "./LinksList.vue";
+import GroupSettings from "./GroupSettings.vue";
+
+const props = defineProps({
+  conversation: { type: Object, required: true },
+  activeTab: { type: String, default: "members" },
+});
+
+const emit = defineEmits([
+  "update-tab",
+  "add-member",
+  "make-admin",
+  "remove-admin",
+  "remove-member",
+  "leave-group",
+  "update-settings",
+  "trigger-search",
+]);
+
+const isMuted = ref(false);
+
+const isGroup = computed(() => props.conversation.type === "group");
+
+const avatar = computed(
+  () =>
+    props.conversation.avatar ||
+    props.conversation.members?.[0]?.avatar_path
+);
+
+const tabs = [
+  { label: "Members", value: "members", groupOnly: true },
+  { label: "Media", value: "media" },
+  { label: "Files", value: "files" },
+  { label: "Links", value: "links" },
+];
+
+const visibleTabs = computed(() => tabs.filter((tab) => !tab.groupOnly || isGroup.value));
+
+const changeTab = (tab) => emit("update-tab", tab);
+
+const toggleMute = () => (isMuted.value = !isMuted.value);
+const toggleBlock = () => console.log("Block toggled");
+
+watch(
+  () => isGroup.value,
+  (group) => {
+    if (!group && props.activeTab === "members") {
+      emit("update-tab", "media");
+    }
+  },
+  { immediate: true }
+);
+</script>
+
 <template>
   <aside class="hidden lg:block w-80 bg-white border-l border-gray-200 overflow-y-auto">
     <div class="p-6">
@@ -66,9 +126,16 @@
       <!-- ================= Actions ================= -->
       <div class="space-y-2 mt-6">
         <!-- Search -->
-        <button @click="$emit('trigger-search')" class="w-full text-left px-4 py-2 text-sm text-gray-700
-         hover:bg-gray-100 rounded flex items-center transition-colors">
-          <svg class="w-5 h-5 mr-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <button
+          @click="$emit('trigger-search')"
+          class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded flex items-center transition-colors"
+        >
+          <svg
+            class="w-5 h-5 mr-3 text-gray-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -80,9 +147,16 @@
         </button>
 
         <!-- Mute -->
-        <button @click="toggleMute" class="w-full text-left px-4 py-2 text-sm text-gray-700
-         hover:bg-gray-100 rounded flex items-center transition-colors">
-          <svg class="w-5 h-5 mr-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <button
+          @click="toggleMute"
+          class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded flex items-center transition-colors"
+        >
+          <svg
+            class="w-5 h-5 mr-3 text-gray-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path
               v-if="!isMuted"
               stroke-linecap="round"
@@ -115,7 +189,12 @@
           @click="$emit('leave-group')"
           class="w-full text-left px-4 py-2 text-sm rounded flex items-center transition-colors text-yellow-600 hover:bg-yellow-50"
         >
-          <svg class="w-5 h-5 mr-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            class="w-5 h-5 mr-3 text-gray-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -129,8 +208,16 @@
         </button>
 
         <!-- Block -->
-        <button @click="toggleBlock" class="w-full text-left px-4 py-2 text-sm rounded flex items-center transition-colors text-red-600 hover:bg-red-50">
-          <svg class="w-5 h-5 mr-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <button
+          @click="toggleBlock"
+          class="w-full text-left px-4 py-2 text-sm rounded flex items-center transition-colors text-red-600 hover:bg-red-50"
+        >
+          <svg
+            class="w-5 h-5 mr-3 text-gray-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -147,67 +234,4 @@
   </aside>
 </template>
 
-<script setup>
-import { ref, computed, watch } from "vue";
-
-import GroupMembers from "./GroupMembers.vue";
-import MediaGallery from "./MediaGallery.vue";
-import FilesList from "./FilesList.vue";
-import LinksList from "./LinksList.vue";
-import GroupSettings from "./GroupSettings.vue";
-
-const props = defineProps({
-  conversation: { type: Object, required: true },
-  activeTab: { type: String, default: "members" },
-});
-
-const emit = defineEmits([
-  "update-tab",
-  "add-member",
-  "make-admin",
-  "remove-admin",
-  "remove-member",
-  "leave-group",
-  "update-settings",
-  "trigger-search",
-]);
-
-const isMuted = ref(false);
-
-const isGroup = computed(() => props.conversation.type === "group");
-
-const avatar = computed(
-  () =>
-    props.conversation.avatar ||
-    props.conversation.members?.[0]?.avatar ||
-    "/images/avatar-placeholder.png"
-);
-
-const tabs = [
-  { label: "Members", value: "members", groupOnly: true },
-  { label: "Media", value: "media" },
-  { label: "Files", value: "files" },
-  { label: "Links", value: "links" },
-];
-
-const visibleTabs = computed(() => tabs.filter((tab) => !tab.groupOnly || isGroup.value));
-
-const changeTab = (tab) => emit("update-tab", tab);
-
-const toggleMute = () => (isMuted.value = !isMuted.value);
-const toggleBlock = () => console.log("Block toggled");
-
-watch(
-  () => isGroup.value,
-  (group) => {
-    if (!group && props.activeTab === "members") {
-      emit("update-tab", "media");
-    }
-  },
-  { immediate: true }
-);
-</script>
-
-<style>
-
-</style>
+<style></style>

@@ -1,14 +1,21 @@
 <script setup>
 import { router } from "@inertiajs/vue3";
+import { usePage } from "@inertiajs/vue3";
+
 import ConversationItem from "./ConversationItem.vue";
 import OnlineUsers from "./OnlineUsers.vue";
 import SearchBar from "./SearchBar.vue";
+import { generateAvatar } from "../../../Utils/Chat/avatarHelper";
+import { computed } from "vue";
 
 const tabs = [
   { label: "All", value: "all" },
   { label: "Personal", value: "private" },
   { label: "Groups", value: "group" },
 ];
+
+const page = usePage();
+const user = computed(() => page.props.auth.user);
 
 defineProps({
   conversations: Array,
@@ -36,7 +43,20 @@ const logout = () => {
     <!-- Header -->
     <div class="p-4 pb-0">
       <div class="flex items-center justify-between mb-4">
-        <h1 class="text-2xl font-bold text-gray-800">Messages</h1>
+        <!-- User Info -->
+        <div class="flex items-center space-x-3">
+          <img
+            :src="user?.avatar_path || generateAvatar(user?.name)"
+            :alt="user?.name"
+            class="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
+          />
+          <div>
+            <h1 class="text-lg font-semibold text-gray-800">
+              {{ user?.name || "User" }}
+            </h1>
+            <p class="text-xs text-gray-500">Active now</p>
+          </div>
+        </div>
 
         <div class="flex items-center space-x-3">
           <!-- Create Group -->
@@ -46,18 +66,15 @@ const logout = () => {
             title="Create Group"
           >
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <!-- Users / Group -->
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
                 stroke-width="2"
                 d="M17 20h-10M7 20v-2a3 3 0 015.356-1.857M17 20v-2a3 3 0 00-5.356-1.857
-               M15 7a3 3 0 11-6 0 3 3 0 016 0
-               M7 10a2 2 0 11-4 0 2 2 0 014 0
-               M17 10a2 2 0 11-4 0 2 2 0 014 0"
+                 M15 7a3 3 0 11-6 0 3 3 0 016 0
+                 M7 10a2 2 0 11-4 0 2 2 0 014 0
+                 M17 10a2 2 0 11-4 0 2 2 0 014 0"
               />
-
-              <!-- Plus Sign -->
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -84,8 +101,8 @@ const logout = () => {
                 stroke-linejoin="round"
                 stroke-width="2"
                 d="M17 16l4-4m0 0l-4-4m4 4H7
-         m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7
-         a3 3 0 013-3h4a3 3 0 013 3v1"
+           m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7
+           a3 3 0 013-3h4a3 3 0 013 3v1"
               />
             </svg>
           </button>
@@ -107,7 +124,7 @@ const logout = () => {
     />
 
     <!-- Tabs -->
-    <div class="flex space-x-1 my-1 bg-gray-100 rounded-lg p-1">
+    <div class="flex space-x-1 mb-1 bg-gray-100 rounded-lg p-1">
       <button
         v-for="tab in tabs"
         :key="tab.value"

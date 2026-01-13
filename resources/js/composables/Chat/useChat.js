@@ -7,8 +7,19 @@ export function useChat() {
     // State
     const conversations = ref([]);
     const messages = ref([]);
-    const onlineUsers = ref([]);
-    const availableUsers = ref([]);
+    // const onlineUsers = ref([]);
+    // const availableUsers = ref([]);
+    const onlineUsers = ref([
+        { id: 10, name: 'Alex', avatar: 'https://i.pravatar.cc/150?img=11', isOnline: true },
+        { id: 11, name: 'Sam', avatar: 'https://i.pravatar.cc/150?img=12', isOnline: true },
+        { id: 12, name: 'Jordan', avatar: 'https://i.pravatar.cc/150?img=13', isOnline: true }
+    ]);
+
+    const availableUsers = ref([
+        { id: 20, name: 'Chris Evans', avatar: 'https://i.pravatar.cc/150?img=33' },
+        { id: 21, name: 'Emma Stone', avatar: 'https://i.pravatar.cc/150?img=34' },
+        { id: 22, name: 'Ryan Gosling', avatar: 'https://i.pravatar.cc/150?img=35' }
+    ]);
     const activeConversation = ref(null);
     const searchQuery = ref('');
     const activeTab = ref('all');
@@ -87,13 +98,13 @@ export function useChat() {
 
             conversations.value = response.data.data.data.map(conv => {
                 const name = conv.type === 'private' ? conv.receiver?.name : conv.name;
-                const avatarPath = conv.type === 'private' ? conv.receiver?.avatar_path : null;
+                const avatarPath = conv.type === 'private' ? conv.receiver?.avatar_path ?? generateAvatar(conv.receiver?.name) : conv.group_setting?.avatar ?? generateAvatar(conv.name);
 
                 return {
                     id: conv.id,
                     type: conv.type,
                     name: name || 'Unknown',
-                    avatar: avatarPath || generateAvatar(name),
+                    avatar: avatarPath,
                     lastMessage: conv.last_message?.message || '',
                     lastMessageTime: conv.last_message?.created_at ? formatTime(conv.last_message.created_at) : '',
                     unreadCount: conv.unread_count || 0,
@@ -254,6 +265,7 @@ export function useChat() {
             const response = await axios.post(`${API_BASE}/messages/${messageId}/reaction`, {
                 reaction: emoji
             });
+            console.log(response.data);
             return response.data;
         } catch (error) {
             console.error('Failed to toggle reaction:', error);

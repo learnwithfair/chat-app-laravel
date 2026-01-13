@@ -1,3 +1,20 @@
+<script setup>
+import { generateAvatar } from "../../../Utils/Chat/avatarHelper";
+
+defineProps({
+  conversation: {
+    type: Object,
+    required: true,
+  },
+  isActive: {
+    type: Boolean,
+    default: false,
+  },
+});
+
+defineEmits(["select"]);
+</script>
+
 <template>
   <div
     @click="$emit('select')"
@@ -10,13 +27,13 @@
     <div class="relative flex-shrink-0">
       <!-- Group Avatar (Messenger style – 2 members) -->
       <div
-        v-if="conversation.type === 'group' && !conversation.avatar"
+        v-if="conversation.type === 'group'"
         class="relative w-12 h-12"
       >
         <img
           v-for="(member, idx) in conversation.members?.slice(0, 2)"
           :key="member.id"
-          :src="member.avatar"
+          :src="member.avatar_path || generateAvatar(member?.name)"
           :alt="member.name"
           :class="[
             'absolute w-8 h-8 rounded-full object-cover border-2 border-white',
@@ -75,18 +92,3 @@
     </div>
   </div>
 </template>
-
-<script setup>
-defineProps({
-  conversation: {
-    type: Object,
-    required: true,
-  },
-  isActive: {
-    type: Boolean,
-    default: false,
-  },
-});
-
-defineEmits(["select"]);
-</script>
