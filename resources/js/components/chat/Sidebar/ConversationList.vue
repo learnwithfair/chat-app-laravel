@@ -6,8 +6,9 @@ import ConversationItem from "./ConversationItem.vue";
 import OnlineUsers from "./OnlineUsers.vue";
 import SearchBar from "./SearchBar.vue";
 import { generateAvatar } from "../../../Utils/Chat/avatarHelper";
-import { computed } from "vue";
+import { ref, computed } from "vue";
 
+// Tabs
 const tabs = [
   { label: "All", value: "all" },
   { label: "Personal", value: "private" },
@@ -17,16 +18,44 @@ const tabs = [
 const page = usePage();
 const user = computed(() => page.props.auth.user);
 
-defineProps({
+// Props
+const props = defineProps({
   conversations: Array,
   activeConversation: Object,
   activeTab: String,
   searchQuery: String,
   onlineUsers: Array,
+  conversationPagination: Object,
 });
 
-defineEmits(["select", "update-tab", "update-search", "create-group", "start-chat"]);
+// Emits
+const emit = defineEmits([
+  "select",
+  "update-tab",
+  "update-search",
+  "create-group",
+  "start-chat",
+  "loadMore",
+]);
 
+// Scroll ref
+const conversationListRef = ref(null);
+
+// Scroll handler for load more
+const onScroll = (e) => {
+  const { scrollTop, scrollHeight, clientHeight } = e.target;
+  const scrolledToBottom = scrollHeight - scrollTop - clientHeight < 100;
+
+  if (
+    scrolledToBottom &&
+    props.conversationPagination?.hasMore &&
+    !props.conversationPagination?.loading
+  ) {
+    emit("loadMore");
+  }
+};
+
+// Logout
 const logout = () => {
   if (!confirm("Are you sure you want to logout?")) return;
   router.post("/logout");
@@ -35,10 +64,7 @@ const logout = () => {
 
 <template>
   <div
-    :class="[
-      'bg-white border-r border-gray-200 flex flex-col transition-all duration-300 w-full md:w-96',
-      activeConversation ? 'hidden md:flex' : 'flex',
-    ]"
+    class="conversation-list-container flex flex-col w-full md:w-96 bg-white border-r border-gray-200"
   >
     <!-- Header -->
     <div class="p-4 pb-0">
@@ -61,7 +87,7 @@ const logout = () => {
         <div class="flex items-center space-x-3">
           <!-- Create Group -->
           <button
-            @click="$emit('create-group')"
+            @click="emit('create-group')"
             class="p-2 text-blue-500 bg-blue-50 rounded-full transition-colors cursor-pointer hover:bg-blue-100"
             title="Create Group"
           >
@@ -112,7 +138,7 @@ const logout = () => {
       <!-- Search Bar -->
       <SearchBar
         :model-value="searchQuery"
-        @update:model-value="$emit('update-search', $event)"
+        @update:model-value="emit('update-search', $event)"
       />
     </div>
 
@@ -120,7 +146,7 @@ const logout = () => {
     <OnlineUsers
       v-if="onlineUsers.length > 0"
       :users="onlineUsers"
-      @start-chat="$emit('start-chat', $event)"
+      @start-chat="emit('start-chat', $event)"
     />
 
     <!-- Tabs -->
@@ -128,7 +154,7 @@ const logout = () => {
       <button
         v-for="tab in tabs"
         :key="tab.value"
-        @click="$emit('update-tab', tab.value)"
+        @click="emit('update-tab', tab.value)"
         :class="[
           'flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer',
           activeTab === tab.value
@@ -140,15 +166,89 @@ const logout = () => {
       </button>
     </div>
 
-    <!-- Conversation List -->
-    <div class="flex-1 overflow-y-auto">
+    <!-- Conversation List Scrollable -->
+    <div
+      ref="conversationListRef"
+      class="conversations-scroll telegram-scrollbar flex-1 overflow-y-auto px-2"
+      @scroll="onScroll"
+    >
       <ConversationItem
         v-for="conversation in conversations"
         :key="conversation.id"
         :conversation="conversation"
         :is-active="activeConversation?.id === conversation.id"
-        @select="$emit('select', conversation)"
+        @select="emit('select', conversation)"
       />
+    </div>
+
+    <!-- Loading Indicator -->
+    <div v-if="conversationPagination.loading" class="loading-indicator">
+      <div class="spinner"></div>
+      <span>Loading more...</span>
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Scrollbar */
+.telegram-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s ease;
+}
+
+.telegram-scrollbar:hover {
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.telegram-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.telegram-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.telegram-scrollbar::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+  transition: background-color 0.3s ease;
+}
+
+.telegram-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.telegram-scrollbar:hover::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.35);
+}
+
+/* Loading */
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  color: #666;
+  font-size: 14px;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+</style>

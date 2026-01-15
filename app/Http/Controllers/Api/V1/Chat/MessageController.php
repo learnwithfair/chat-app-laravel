@@ -19,8 +19,9 @@ class MessageController extends Controller
     public function show(Request $request, int $message)
     {
         // message = Conversation id
-        $messages = $this->chatService->getMessages(Auth::user(), $message, $request->query("q"));
-        return $this->success($messages, 'Messages Fetched Successfully');
+        $perPage  = $request->query('per_page', 20);
+        $messages = $this->chatService->getMessages(Auth::user(), $message, $request->query("q"), $perPage);
+        return $this->success($messages, 'Messages Fetched Successfully', 200, true);
     }
 
     public function store(SendMessageRequest $request)

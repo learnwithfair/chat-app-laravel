@@ -7,11 +7,13 @@
       :active-tab="activeTab"
       :search-query="searchQuery"
       :online-users="onlineUsers"
+      :conversation-pagination="conversationPagination"
       @select="selectConversation"
       @update-tab="activeTab = $event"
       @update-search="searchQuery = $event"
       @create-group="openCreateGroupModal"
       @start-chat="startPrivateChat"
+      @load-more="loadMoreConversations"
     />
 
     <!-- Main Chat Area -->
@@ -46,6 +48,7 @@
         :search-query="messageSearchQuery"
         :highlighted-message-id="highlightedMessageId"
         :typing-users="getTypingUsers"
+        :message-pagination="messagePagination"
         @reply="replyToMessage"
         @edit="editMessage"
         @forward="forwardMessage"
@@ -54,6 +57,7 @@
         @show-details="openMessageDetails"
         @show-seen-by="showSeenByModal"
         @add-reaction="handleAddReaction"
+        @load-more="loadMoreMessages(activeConversation.id)"
       />
 
       <!-- Reply Preview -->
@@ -179,12 +183,17 @@ import DeleteMessageModal from "@/Components/Chat/Modals/DeleteMessageModal.vue"
 import ForwardMessageModal from "@/Components/Chat/Modals/ForwardMessageModal.vue";
 
 import { useChat } from "@/Composables/Chat/useChat";
+import { generateAvatar } from "../../Utils/Chat/avatarHelper";
 
 const {
   // State
   conversations,
   activeConversation,
   messages,
+  conversationPagination,
+  messagePagination,
+  loadMoreConversations,
+  loadMoreMessages,
   searchQuery,
   activeTab,
   activeRightTab,
@@ -319,7 +328,7 @@ const getTypingUsers = computed(() => {
   return users.map((user) => ({
     id: user.id,
     name: user.name,
-    avatar: user.avatar || "https://i.pravatar.cc/150?img=1", // fallback
+    avatar: user.avatar || generateAvatar(user.name), // fallback
   }));
 });
 </script>

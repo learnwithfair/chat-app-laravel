@@ -75,7 +75,7 @@ class ConversationRepository
             ->latest('updated_at')
             ->paginate($perPage);
 
-        return ConversationResource::collection($conversations)->withQueryString();
+        return ConversationResource::collection($conversations);
         // return ConversationResource::collection($conversations)->resolve();
     }
 

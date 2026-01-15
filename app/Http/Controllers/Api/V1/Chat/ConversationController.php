@@ -18,7 +18,7 @@ class ConversationController extends Controller
     {
         $perPage       = (int) $request->get('per_page', 30);
         $conversations = $this->chatService->listConversations(Auth::user(), $perPage, $request->query('q'));
-        return $this->success($conversations, 'Conversations list Fetched Successfully');
+        return $this->success($conversations, 'Conversations list Fetched Successfully', 200, true);
     }
 
     public function startPrivateConversation(Request $request)

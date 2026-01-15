@@ -15,7 +15,7 @@ use Illuminate\Support\Str;
 class MessageRepository
 {
 
-    public function getByConversation(User $user, int $conversationId, ?string $query = null)
+    public function getByConversation(User $user, int $conversationId, ?string $query = null, int $perPage = 20)
     {
         $messages = Message::where('conversation_id', $conversationId)
             ->whereDoesntHave('deletions', function ($q) use ($user) {
@@ -31,8 +31,8 @@ class MessageRepository
                 'statuses',
                 'replyTo.sender:id,name',
             ])
-            ->orderBy('created_at', 'asc')
-            ->get();
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
 
         return MessageResource::collection($messages);
     }

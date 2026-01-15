@@ -49,9 +49,9 @@ class ChatService
     // -------------------------------
     // Messages
     // -------------------------------
-    public function getMessages(User $user, int $conversationId, ?string $query = null)
+    public function getMessages(User $user, int $conversationId, ?string $query = null, int $perPage = 20)
     {
-        return $this->messageRepo->getByConversation($user, $conversationId, $query);
+        return $this->messageRepo->getByConversation($user, $conversationId, $query, $perPage);
     }
 
     public function sendMessage(User $user, array $data)

@@ -4,15 +4,11 @@ import axios from 'axios';
 import { generateAvatar } from '../../Utils/Chat/avatarHelper';
 
 export function useChat() {
-    // ==================== CACHE STORAGE ====================
-    const messageCache = new Map(); // conversationId -> { messages: [], hasMore: bool, currentPage: int }
-    const conversationCache = ref([]);
-    const lastConversationFetch = ref(null);
-    const CACHE_DURATION = 30000; // 30 seconds
-
     // State
     const conversations = ref([]);
     const messages = ref([]);
+    // const onlineUsers = ref([]);
+    // const availableUsers = ref([]);
     const onlineUsers = ref([
         { id: 10, name: 'Alex', avatar: 'https://i.pravatar.cc/150?img=11', isOnline: true },
         { id: 11, name: 'Sam', avatar: 'https://i.pravatar.cc/150?img=12', isOnline: true },
@@ -24,7 +20,6 @@ export function useChat() {
         { id: 21, name: 'Emma Stone', avatar: 'https://i.pravatar.cc/150?img=34' },
         { id: 22, name: 'Ryan Gosling', avatar: 'https://i.pravatar.cc/150?img=35' }
     ]);
-
     const activeConversation = ref(null);
     const searchQuery = ref('');
     const activeTab = ref('all');
@@ -38,21 +33,6 @@ export function useChat() {
 
     const typingUsers = ref({});
     let typingTimeout = null;
-
-    // ==================== PAGINATION STATE ====================
-    const conversationPagination = ref({
-        currentPage: 1,
-        lastPage: 1,
-        hasMore: true,
-        loading: false
-    });
-
-    const messagePagination = ref({
-        currentPage: 1,
-        lastPage: 1,
-        hasMore: true,
-        loading: false
-    });
 
     // Modal states
     const modals = ref({
@@ -77,208 +57,81 @@ export function useChat() {
 
     // ==================== API CALLS ====================
 
-    // Fetch conversations with CACHING and PAGINATION
-    const fetchConversations = async (query = null, page = 1, append = false) => {
-        // Use cache for first page if no query
-        const now = Date.now();
-        if (
-            page === 1 &&
-            !query &&
-            conversationCache.value.length > 0 &&
-            lastConversationFetch.value &&
-            now - lastConversationFetch.value < CACHE_DURATION
-        ) {
-            conversations.value = conversationCache.value;
-            return;
-        }
+    // Fetch conversations
 
-        // Set loading states
-        if (append) conversationPagination.value.loading = true;
-        else loading.value = true;
-
+    const fetchConversations = async (query = null) => {
+        loading.value = true;
         try {
-            // Prepare request params
-            const params = { page, per_page: 30 };
+            const params = {};
             if (query) params.query = query;
 
             const response = await axios.get(`${API_BASE}/conversations`, { params });
-            const data = response.data;
-            const convs = data.data;
-            const meta = data.meta;
 
-            // Format conversations for frontend
-            const formattedConversations = convs.map(conv => {
+            conversations.value = response.data.data.data.map(conv => {
                 const name = conv.type === 'private' ? conv.receiver?.name : conv.name;
-                const avatar =
-                    conv.type === 'private'
-                        ? conv.receiver?.avatar_path ?? generateAvatar(conv.receiver?.name)
-                        : conv.group_setting?.avatar ?? generateAvatar(conv.name);
+                const avatarPath = conv.type === 'private' ? conv.receiver?.avatar_path ?? generateAvatar(conv.receiver?.name) : conv.group_setting?.avatar ?? generateAvatar(conv.name);
 
                 return {
                     id: conv.id,
                     type: conv.type,
                     name: name || 'Unknown',
-                    avatar: avatar,
+                    avatar: avatarPath,
                     lastMessage: conv.last_message?.message || '',
-                    lastMessageTime: conv.last_message?.created_at
-                        ? formatTime(conv.last_message.created_at)
-                        : '',
+                    lastMessageTime: conv.last_message?.created_at ? formatTime(conv.last_message.created_at) : '',
                     unreadCount: conv.unread_count || 0,
                     isOnline: conv.receiver?.is_online || false,
                     isBlocked: conv.is_blocked || false,
-                    createdBy: conv.is_admin ? 1 : 0,
+                    created_by: conv.is_admin ? 1 : 0,
                     members: conv.participants || [],
                     settings: conv.group_setting || null,
                     isMuted: conv.is_muted || false,
                     receiver: conv.receiver || null
                 };
             });
-
-            // Append older conversations or replace
-            if (append) {
-                conversations.value = [...conversations.value, ...formattedConversations];
-            } else {
-                conversations.value = formattedConversations;
-                conversationCache.value = formattedConversations; // update cache
-                lastConversationFetch.value = Date.now();
-            }
-
-            // Update pagination state
-            conversationPagination.value = {
-                currentPage: meta.current_page,
-                lastPage: meta.last_page,
-                hasMore: meta.current_page < meta.last_page,
-                loading: false
-            };
-        } catch (err) {
-            console.error('Failed to fetch conversations:', err);
+        } catch (error) {
+            console.error('Failed to fetch conversations:', error);
         } finally {
             loading.value = false;
-            conversationPagination.value.loading = false;
         }
     };
 
-    const moveConversationToTop = (conversationId, newMessage) => {
-        // Find conversation
-        const index = conversations.value.findIndex(c => c.id === conversationId);
-
-        if (index !== -1) {
-            // Update last message and time
-            conversations.value[index] = {
-                ...conversations.value[index],
-                lastMessage: newMessage.text || newMessage.message,
-                lastMessageTime: formatTime(newMessage.created_at || new Date())
-            };
-
-            // Move conversation to top
-            const [conv] = conversations.value.splice(index, 1);
-            conversations.value.unshift(conv);
-        } else {
-            // Optional: conversation not in list (maybe new), fetch it or add it
-            fetchConversations(); // or add manually
-        }
-    };
-
-
-    // Load more conversations (for infinite scroll)
-    const loadMoreConversations = async () => {
-        if (!conversationPagination.value.hasMore || conversationPagination.value.loading) {
-            return;
-        }
-        await fetchConversations(null, conversationPagination.value.currentPage + 1, true);
-    };
-
-    // Fetch messages with CACHING and PAGINATION 
-
-    const fetchMessages = async (conversationId, page = 1, append = false) => {
-        const cached = messageCache.get(conversationId);
-
-        if (page === 1 && cached && !append) {
-            messages.value = cached.messages;
-            messagePagination.value = { ...cached };
-            await markMessagesAsSeen(conversationId);
-            return;
-        }
-
-        if (append) messagePagination.value.loading = true;
-        else messagesLoading.value = true;
-
+    // Fetch messages for a conversation
+    const fetchMessages = async (conversationId) => {
+        messagesLoading.value = true;
         try {
-            const response = await axios.get(`${API_BASE}/messages/${conversationId}`, {
-                params: { page, per_page: 20 }
-            });
+            const response = await axios.get(`${API_BASE}/messages/${conversationId}`);
 
-            const data = response.data;
-            const meta = data.meta;
+            messages.value = response.data.data.map(msg => ({
+                id: msg.id,
+                text: msg.message,
+                isMine: msg.sender.id === getCurrentUserId(),
+                time: formatTime(msg.created_at),
+                status: getMessageStatus(msg.statuses),
+                senderName: msg.sender.name || 'Unknown',
+                senderAvatar: msg.sender.avatar_path || generateAvatar(msg.sender.name),
+                reactions: formatReactions(msg.reactions),
+                isDeleted: msg.is_deleted_for_everyone || false,
+                isEdited: false,
+                replyTo: msg.reply ? {
+                    senderName: msg.reply.sender.name,
+                    text: msg.reply.message
+                } : null,
+                file: msg.attachments?.length > 0 ? formatAttachment(msg.attachments[0]) : null,
+                seenBy: msg.statuses?.filter(s => s.status === 'seen').map(s => ({
+                    id: s.user_id,
+                    name: s.user?.name || 'Unknown',
+                    avatar: s.user?.avatar_path || generateAvatar(s.user?.name || 'User'),
+                    seenAt: formatTime(s.created_at || msg.created_at)
+                })) || []
+            }));
 
-            // Reverse backend data to have oldest → newest for display
-            const formattedMessages = data.data
-                .map(msg => ({
-                    id: msg.id,
-                    text: msg.message,
-                    isMine: msg.sender.id === getCurrentUserId(),
-                    time: formatTime(msg.created_at),
-                    status: getMessageStatus(msg.statuses),
-                    senderName: msg.sender.name || 'Unknown',
-                    senderAvatar: msg.sender.avatar_path || generateAvatar(msg.sender.name),
-                    reactions: formatReactions(msg.reactions),
-                    isDeleted: msg.is_deleted_for_everyone || false,
-                    isEdited: false,
-                    replyTo: msg.reply ? {
-                        senderName: msg.reply.sender.name,
-                        text: msg.reply.message
-                    } : null,
-                    file: msg.attachments?.length > 0 ? formatAttachment(msg.attachments[0]) : null,
-                    seenBy: msg.statuses?.filter(s => s.status === 'seen').map(s => ({
-                        id: s.user_id,
-                        name: s.user?.name || 'Unknown',
-                        avatar: s.user?.avatar_path || generateAvatar(s.user?.name || 'User'),
-                        seenAt: formatTime(s.created_at || msg.created_at)
-                    })) || []
-                }))
-                .reverse(); // <-- key: always reverse to oldest → newest
-
-            if (append) {
-                // Prepend older messages to top
-                messages.value = [...formattedMessages, ...messages.value];
-            } else {
-                // First page: just set messages
-                messages.value = formattedMessages;
-
-            }
-
-            messagePagination.value = {
-                currentPage: meta.current_page,
-                lastPage: meta.last_page,
-                hasMore: meta.current_page < meta.last_page,
-                loading: false
-            };
-
-            messageCache.set(conversationId, {
-                messages: messages.value,
-                hasMore: messagePagination.value.hasMore,
-                currentPage: messagePagination.value.currentPage,
-                lastPage: messagePagination.value.lastPage
-            });
-
-            if (page === 1) await markMessagesAsSeen(conversationId);
-
-        } catch (err) {
-            console.error('Failed to fetch messages:', err);
+            // Mark as seen
+            await markMessagesAsSeen(conversationId);
+        } catch (error) {
+            console.error('Failed to fetch messages:', error);
         } finally {
             messagesLoading.value = false;
-            messagePagination.value.loading = false;
         }
-    };
-
-
-    // Load more messages (older messages - for infinite scroll UP)
-    const loadMoreMessages = async (conversationId) => {
-
-        if (!messagePagination.value.hasMore || messagePagination.value.loading) {
-            return;
-        }
-        await fetchMessages(conversationId, messagePagination.value.currentPage + 1, true);
     };
 
     // Start private conversation
@@ -306,8 +159,6 @@ export function useChat() {
             const existing = conversations.value.find(c => c.id === newConv.id);
             if (!existing) {
                 conversations.value.unshift(newConv);
-                // Invalidate cache
-                lastConversationFetch.value = null;
             }
 
             return newConv;
@@ -325,12 +176,6 @@ export function useChat() {
                 message: messageData.text,
                 reply_to_message_id: messageData.replyToId || null
             });
-
-            // Update cache with new message
-            const cached = messageCache.get(conversationId);
-            if (cached) {
-                // Will be updated by handleSendMessage
-            }
 
             return response.data.data;
         } catch (error) {
@@ -380,12 +225,6 @@ export function useChat() {
     const markMessagesAsSeen = async (conversationId) => {
         try {
             await axios.get(`${API_BASE}/messages/seen/${conversationId}`);
-
-            // Update unread count in conversation list
-            const conv = conversations.value.find(c => c.id === conversationId);
-            if (conv) {
-                conv.unreadCount = 0;
-            }
         } catch (error) {
             console.error('Failed to mark messages as seen:', error);
         }
@@ -397,6 +236,7 @@ export function useChat() {
             const response = await axios.post(`${API_BASE}/messages/${messageId}/reaction`, {
                 reaction: emoji
             });
+            console.log(response.data);
             return response.data;
         } catch (error) {
             console.error('Failed to toggle reaction:', error);
@@ -421,16 +261,12 @@ export function useChat() {
             const response = await axios.post(`${API_BASE}/conversations`, {
                 type: 'group',
                 name: groupData.name,
-                participants: groupData.members,
+                participants: groupData.members, // array of user IDs
                 group: {
                     description: groupData.description,
                     type: groupData.type
                 }
             });
-
-            // Invalidate conversation cache
-            lastConversationFetch.value = null;
-
             return response.data.data;
         } catch (error) {
             console.error('Failed to create group:', error);
@@ -494,10 +330,6 @@ export function useChat() {
     const leaveGroupAPI = async (conversationId) => {
         try {
             await axios.post(`${API_BASE}/group/${conversationId}/leave`);
-
-            // Clear caches
-            messageCache.delete(conversationId);
-            lastConversationFetch.value = null;
         } catch (error) {
             console.error('Failed to leave group:', error);
             throw error;
@@ -567,114 +399,10 @@ export function useChat() {
     const deleteConversationAPI = async (conversationId) => {
         try {
             await axios.delete(`${API_BASE}/conversations/${conversationId}`);
-
-            // Clear caches
-            messageCache.delete(conversationId);
-            lastConversationFetch.value = null;
         } catch (error) {
             console.error('Failed to delete conversation:', error);
             throw error;
         }
-    };
-
-    // ==================== REAL-TIME UPDATE HANDLER  (For websocket to get real-time updates)====================
-
-    const handleNewMessage = (incomingMsg) => {
-        const conversationId = incomingMsg.conversation_id;
-
-        // Check if the message already exists in UI
-        if (
-            activeConversation.value?.id === conversationId &&
-            messages.value.some(msg => msg.id === incomingMsg.id)
-        ) {
-            return; // Ignore duplicate in active conversation
-        }
-
-        const formatted = {
-            id: incomingMsg.id,
-            text: incomingMsg.message,
-            isMine: incomingMsg.sender.id === getCurrentUserId(),
-            time: formatTime(incomingMsg.created_at),
-            status: 'delivered',
-            senderName: incomingMsg.sender.id === getCurrentUserId() ? 'You' : incomingMsg.sender.name,
-            senderAvatar: incomingMsg.sender.avatar_path || generateAvatar(incomingMsg.sender.name),
-            reactions: [],
-            isDeleted: false,
-            isEdited: false,
-            replyTo: incomingMsg.reply
-                ? {
-                    senderName: incomingMsg.reply.sender.name,
-                    text: incomingMsg.reply.message
-                }
-                : null,
-            file: incomingMsg.attachments?.length > 0 ? formatAttachment(incomingMsg.attachments[0]) : null,
-            seenBy: []
-        };
-
-        // --- Update cache ---
-        const cached = messageCache.get(conversationId);
-        if (!cached) {
-            messageCache.set(conversationId, {
-                messages: [formatted],
-                currentPage: 1,
-                lastPage: 1,
-                hasMore: false,
-                loading: false
-            });
-        } else {
-            if (!cached.messages.some(m => m.id === formatted.id)) {
-                cached.messages.push(formatted);
-            }
-            messageCache.set(conversationId, cached);
-        }
-
-        // --- Update UI if active conversation ---
-        if (activeConversation.value?.id === conversationId) {
-            messages.value.push(formatted);
-            nextTick(() => scrollToBottom());
-        }
-
-        // --- Update conversation list ---
-        const index = conversations.value.findIndex(c => c.id === conversationId);
-
-        if (index !== -1) {
-            const conv = conversations.value[index];
-            conv.lastMessage = formatted.text;
-            conv.lastMessageTime = formatted.time;
-
-            // Increment unread if not active
-            if (activeConversation.value?.id !== conversationId) {
-                conv.unreadCount = (conv.unreadCount || 0) + 1;
-            }
-
-            // Move to top
-            conversations.value.splice(index, 1);
-            conversations.value.unshift(conv);
-        } else {
-            // Optional: if conversation is not in the list, add it (useful for brand new convs)
-            conversations.value.unshift({
-                id: conversationId,
-                name: formatted.senderName,
-                avatar: formatted.senderAvatar,
-                lastMessage: formatted.text,
-                lastMessageTime: formatted.time,
-                unreadCount: 1,
-                type: 'private', // adjust as needed
-                members: [formatted.senderName], // adjust as needed
-                isMuted: false,
-                isBlocked: false
-            });
-        }
-
-        // --- Invalidate conversation cache so next fetch refreshes if needed ---
-        lastConversationFetch.value = null;
-    }; 
-
-    // Clear all caches (for logout or manual refresh)
-    const clearCache = () => {
-        messageCache.clear();
-        conversationCache.value = [];
-        lastConversationFetch.value = null;
     };
 
     // ==================== HELPER FUNCTIONS ====================
@@ -684,9 +412,13 @@ export function useChat() {
         const now = new Date();
         const diff = now - date;
 
+        // Less than 1 minute
         if (diff < 60000) return 'Just now';
+        // Less than 1 hour
         if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
+        // Less than 1 day
         if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
+        // Less than 1 week
         if (diff < 604800000) return `${Math.floor(diff / 86400000)}d`;
 
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -722,6 +454,7 @@ export function useChat() {
     };
 
     const getCurrentUserId = () => {
+        // Get from your auth store or window object
         return window.authUser?.id || 1;
     };
 
@@ -738,7 +471,9 @@ export function useChat() {
             const query = searchQuery.value.toLowerCase();
             filtered = filtered.filter(conv => {
                 const rawConv = toRaw(conv);
+                // Safe name check
                 const nameMatch = rawConv.name ? rawConv.name.toLowerCase().includes(query) : false;
+                // Safe lastMessage check
                 const messageMatch = rawConv.lastMessage ? rawConv.lastMessage.toLowerCase().includes(query) : false;
 
                 return nameMatch || messageMatch;
@@ -767,15 +502,6 @@ export function useChat() {
 
     const selectConversation = async (conversation) => {
         activeConversation.value = conversation;
-
-        // Reset pagination for new conversation
-        messagePagination.value = {
-            currentPage: 1,
-            lastPage: 1,
-            hasMore: true,
-            loading: false
-        };
-
         await fetchMessages(conversation.id);
         nextTick(() => {
             scrollToBottom();
@@ -802,8 +528,6 @@ export function useChat() {
         const replyToId = replyingTo.value?.id || null;
 
         try {
-            let sentMsg;
-
             if (editingMessage.value) {
                 // Update existing message
                 await updateMessageAPI(editingMessage.value.id, messageText);
@@ -813,26 +537,16 @@ export function useChat() {
                     msg.text = messageText;
                     msg.isEdited = true;
                 }
-
-                // Update cache
-                const cached = messageCache.get(activeConversation.value.id);
-                if (cached) {
-                    const cachedMsg = cached.messages.find(m => m.id === editingMessage.value.id);
-                    if (cachedMsg) {
-                        cachedMsg.text = messageText;
-                        cachedMsg.isEdited = true;
-                    }
-                }
-
                 editingMessage.value = null;
             } else {
                 // Send new message
-                sentMsg = await sendMessageAPI(activeConversation.value.id, {
+                const sentMsg = await sendMessageAPI(activeConversation.value.id, {
                     text: messageText,
                     replyToId
                 });
 
-                const newMsg = {
+                // Add to messages array
+                messages.value.push({
                     id: sentMsg.id,
                     text: sentMsg.message,
                     isMine: true,
@@ -849,41 +563,19 @@ export function useChat() {
                     } : null,
                     file: null,
                     seenBy: []
-                };
-
-                // Add message to UI
-                messages.value.push(newMsg);
-
-                const cached = messageCache.get(activeConversation.value.id);
-
-                if (!cached) {
-                    messageCache.set(activeConversation.value.id, { messages: [newMsg], currentPage: 1, lastPage: 1, hasMore: false, loading: false });
-                } else {
-                    // Only push if the message ID doesn't exist yet
-                    if (!cached.messages.some(m => m.id === newMsg.id)) {
-                        cached.messages.push(newMsg);
-                    }
-                    messageCache.set(activeConversation.value.id, cached);
-                }
-
+                });
 
                 replyingTo.value = null;
-
-                // --- NEW: Move conversation to top in sidebar ---
-                moveConversationToTop(activeConversation.value.id, sentMsg);
             }
 
             newMessage.value = '';
             nextTick(() => {
                 scrollToBottom();
             });
-
         } catch (error) {
             console.error('Failed to send message:', error);
         }
     };
-
-
 
     const replyToMessage = (message) => {
         replyingTo.value = message;
@@ -911,6 +603,7 @@ export function useChat() {
     };
 
     const handleForwardMessage = async ({ message, conversationIds }) => {
+        // Implement forward logic with API
         console.log('Forwarding message to:', conversationIds);
     };
 
@@ -923,13 +616,6 @@ export function useChat() {
         try {
             await deleteMessageForMeAPI([messageToDelete.value.id]);
             messages.value = messages.value.filter(m => m.id !== messageToDelete.value.id);
-
-            // Update cache
-            const cached = messageCache.get(activeConversation.value.id);
-            if (cached) {
-                cached.messages = cached.messages.filter(m => m.id !== messageToDelete.value.id);
-            }
-
             closeModal('deleteMessage');
         } catch (error) {
             console.error('Failed to delete message:', error);
@@ -944,17 +630,6 @@ export function useChat() {
                 msg.isDeleted = true;
                 msg.text = 'This message was deleted';
             }
-
-            // Update cache
-            const cached = messageCache.get(activeConversation.value.id);
-            if (cached) {
-                const cachedMsg = cached.messages.find(m => m.id === messageToDelete.value.id);
-                if (cachedMsg) {
-                    cachedMsg.isDeleted = true;
-                    cachedMsg.text = 'This message was deleted';
-                }
-            }
-
             closeModal('deleteMessage');
         } catch (error) {
             console.error('Failed to delete message for everyone:', error);
@@ -976,7 +651,6 @@ export function useChat() {
         selectedMessageDetails.value = message;
         modals.value.messageDetails = true;
     };
-    // old
 
     const showSeenByModal = (message) => {
         currentSeenBy.value = message.seenBy || [];
@@ -1321,11 +995,6 @@ export function useChat() {
         handleSendVoice,
         typingUsers,
         listenForTyping,
-        conversationPagination,
-        messagePagination,
-        loadMoreConversations,
-        loadMoreMessages,
-        clearCache,
 
         // Group Management
         openCreateGroupModal,
