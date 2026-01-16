@@ -26,8 +26,9 @@
         <!-- Reply Preview -->
         <div
           v-if="message.replyTo"
+          @click.stop="goToRepliedMessage"
           :class="[
-            'text-xs p-2 rounded-t-lg border-l-4',
+            'text-xs p-2 rounded-t-lg border-l-4 cursor-pointer hover:opacity-80',
             message.isMine
               ? 'bg-blue-100 border-blue-500'
               : 'bg-gray-200 border-gray-500',
@@ -39,7 +40,7 @@
 
         <!-- Message Bubble -->
         <div
-          @click="$emit('show-details')"
+          @click="emit('show-details')"
           :class="[
             'rounded-lg p-3 shadow-sm cursor-pointer relative group transition-all',
             message.isMine ? 'bg-blue-500 text-white' : 'bg-white text-gray-800',
@@ -53,10 +54,10 @@
             v-if="!message.isDeleted"
             :message="message"
             :is-mine="message.isMine"
-            @reply="$emit('reply')"
-            @edit="$emit('edit')"
-            @forward="$emit('forward')"
-            @delete="$emit('delete')"
+            @reply="emit('reply', $event)"
+            @edit="emit('edit', $event)"
+            @forward="emit('forward', $event)"
+            @delete="emit('delete', $event)"
           />
 
           <!-- Edited Badge -->
@@ -86,12 +87,11 @@
               class="rounded-lg max-w-full"
             />
 
-            <!-- VOICE MESSAGE (ADD THIS) -->
+            <!-- Audio -->
             <div
               v-else-if="message.file.type === 'audio'"
               class="flex items-center space-x-3 p-2 rounded-lg bg-black bg-opacity-10"
             >
-              <!-- Play/Pause Button -->
               <button
                 @click="toggleAudioPlayback"
                 class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center hover:bg-black hover:bg-opacity-10 transition-colors"
@@ -123,7 +123,6 @@
                 </svg>
               </button>
 
-              <!-- Waveform / Progress -->
               <div class="flex-1">
                 <div class="h-1 bg-black bg-opacity-20 rounded-full overflow-hidden">
                   <div
@@ -148,7 +147,6 @@
                 </div>
               </div>
 
-              <!-- Hidden Audio Element -->
               <audio
                 ref="audioPlayer"
                 :src="message.file.url"
@@ -158,7 +156,7 @@
               ></audio>
             </div>
 
-            <!-- Document (existing) -->
+            <!-- Document -->
             <div
               v-else
               class="flex items-center space-x-2 p-2 bg-black bg-opacity-10 rounded"
@@ -190,23 +188,23 @@
           </div>
         </div>
 
-        <!-- Reactions (Messenger Style) -->
+        <!-- Reactions -->
         <MessageReactions
           v-if="!message.isDeleted"
           :reactions="message.reactions || []"
           :align-right="message.isMine"
           :message-id="message.id"
-          @add-reaction="$emit('add-reaction', $event)"
+          @add-reaction="emit('add-reaction', $event)"
         />
 
-        <!-- Seen By Avatars (Below message, right aligned) -->
+        <!-- Seen By -->
         <div
           v-if="message.isMine && message.seenBy && message.seenBy.length > 0"
           class="flex justify-end mt-0 mb-0"
-          style="margin-top: -25px;"
+          style="margin-top: -25px"
         >
           <button
-            @click.stop="$emit('show-seen-by')"
+            @click.stop="emit('show-seen-by')"
             class="flex -space-x-2 hover:opacity-80 transition-opacity"
           >
             <img
@@ -228,33 +226,20 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
-import { ref, onBeforeUnmount } from "vue";
+import { computed, ref, onBeforeUnmount } from "vue";
 
 import MessageActions from "./MessageActions.vue";
 import MessageStatus from "./MessageStatus.vue";
 import MessageReactions from "./MessageReactions.vue";
 
 const props = defineProps({
-  message: {
-    type: Object,
-    required: true,
-  },
-  isGroup: {
-    type: Boolean,
-    default: false,
-  },
-  searchQuery: {
-    type: String,
-    default: "",
-  },
-  isHighlighted: {
-    type: Boolean,
-    default: false,
-  },
+  message: { type: Object, required: true },
+  isGroup: { type: Boolean, default: false },
+  searchQuery: { type: String, default: "" },
+  isHighlighted: { type: Boolean, default: false },
 });
 
-defineEmits([
+const emit = defineEmits([
   "show-details",
   "reply",
   "edit",
@@ -262,9 +247,16 @@ defineEmits([
   "delete",
   "show-seen-by",
   "add-reaction",
+  "scroll-to-message",
 ]);
 
-// Audio playback state
+// Reply navigation
+const goToRepliedMessage = () => {
+  if (!props.message.replyTo?.id) return;
+  emit("scroll-to-message", props.message.replyTo.id);
+};
+
+// Audio
 const audioPlayer = ref(null);
 const isPlaying = ref(false);
 const currentAudioTime = ref(0);
@@ -272,7 +264,6 @@ const audioProgress = ref(0);
 
 const toggleAudioPlayback = () => {
   if (!audioPlayer.value) return;
-
   if (isPlaying.value) {
     audioPlayer.value.pause();
     isPlaying.value = false;
@@ -284,7 +275,6 @@ const toggleAudioPlayback = () => {
 
 const updateAudioProgress = () => {
   if (!audioPlayer.value) return;
-
   currentAudioTime.value = audioPlayer.value.currentTime;
   const duration = audioPlayer.value.duration || 1;
   audioProgress.value = (currentAudioTime.value / duration) * 100;
@@ -297,7 +287,6 @@ const audioEnded = () => {
 };
 
 const audioLoaded = () => {
-  // Audio metadata loaded
   if (audioPlayer.value && props.message.file) {
     props.message.file.duration = Math.floor(audioPlayer.value.duration);
   }
@@ -310,31 +299,23 @@ const formatAudioTime = (seconds) => {
 };
 
 onBeforeUnmount(() => {
-  if (audioPlayer.value) {
-    audioPlayer.value.pause();
-  }
+  if (audioPlayer.value) audioPlayer.value.pause();
 });
 
-// Highlight search query in message text
-const highlightedText = computed(() => {
-  if (!props.searchQuery || props.message.isDeleted) {
-    return props.message.text;
-  }
+// Search highlight
+const escapeRegex = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const highlightedText = computed(() => {
+  if (!props.searchQuery || props.message.isDeleted) return props.message.text;
   const regex = new RegExp(`(${escapeRegex(props.searchQuery)})`, "gi");
   return props.message.text.replace(
     regex,
     '<mark class="bg-yellow-300 text-gray-900 rounded px-1">$1</mark>'
   );
 });
-
-const escapeRegex = (string) => {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-};
 </script>
 
 <style scoped>
-/* Smooth highlight transition */
 .ring-4 {
   animation: highlight-pulse 1s ease-in-out;
 }

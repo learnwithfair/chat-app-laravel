@@ -211,6 +211,7 @@ export function useChat() {
             const data = response.data;
             const meta = data.meta;
 
+            console.log(data);
             // Reverse backend data to have oldest → newest for display
             const formattedMessages = data.data
                 .map(msg => ({
@@ -225,6 +226,7 @@ export function useChat() {
                     isDeleted: msg.is_deleted_for_everyone || false,
                     isEdited: false,
                     replyTo: msg.reply ? {
+                        id: msg.reply.id,
                         senderName: msg.reply.sender.name,
                         text: msg.reply.message
                     } : null,
@@ -668,7 +670,7 @@ export function useChat() {
 
         // --- Invalidate conversation cache so next fetch refreshes if needed ---
         lastConversationFetch.value = null;
-    }; 
+    };
 
     // Clear all caches (for logout or manual refresh)
     const clearCache = () => {

@@ -1,13 +1,15 @@
 <template>
+  <!-- Messages container -->
   <div
-    class="flex-1 overflow-y-auto p-4 space-y-4"
+    class="relative flex-1 overflow-y-auto p-4 space-y-4"
     ref="messageContainer"
     @scroll="onScroll"
   >
-    <!-- Loading indicator -->
-    <div v-if="messagePagination?.loading" class="loading-indicator">
-      <div class="spinner"></div>
-      <span>Loading older messages...</span>
+    <!-- Spinner shown when loading older messages (prepend) -->
+    <div v-if="isLoadingMore" class="flex justify-center mb-2">
+      <div
+        class="spinner w-8 h-8 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"
+      ></div>
     </div>
 
     <!-- Messages -->
@@ -27,6 +29,7 @@
       @show-details="emit('show-details', message)"
       @show-seen-by="emit('show-seen-by', message)"
       @add-reaction="emit('add-reaction', $event)"
+      @scroll-to-message="scrollToMessage"
     />
 
     <!-- Typing Indicator -->
@@ -35,6 +38,17 @@
       :typing-users="typingUsers"
       :is-group="isGroup"
     />
+
+    <!-- Spinner shown when auto-scrolling to a reply -->
+    <div
+      v-if="isLoadingForScroll"
+      class="flex justify-center mb-2"
+      style="position: relative"
+    >
+      <div
+        class="spinner w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"
+      ></div>
+    </div>
   </div>
 </template>
 
@@ -67,6 +81,7 @@ const emit = defineEmits([
 const messageContainer = ref(null);
 const messageRefs = ref({});
 const isLoadingMore = ref(false);
+const isLoadingForScroll = ref(false);
 
 const onScroll = (e) => {
   const { scrollTop, scrollHeight } = e.target;
@@ -90,12 +105,87 @@ const onScroll = (e) => {
   }
 };
 
+const pendingScrollTo = ref(null);
+const MAX_LOADS = 20;
+
+const scrollToMessage = async (messageId) => {
+  pendingScrollTo.value = { id: messageId, tries: 0 };
+
+  // Show the floating spinner at bottom of container (not top)
+  isLoadingForScroll.value = true;
+
+  // Wait for Vue to render spinner
+  await nextTick();
+  await new Promise((r) => setTimeout(r, 500));
+
+  // Start recursive scroll
+  tryScroll();
+};
+
+const tryScroll = async () => {
+  if (!pendingScrollTo.value) return;
+  const { id, tries } = pendingScrollTo.value;
+
+  // 1️⃣ Check if message exists in DATA
+  const exists = props.messages.some((m) => m.id === id);
+
+  if (exists) {
+    await nextTick();
+    const el = document.getElementById(`message-${id}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      pendingScrollTo.value = null;
+      // isLoadingForScroll.value = false;
+      return;
+    }
+  }
+
+  // 2️⃣ Stop if too many attempts or no more pages
+  if (
+    tries >= MAX_LOADS ||
+    !props.messagePagination?.hasMore ||
+    props.messagePagination?.loading
+  ) {
+    pendingScrollTo.value = null;
+    // isLoadingForScroll.value = false;
+    return;
+  }
+
+  // 3️⃣ Load next page and wait for messages to arrive
+  pendingScrollTo.value.tries++;
+  isLoadingForScroll.value = true;
+
+  // Emit loadMore and wait until messages length changes
+  await new Promise((resolve) => {
+    const stop = watch(
+      () => props.messages.length,
+      () => {
+        stop(); // stop watching
+        resolve();
+      }
+    );
+    emit("loadMore");
+  });
+
+  // 4️⃣ Try scroll again after new messages rendered
+  await nextTick();
+  tryScroll();
+};
+
 watch(
   () => props.messages.length,
-  (newLen, oldLen) => {
+  async (newLen, oldLen) => {
+    // 1️⃣ If a pending scroll is active, try again
+    if (pendingScrollTo.value) {
+      await tryScroll();
+      return; // skip auto scroll to bottom
+    }
+
+    // 2️⃣ Otherwise, auto-scroll to bottom if new messages arrive
     if (newLen > oldLen && !isLoadingMore.value) {
       nextTick(scrollToBottom);
     }
+
     isLoadingMore.value = false;
   }
 );
@@ -124,3 +214,23 @@ function scrollToBottom() {
 
 defineExpose({ scrollToBottom });
 </script>
+
+<style scoped>
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 4px solid #3b82f6;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+</style>
