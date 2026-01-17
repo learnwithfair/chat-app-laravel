@@ -33,6 +33,7 @@ export function useChat() {
     const newMessage = ref('');
     const replyingTo = ref(null);
     const editingMessage = ref(null);
+    const selectedFiles = ref([]);
     const loading = ref(false);
     const messagesLoading = ref(false);
 
@@ -71,6 +72,8 @@ export function useChat() {
     const messageToDelete = ref(null);
     const messageToForward = ref(null);
     const messageContainer = ref(null);
+
+
 
     // API Base URL
     const API_BASE = '/api/v1';
@@ -681,18 +684,68 @@ export function useChat() {
 
     // ==================== HELPER FUNCTIONS ====================
 
+    // const formatTime = (datetime) => {
+    //     const date = new Date(datetime);
+    //     const now = new Date();
+    //     const diff = now - date;
+
+    //     if (diff < 60000) return 'Just now';
+    //     if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
+    //     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
+    //     if (diff < 604800000) return `${Math.floor(diff / 86400000)}d`;
+
+    //     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    // };
+
     const formatTime = (datetime) => {
-        const date = new Date(datetime);
+        const date = parseLocalDateTime(datetime);
+
+        // 🚨 IMPORTANT GUARD
+        if (!date || isNaN(date.getTime())) {
+            return 'Just now';
+        }
+
         const now = new Date();
         const diff = now - date;
 
-        if (diff < 60000) return 'Just now';
-        if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
-        if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
-        if (diff < 604800000) return `${Math.floor(diff / 86400000)}d`;
+        if (diff < 60 * 1000) return 'Just now';
+        if (diff < 60 * 60 * 1000) return `${Math.floor(diff / 60000)}m`;
+        if (diff < 24 * 60 * 60 * 1000) return `${Math.floor(diff / 3600000)}h`;
 
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        return date.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+        });
     };
+
+
+    const parseLocalDateTime = (datetime) => {
+        if (!datetime) return null;
+
+        // Already a Date object
+        if (datetime instanceof Date) return datetime;
+
+        // Must be a string
+        if (typeof datetime !== 'string') return null;
+
+        // Expected: "YYYY-MM-DD HH:mm:ss"
+        if (!datetime.includes(' ')) return null;
+
+        const [datePart, timePart] = datetime.split(' ');
+        if (!datePart || !timePart) return null;
+
+        const [year, month, day] = datePart.split('-').map(Number);
+        const [hour, minute, second = 0] = timePart.split(':').map(Number);
+
+        const date = new Date(year, month - 1, day, hour, minute, second);
+        return isNaN(date.getTime()) ? null : date;
+    };
+
+
+
+
+
 
     const formatReactions = (reactions) => {
         if (!reactions || !reactions.reactions) return [];
@@ -797,11 +850,102 @@ export function useChat() {
         }
     };
 
+    // const handleSendMessage = async () => {
+    //     if (!newMessage.value.trim() || !activeConversation.value) return;
+
+    //     const messageText = newMessage.value;
+    //     const replyToId = replyingTo.value?.id || null;
+
+    //     try {
+    //         let sentMsg;
+
+    //         if (editingMessage.value) {
+    //             // Update existing message
+    //             await updateMessageAPI(editingMessage.value.id, messageText);
+
+    //             const msg = messages.value.find(m => m.id === editingMessage.value.id);
+    //             if (msg) {
+    //                 msg.text = messageText;
+    //                 msg.isEdited = true;
+    //             }
+
+    //             // Update cache
+    //             const cached = messageCache.get(activeConversation.value.id);
+    //             if (cached) {
+    //                 const cachedMsg = cached.messages.find(m => m.id === editingMessage.value.id);
+    //                 if (cachedMsg) {
+    //                     cachedMsg.text = messageText;
+    //                     cachedMsg.isEdited = true;
+    //                 }
+    //             }
+
+    //             editingMessage.value = null;
+    //         } else {
+    //             // Send new message
+    //             sentMsg = await sendMessageAPI(activeConversation.value.id, {
+    //                 text: messageText,
+    //                 replyToId
+    //             });
+
+    //             const newMsg = {
+    //                 id: sentMsg.id,
+    //                 text: sentMsg.message,
+    //                 isMine: true,
+    //                 time: formatTime(sentMsg.created_at),
+    //                 status: 'sent',
+    //                 senderName: 'You',
+    //                 senderAvatar: '',
+    //                 reactions: [],
+    //                 isDeleted: false,
+    //                 isEdited: false,
+    //                 replyTo: replyingTo.value ? {
+    //                     senderName: replyingTo.value.senderName,
+    //                     text: replyingTo.value.text
+    //                 } : null,
+    //                 file: null,
+    //                 seenBy: []
+    //             };
+
+    //             // Add message to UI
+    //             messages.value.push(newMsg);
+
+    //             const cached = messageCache.get(activeConversation.value.id);
+
+    //             if (!cached) {
+    //                 messageCache.set(activeConversation.value.id, { messages: [newMsg], currentPage: 1, lastPage: 1, hasMore: false, loading: false });
+    //             } else {
+    //                 // Only push if the message ID doesn't exist yet
+    //                 if (!cached.messages.some(m => m.id === newMsg.id)) {
+    //                     cached.messages.push(newMsg);
+    //                 }
+    //                 messageCache.set(activeConversation.value.id, cached);
+    //             }
+
+
+    //             replyingTo.value = null;
+
+    //             // --- NEW: Move conversation to top in sidebar ---
+    //             moveConversationToTop(activeConversation.value.id, sentMsg);
+    //         }
+
+    //         newMessage.value = '';
+    //         nextTick(() => {
+    //             scrollToBottom();
+    //         });
+
+    //     } catch (error) {
+    //         console.error('Failed to send message:', error);
+    //     }
+    // };
+
+    // In your useChat.js composable
+
     const handleSendMessage = async () => {
-        if (!newMessage.value.trim() || !activeConversation.value) return;
+        if ((!newMessage.value.trim() && selectedFiles.value.length === 0) || !activeConversation.value) return;
 
         const messageText = newMessage.value;
         const replyToId = replyingTo.value?.id || null;
+        const files = selectedFiles.value;
 
         try {
             let sentMsg;
@@ -828,12 +972,41 @@ export function useChat() {
 
                 editingMessage.value = null;
             } else {
-                // Send new message
-                sentMsg = await sendMessageAPI(activeConversation.value.id, {
-                    text: messageText,
-                    replyToId
-                });
+                // Prepare FormData for file upload
+                const formData = new FormData();
+                formData.append('conversation_id', activeConversation.value.id);
+                formData.append('message', messageText || '');
 
+                if (replyToId) {
+                    formData.append('reply_to_message_id', replyToId);
+                }
+
+                // Determine message type
+                if (files.length > 0) {
+                    files.forEach((fileObj, index) => {
+                        formData.append(`attachments[${index}][path]`, fileObj.file);
+                    });
+
+                    // Set message type based on files
+                    if (files.length > 1 || (files.length === 1 && messageText)) {
+                        formData.append('message_type', 'multiple');
+                    } else if (files[0].type.startsWith('image/')) {
+                        formData.append('message_type', 'image');
+                    } else if (files[0].type.startsWith('video/')) {
+                        formData.append('message_type', 'video');
+                    } else if (files[0].type.startsWith('audio/')) {
+                        formData.append('message_type', 'audio');
+                    } else {
+                        formData.append('message_type', 'file');
+                    }
+                } else {
+                    formData.append('message_type', 'text');
+                }
+
+                // Send message with files
+                sentMsg = await sendMessageWithFilesAPI(formData);
+
+                // Create new message object
                 const newMsg = {
                     id: sentMsg.id,
                     text: sentMsg.message,
@@ -849,33 +1022,38 @@ export function useChat() {
                         senderName: replyingTo.value.senderName,
                         text: replyingTo.value.text
                     } : null,
-                    file: null,
+                    file: sentMsg.attachments || null,
+                    messageType: sentMsg.message_type,
                     seenBy: []
                 };
 
-                // Add message to UI
+                // Add to UI
                 messages.value.push(newMsg);
 
+                // Update cache
                 const cached = messageCache.get(activeConversation.value.id);
-
                 if (!cached) {
-                    messageCache.set(activeConversation.value.id, { messages: [newMsg], currentPage: 1, lastPage: 1, hasMore: false, loading: false });
+                    messageCache.set(activeConversation.value.id, {
+                        messages: [newMsg],
+                        currentPage: 1,
+                        lastPage: 1,
+                        hasMore: false,
+                        loading: false
+                    });
                 } else {
-                    // Only push if the message ID doesn't exist yet
                     if (!cached.messages.some(m => m.id === newMsg.id)) {
                         cached.messages.push(newMsg);
                     }
                     messageCache.set(activeConversation.value.id, cached);
                 }
 
-
                 replyingTo.value = null;
-
-                // --- NEW: Move conversation to top in sidebar ---
                 moveConversationToTop(activeConversation.value.id, sentMsg);
             }
 
             newMessage.value = '';
+            selectedFiles.value = [];
+
             nextTick(() => {
                 scrollToBottom();
             });
@@ -885,7 +1063,21 @@ export function useChat() {
         }
     };
 
-
+    // New API method for sending files
+    const sendMessageWithFilesAPI = async (formData) => {
+        try {
+            const response = await axios.post(`${API_BASE}/messages`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            console.log(response.data.data);
+            return response.data.data;
+        } catch (error) {
+            console.error('Failed to send message with files:', error);
+            throw error;
+        }
+    };
 
     const replyToMessage = (message) => {
         replyingTo.value = message;
@@ -1285,6 +1477,7 @@ export function useChat() {
         newMessage,
         replyingTo,
         editingMessage,
+        selectedFiles,
         modals,
         selectedReactionUsers,
         currentSeenBy,

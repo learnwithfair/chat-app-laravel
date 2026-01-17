@@ -46,6 +46,78 @@ class MessageRepository
         ])->find($messageId);
     }
 
+    // public function storeMessage(User $user, array $data)
+    // {
+    //     // 1. Auto-create private conversation
+    //     if (empty($data['conversation_id']) && ! empty($data['receiver_id'])) {
+    //         $data['conversation_id'] = app(ChatService::class)->startConversation($user, $data['receiver_id'])->id;
+    //     }
+
+    //     // 2. Validate membership
+    //     $participant = ConversationParticipant::where('conversation_id', $data['conversation_id'])->where('user_id', $user->id)->active()->first();
+
+    //     if (! $participant) {
+    //         abort(403, 'You are no longer a member of this conversation.');
+    //     }
+    //     $conversation = Conversation::findOrFail($data['conversation_id']);
+
+    //     // 3. Block check (receiver blocked sender)
+    //     if ($conversation->type === 'private' &&
+    //         $conversation->otherParticipant($user)?->hasBlocked($user)
+    //     ) {
+    //         abort(403, 'You cannot send message to this user.');
+    //     }
+
+    //     // 4. Create message
+    //     $message = Message::create([
+    //         'conversation_id'     => $data['conversation_id'],
+    //         'sender_id'           => $user->id,
+    //         'receiver_id'         => $data['receiver_id'] ?? null,
+    //         'message'             => $data['message'] ?? null,
+    //         'message_type'        => $data['message_type'] ?? 'text',
+    //         'reply_to_message_id' => $data['reply_to_message_id'] ?? null,
+    //         'is_restricted'       => ! empty($data['receiver_id']) &&
+    //         $user->restrictedByUsers()->where('users.id', $data['receiver_id'])->exists(),
+    //     ]);
+
+    //     // 5. Attachments
+    //     if (! empty($data['attachments'])) {
+    //         foreach ($data['attachments'] as $file) {
+
+    //             $media_path = uploadFile($file['path'], 'uploads/messages', (string) Str::uuid());
+    //             $message->attachments()->create([
+    //                 'path' => $media_path,
+    //                 'type' => getFileType($media_path),
+    //                 'size' => file_exists(public_path($media_path)) ? filesize(public_path($media_path)) : null,
+    //             ]);
+    //         }
+    //     }
+
+    //     // 6. Update last read
+    //     $participant->update(['last_read_message_id' => $message->id]);
+
+    //     // 7. Create message statuses (bulk)
+    //     $participants = ConversationParticipant::where('conversation_id', $data['conversation_id'])->active()->get();
+
+    //     $statuses = $participants->map(fn($p) => [
+    //         'message_id' => $message->id,
+    //         'user_id'    => $p->user_id,
+    //         'status'     => $p->user_id === $user->id ? 'seen' : 'sent',
+    //         'created_at' => now(),
+    //         'updated_at' => now(),
+    //     ])->toArray();
+
+    //     MessageStatus::insert($statuses);
+
+    //     // 8. Touch conversation for last activity
+    //     $conversation->touch();
+
+    //     // 9. Push notification
+    //     $this->sendMessagePushNotification($conversation, $message, $user);
+
+    //     return new MessageResource($message);
+    // }
+
     public function storeMessage(User $user, array $data)
     {
         // 1. Auto-create private conversation
@@ -83,7 +155,6 @@ class MessageRepository
         // 5. Attachments
         if (! empty($data['attachments'])) {
             foreach ($data['attachments'] as $file) {
-
                 $media_path = uploadFile($file['path'], 'uploads/messages', (string) Str::uuid());
                 $message->attachments()->create([
                     'path' => $media_path,
@@ -115,7 +186,16 @@ class MessageRepository
         // 9. Push notification
         $this->sendMessagePushNotification($conversation, $message, $user);
 
-        return $message->load('replyTo');
+        // 10. Load relationships before returning (SAME AS getByConversation)
+        $message->load([
+            'sender:id,name',
+            'reactions',
+            'attachments',
+            'statuses',
+            'replyTo.sender:id,name',
+        ]);
+
+        return new MessageResource($message);
     }
 
     public function updateMessage(User $user, array $data, Message $message)

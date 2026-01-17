@@ -38,22 +38,23 @@
       :typing-users="typingUsers"
       :is-group="isGroup"
     />
-
     <!-- Spinner shown when auto-scrolling to a reply -->
     <div
       v-if="isLoadingForScroll"
-      class="flex justify-center mb-2"
-      style="position: relative"
+      class="fixed bottom-40 z-50"
+      :style="{ left: `${messageContainerLeft}px`, width: `${messageContainerWidth}px` }"
     >
-      <div
-        class="spinner w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"
-      ></div>
+      <div class="flex justify-center">
+        <div
+          class="spinner w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin shadow-lg"
+        ></div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted } from "vue";
+import { ref, watch, nextTick, onMounted, onUnmounted } from "vue";
 import MessageItem from "./MessageItem.vue";
 import TypingIndicatorMessage from "./TypingIndicatorMessage.vue";
 
@@ -82,6 +83,27 @@ const messageContainer = ref(null);
 const messageRefs = ref({});
 const isLoadingMore = ref(false);
 const isLoadingForScroll = ref(false);
+
+const messageContainerLeft = ref(0);
+const messageContainerWidth = ref(0);
+
+const updateContainerPosition = () => {
+  if (messageContainer.value) {
+    const rect = messageContainer.value.getBoundingClientRect();
+    messageContainerLeft.value = rect.left;
+    messageContainerWidth.value = rect.width;
+  }
+};
+
+onMounted(() => {
+  updateContainerPosition();
+  window.addEventListener("resize", updateContainerPosition);
+});
+
+// Optional: Clean up on unmount
+onUnmounted(() => {
+  window.removeEventListener("resize", updateContainerPosition);
+});
 
 const onScroll = (e) => {
   const { scrollTop, scrollHeight } = e.target;
@@ -126,7 +148,7 @@ const tryScroll = async () => {
   if (!pendingScrollTo.value) return;
   const { id, tries } = pendingScrollTo.value;
 
-  // 1️⃣ Check if message exists in DATA
+  // 1️ Check if message exists in DATA
   const exists = props.messages.some((m) => m.id === id);
 
   if (exists) {
@@ -135,23 +157,23 @@ const tryScroll = async () => {
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       pendingScrollTo.value = null;
-      // isLoadingForScroll.value = false;
+      isLoadingForScroll.value = false;
       return;
     }
   }
 
-  // 2️⃣ Stop if too many attempts or no more pages
+  // 2️ Stop if too many attempts or no more pages
   if (
     tries >= MAX_LOADS ||
     !props.messagePagination?.hasMore ||
     props.messagePagination?.loading
   ) {
     pendingScrollTo.value = null;
-    // isLoadingForScroll.value = false;
+    isLoadingForScroll.value = false;
     return;
   }
 
-  // 3️⃣ Load next page and wait for messages to arrive
+  // 3️ Load next page and wait for messages to arrive
   pendingScrollTo.value.tries++;
   isLoadingForScroll.value = true;
 
@@ -167,7 +189,7 @@ const tryScroll = async () => {
     emit("loadMore");
   });
 
-  // 4️⃣ Try scroll again after new messages rendered
+  // 4️ Try scroll again after new messages rendered
   await nextTick();
   tryScroll();
 };
@@ -175,13 +197,13 @@ const tryScroll = async () => {
 watch(
   () => props.messages.length,
   async (newLen, oldLen) => {
-    // 1️⃣ If a pending scroll is active, try again
+    // 1️ If a pending scroll is active, try again
     if (pendingScrollTo.value) {
       await tryScroll();
       return; // skip auto scroll to bottom
     }
 
-    // 2️⃣ Otherwise, auto-scroll to bottom if new messages arrive
+    // 2️ Otherwise, auto-scroll to bottom if new messages arrive
     if (newLen > oldLen && !isLoadingMore.value) {
       nextTick(scrollToBottom);
     }

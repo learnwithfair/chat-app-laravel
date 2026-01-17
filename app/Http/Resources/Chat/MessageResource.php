@@ -23,6 +23,7 @@ class MessageResource extends JsonResource
                 ],
                 'statuses'                => [],
                 'created_at'              => $this->created_at->toDateTimeString(),
+                'updated_at'              => $this->updated_at->toDateTimeString(),
                 'reply'                   => null,
             ];
         }
@@ -70,6 +71,7 @@ class MessageResource extends JsonResource
             ] : null,
 
             'created_at'          => $this->created_at->toDateTimeString(),
+            'updated_at'          => $this->updated_at->toDateTimeString(),
         ];
     }
 }

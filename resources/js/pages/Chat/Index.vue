@@ -67,6 +67,17 @@
       <EditPreview v-if="editingMessage" :message="editingMessage" @cancel="cancelEdit" />
 
       <!-- Message Input -->
+      <!-- <MessageInput
+        v-model="newMessage"
+        :is-blocked="activeConversation.isBlocked"
+        :is-editing="!!editingMessage"
+        :conversation-id="activeConversation.id"
+        @send="handleSendMessage"
+        @send-voice="handleSendVoice"
+        @typing-change="(isTyping) => listenForTyping(activeConversation.id, isTyping)"
+      /> -->
+
+      <!-- In your main Chat component -->
       <MessageInput
         v-model="newMessage"
         :is-blocked="activeConversation.isBlocked"
@@ -74,6 +85,7 @@
         :conversation-id="activeConversation.id"
         @send="handleSendMessage"
         @send-voice="handleSendVoice"
+        @send-files="handleSendMessage"
         @typing-change="(isTyping) => listenForTyping(activeConversation.id, isTyping)"
       />
     </div>
