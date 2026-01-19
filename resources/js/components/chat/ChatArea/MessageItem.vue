@@ -69,31 +69,112 @@
 
           <!-- Text Content with Search Highlighting -->
           <p
-            v-if="!message.isDeleted"
+            v-if="!message.isDeleted && message.text"
             class="text-sm break-words"
             v-html="highlightedText"
           ></p>
-          <p v-else class="text-sm">
+          <p v-else-if="message.isDeleted" class="text-sm">
             {{ message.isMine ? "You deleted this message" : "This message was deleted" }}
           </p>
 
-          <!-- File Attachment -->
-          <div v-if="message.file && !message.isDeleted" class="mt-2">
-            <!-- Image -->
-            <img
-              v-if="message.file.type === 'image'"
-              :src="message.file.url"
-              alt="Image"
-              class="rounded-lg max-w-full"
-            />
-
-            <!-- Audio -->
+          <!--  MULTIPLE ATTACHMENTS SUPPORT -->
+          <div
+            v-if="
+              message.attachments && message.attachments.length > 0 && !message.isDeleted
+            "
+            class="mt-2"
+          >
+            <!-- Single Image -->
             <div
-              v-else-if="message.file.type === 'audio'"
+              v-if="message.messageType === 'image' && message.attachments.length === 1"
+            >
+              <img
+                :src="message.attachments[0].url"
+                :alt="message.attachments[0].name || 'Image'"
+                class="rounded-lg h-50 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                @click.stop="openImageViewer(message.attachments[0])"
+              />
+            </div>
+
+            <!-- Multiple Images Grid -->
+            <div
+              v-else-if="
+                message.messageType === 'image' || message.messageType === 'multiple'
+              "
+              :class="[
+                'grid gap-2',
+                message.attachments.length === 2 ? 'grid-cols-2' : 'grid-cols-2',
+              ]"
+            >
+              <div
+                v-for="(attachment, index) in message.attachments.slice(0, 4)"
+                :key="index"
+                class="relative"
+              >
+                <img
+                  v-if="attachment.type === 'image'"
+                  :src="attachment.url"
+                  :alt="attachment.name || 'Image'"
+                  class="w-full h-32 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                  @click.stop="openImageViewer(attachment)"
+                />
+
+                <!-- File attachment in grid -->
+                <div
+                  v-else
+                  class="w-full h-32 p-2 rounded-lg flex flex-col items-center justify-center"
+                  :class="message.isMine ? 'bg-blue-400' : 'bg-gray-100'"
+                >
+                  <svg
+                    class="w-8 h-8 mb-1"
+                    :class="message.isMine ? 'text-white' : 'text-gray-500'"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+                    />
+                  </svg>
+                  <p
+                    class="text-xs text-center truncate w-full px-1"
+                    :class="message.isMine ? 'text-white' : 'text-gray-700'"
+                  >
+                    {{ attachment.name }}
+                  </p>
+                  <p
+                    class="text-xs"
+                    :class="message.isMine ? 'text-blue-100' : 'text-gray-500'"
+                  >
+                    {{ formatFileSize(attachment.size) }}
+                  </p>
+                </div>
+
+                <!-- "+X more" overlay for 5+ attachments -->
+                <div
+                  v-if="index === 3 && message.attachments.length > 4"
+                  class="absolute inset-0 bg-black bg-opacity-60 rounded-lg flex items-center justify-center cursor-pointer"
+                  @click.stop="emit('show-details')"
+                >
+                  <span class="text-white text-lg font-bold"
+                    >+{{ message.attachments.length - 4 }}</span
+                  >
+                </div>
+              </div>
+            </div>
+
+            <!-- Single Audio File -->
+            <div
+              v-else-if="
+                message.messageType === 'audio' && message.attachments.length === 1
+              "
               class="flex items-center space-x-3 p-2 rounded-lg bg-black bg-opacity-10"
             >
               <button
-                @click="toggleAudioPlayback"
+                @click.stop="toggleAudioPlayback"
                 class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center hover:bg-black hover:bg-opacity-10 transition-colors"
                 :class="message.isMine ? 'bg-blue-400' : 'bg-gray-300'"
               >
@@ -142,33 +223,86 @@
                     class="text-xs"
                     :class="message.isMine ? 'text-blue-100' : 'text-gray-600'"
                   >
-                    {{ formatAudioTime(message.file.duration || 0) }}
+                    {{ formatAudioTime(message.attachments[0].duration || 0) }}
                   </span>
                 </div>
               </div>
 
               <audio
                 ref="audioPlayer"
-                :src="message.file.url"
+                :src="message.attachments[0].url"
                 @timeupdate="updateAudioProgress"
                 @ended="audioEnded"
                 @loadedmetadata="audioLoaded"
               ></audio>
             </div>
 
-            <!-- Document -->
+            <!-- Single Video -->
             <div
-              v-else
-              class="flex items-center space-x-2 p-2 bg-black bg-opacity-10 rounded"
+              v-else-if="
+                message.messageType === 'video' && message.attachments.length === 1
+              "
             >
-              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fill-rule="evenodd"
-                  d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-              <span class="text-sm">{{ message.file.name }}</span>
+              <video
+                :src="message.attachments[0].url"
+                controls
+                class="rounded-lg max-w-full"
+              ></video>
+            </div>
+
+            <!-- Other Files (Documents, etc.) -->
+            <div v-else class="space-y-2">
+              <a
+                v-for="(attachment, index) in message.attachments"
+                :key="index"
+                :href="attachment.url"
+                target="_blank"
+                download
+                class="flex items-center space-x-2 p-2 rounded-lg hover:opacity-80 transition-opacity"
+                :class="message.isMine ? 'bg-blue-400' : 'bg-gray-100'"
+                @click.stop
+              >
+                <svg
+                  class="w-5 h-5 flex-shrink-0"
+                  :class="message.isMine ? 'text-white' : 'text-gray-600'"
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M8 4a3 3 0 00-3 3v4a5 5 0 0010 0V7a1 1 0 112 0v4a7 7 0 11-14 0V7a5 5 0 0110 0v4a3 3 0 11-6 0V7a1 1 0 012 0v4a1 1 0 102 0V7a3 3 0 00-3-3z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+                <div class="flex-1 min-w-0">
+                  <p
+                    class="text-sm truncate"
+                    :class="message.isMine ? 'text-white' : 'text-gray-800'"
+                  >
+                    {{ attachment.name || "File" }}
+                  </p>
+                  <p
+                    class="text-xs"
+                    :class="message.isMine ? 'text-blue-100' : 'text-gray-500'"
+                  >
+                    {{ formatFileSize(attachment.size) }}
+                  </p>
+                </div>
+                <svg
+                  class="w-4 h-4 flex-shrink-0"
+                  :class="message.isMine ? 'text-white' : 'text-gray-600'"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+              </a>
             </div>
           </div>
 
@@ -287,8 +421,8 @@ const audioEnded = () => {
 };
 
 const audioLoaded = () => {
-  if (audioPlayer.value && props.message.file) {
-    props.message.file.duration = Math.floor(audioPlayer.value.duration);
+  if (audioPlayer.value && props.message.attachments?.[0]) {
+    props.message.attachments[0].duration = Math.floor(audioPlayer.value.duration);
   }
 };
 
@@ -296,6 +430,21 @@ const formatAudioTime = (seconds) => {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+
+// File size formatter
+const formatFileSize = (bytes) => {
+  if (!bytes || bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+};
+
+// Image viewer (you can implement a modal for this)
+const openImageViewer = (attachment) => {
+  // For now, just open in new tab
+  window.open(attachment.url, "_blank");
 };
 
 onBeforeUnmount(() => {

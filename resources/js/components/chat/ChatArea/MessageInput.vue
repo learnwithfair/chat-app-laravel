@@ -186,15 +186,22 @@ function getFileIconClass(type) {
   return "file";
 }
 
+// function handleSendWithFiles() {
+//   if (selectedFiles.value.length > 0) {
+//     emit("send-files", selectedFiles.value);
+//     clearAllFiles();
+//   } else {
+//     emit("send");
+//   }
+// }
 function handleSendWithFiles() {
   if (selectedFiles.value.length > 0) {
-    emit("send-files", selectedFiles.value);
+    emit("send-files", selectedFiles.value); // ← This emits files
     clearAllFiles();
   } else {
-    emit("send");
+    emit("send"); // ← This doesn't include files
   }
 }
-
 // Voice Recording Functions
 async function startRecording() {
   try {
@@ -301,10 +308,7 @@ watch(
 <template>
   <div class="bg-white border-t border-gray-200">
     <!-- File Preview Section -->
-    <div
-      v-if="selectedFiles.length > 0"
-      class="border-b border-gray-200 p-4 bg-gray-50"
-    >
+    <div v-if="selectedFiles.length > 0" class="border-b border-gray-200 p-4 bg-gray-50">
       <div class="flex items-center justify-between mb-3">
         <h4 class="text-sm font-semibold text-gray-700">
           {{ selectedFiles.length }} file{{ selectedFiles.length > 1 ? "s" : "" }}
@@ -351,7 +355,12 @@ watch(
             v-else
             class="w-full h-24 bg-gray-100 rounded mb-2 flex items-center justify-center"
           >
-            <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              class="w-10 h-10 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <!-- Generic file icon -->
               <path
                 v-if="getFileIconClass(file.type) === 'file'"
@@ -523,7 +532,12 @@ watch(
                     'p-3 rounded-full mb-2 group-hover:scale-110 transition-transform',
                   ]"
                 >
-                  <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg
+                    class="w-6 h-6 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
                     <!-- Camera -->
                     <path
                       v-if="option.icon === 'camera'"

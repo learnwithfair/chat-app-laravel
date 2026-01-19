@@ -78,12 +78,24 @@
       /> -->
 
       <!-- In your main Chat component -->
-      <MessageInput
+      <!-- <MessageInput
         v-model="newMessage"
         :is-blocked="activeConversation.isBlocked"
         :is-editing="!!editingMessage"
         :conversation-id="activeConversation.id"
         @send="handleSendMessage"
+        @send-voice="handleSendVoice"
+        @send-files="handleSendMessage"
+        @typing-change="(isTyping) => listenForTyping(activeConversation.id, isTyping)"
+      /> -->
+
+      <!-- In your main Chat component -->
+      <MessageInput
+        v-model="newMessage"
+        :is-blocked="activeConversation.isBlocked"
+        :is-editing="!!editingMessage"
+        :conversation-id="activeConversation.id"
+        @send="handleSendMessage()"
         @send-voice="handleSendVoice"
         @send-files="handleSendMessage"
         @typing-change="(isTyping) => listenForTyping(activeConversation.id, isTyping)"

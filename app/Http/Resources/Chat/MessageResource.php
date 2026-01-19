@@ -48,7 +48,8 @@ class MessageResource extends JsonResource
 
             'reply_to_message_id' => $this->reply_to_message_id,
 
-            'attachments'         => $this->attachments,
+            // 'attachments'         => $this->attachments,
+            'attachments'         => MessageAttachmentResource::collection($this->attachments),
 
             'reactions'           => [
                 'reactions' => $groupedReactions,

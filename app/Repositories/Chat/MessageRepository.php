@@ -155,10 +155,15 @@ class MessageRepository
         // 5. Attachments
         if (! empty($data['attachments'])) {
             foreach ($data['attachments'] as $file) {
-                $media_path = uploadFile($file['path'], 'uploads/messages', (string) Str::uuid());
+                /** @var \Illuminate\Http\UploadedFile $uploadedFile */
+                $uploadedFile = $file['path'];
+
+                $originalName = $uploadedFile->getClientOriginalName();
+                $media_path   = uploadFile($file['path'], 'uploads/messages', (string) Str::uuid());
                 $message->attachments()->create([
                     'path' => $media_path,
                     'type' => getFileType($media_path),
+                    'name' => $originalName,
                     'size' => file_exists(public_path($media_path)) ? filesize(public_path($media_path)) : null,
                 ]);
             }

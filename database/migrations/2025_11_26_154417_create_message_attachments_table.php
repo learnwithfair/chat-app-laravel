@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('message_id')->constrained();
             $table->string('path');
             $table->string('type');
+            $table->string('name')->nullable();
             $table->unsignedBigInteger('size')->nullable();
             $table->timestamps();
         });

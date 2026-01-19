@@ -214,7 +214,8 @@ export function useChat() {
             const data = response.data;
             const meta = data.meta;
 
-            console.log(data);
+            console.log('📩 Fetched messages:', data);
+
             // Reverse backend data to have oldest → newest for display
             const formattedMessages = data.data
                 .map(msg => ({
@@ -228,12 +229,14 @@ export function useChat() {
                     reactions: formatReactions(msg.reactions),
                     isDeleted: msg.is_deleted_for_everyone || false,
                     isEdited: false,
+                    messageType: msg.message_type || 'text',
                     replyTo: msg.reply ? {
                         id: msg.reply.id,
                         senderName: msg.reply.sender.name,
                         text: msg.reply.message
                     } : null,
-                    file: msg.attachments?.length > 0 ? formatAttachment(msg.attachments[0]) : null,
+                    // ✅ FIX: Format ALL attachments, not just first one
+                    attachments: formatAttachments(msg.attachments),
                     seenBy: msg.statuses?.filter(s => s.status === 'seen').map(s => ({
                         id: s.user_id,
                         name: s.user?.name || 'Unknown',
@@ -241,15 +244,14 @@ export function useChat() {
                         seenAt: formatTime(s.created_at || msg.created_at)
                     })) || []
                 }))
-                .reverse(); // <-- key: always reverse to oldest → newest
+                .reverse();
+
+            console.log("✅ Formatted Messages:", formattedMessages);
 
             if (append) {
-                // Prepend older messages to top
                 messages.value = [...formattedMessages, ...messages.value];
             } else {
-                // First page: just set messages
                 messages.value = formattedMessages;
-
             }
 
             messagePagination.value = {
@@ -756,12 +758,21 @@ export function useChat() {
         }));
     };
 
+    // Update formatAttachment to handle single or multiple files
     const formatAttachment = (attachment) => {
         return {
+            id: attachment.id,
             type: attachment.type,
-            url: attachment.url,
-            name: attachment.name
+            url: attachment.path,
+            name: attachment.name || 'file',
+            size: attachment.size || 0
         };
+    };
+
+    // Format multiple attachments
+    const formatAttachments = (attachments) => {
+        if (!attachments || attachments.length === 0) return null;
+        return attachments.map(att => formatAttachment(att));
     };
 
     const getMessageStatus = (statuses) => {
@@ -940,18 +951,18 @@ export function useChat() {
 
     // In your useChat.js composable
 
-    const handleSendMessage = async () => {
-        if ((!newMessage.value.trim() && selectedFiles.value.length === 0) || !activeConversation.value) return;
+    const handleSendMessage = async (filesFromInput = null) => {
+        const files = filesFromInput || selectedFiles.value;
+
+        if ((!newMessage.value.trim() && files.length === 0) || !activeConversation.value) return;
 
         const messageText = newMessage.value;
         const replyToId = replyingTo.value?.id || null;
-        const files = selectedFiles.value;
 
         try {
             let sentMsg;
 
             if (editingMessage.value) {
-                // Update existing message
                 await updateMessageAPI(editingMessage.value.id, messageText);
 
                 const msg = messages.value.find(m => m.id === editingMessage.value.id);
@@ -960,7 +971,6 @@ export function useChat() {
                     msg.isEdited = true;
                 }
 
-                // Update cache
                 const cached = messageCache.get(activeConversation.value.id);
                 if (cached) {
                     const cachedMsg = cached.messages.find(m => m.id === editingMessage.value.id);
@@ -972,7 +982,6 @@ export function useChat() {
 
                 editingMessage.value = null;
             } else {
-                // Prepare FormData for file upload
                 const formData = new FormData();
                 formData.append('conversation_id', activeConversation.value.id);
                 formData.append('message', messageText || '');
@@ -981,32 +990,36 @@ export function useChat() {
                     formData.append('reply_to_message_id', replyToId);
                 }
 
-                // Determine message type
                 if (files.length > 0) {
+
                     files.forEach((fileObj, index) => {
                         formData.append(`attachments[${index}][path]`, fileObj.file);
                     });
 
-                    // Set message type based on files
-                    if (files.length > 1 || (files.length === 1 && messageText)) {
+                    if (files.length > 1) {
                         formData.append('message_type', 'multiple');
-                    } else if (files[0].type.startsWith('image/')) {
-                        formData.append('message_type', 'image');
-                    } else if (files[0].type.startsWith('video/')) {
-                        formData.append('message_type', 'video');
-                    } else if (files[0].type.startsWith('audio/')) {
-                        formData.append('message_type', 'audio');
                     } else {
-                        formData.append('message_type', 'file');
+                        const firstFile = files[0];
+                        if (firstFile.type.startsWith('image/')) {
+                            formData.append('message_type', 'image');
+                        } else if (firstFile.type.startsWith('video/')) {
+                            formData.append('message_type', 'video');
+                        } else if (firstFile.type.startsWith('audio/')) {
+                            formData.append('message_type', 'audio');
+                        } else {
+                            formData.append('message_type', 'file');
+                        }
                     }
                 } else {
                     formData.append('message_type', 'text');
                 }
 
-                // Send message with files
+                console.log('📤 Sending FormData');
+
                 sentMsg = await sendMessageWithFilesAPI(formData);
 
-                // Create new message object
+                console.log('✅ Message sent:', sentMsg);
+
                 const newMsg = {
                     id: sentMsg.id,
                     text: sentMsg.message,
@@ -1018,19 +1031,19 @@ export function useChat() {
                     reactions: [],
                     isDeleted: false,
                     isEdited: false,
+                    messageType: sentMsg.message_type || 'text',
                     replyTo: replyingTo.value ? {
                         senderName: replyingTo.value.senderName,
                         text: replyingTo.value.text
                     } : null,
-                    file: sentMsg.attachments || null,
-                    messageType: sentMsg.message_type,
+                    attachments: formatAttachments(sentMsg.attachments),
                     seenBy: []
                 };
 
-                // Add to UI
+                console.log('📨 New message object:', newMsg);
+
                 messages.value.push(newMsg);
 
-                // Update cache
                 const cached = messageCache.get(activeConversation.value.id);
                 if (!cached) {
                     messageCache.set(activeConversation.value.id, {
@@ -1048,7 +1061,9 @@ export function useChat() {
                 }
 
                 replyingTo.value = null;
-                moveConversationToTop(activeConversation.value.id, sentMsg);
+
+                // Update conversation list with proper preview
+                updateConversationPreview(activeConversation.value.id, sentMsg);
             }
 
             newMessage.value = '';
@@ -1059,9 +1074,51 @@ export function useChat() {
             });
 
         } catch (error) {
-            console.error('Failed to send message:', error);
+            // console.error(' Failed to send message:', error);
+            if (error.response) {
+                console.error('Response error:', error.response.data);
+            }
         }
     };
+
+
+    //  Update conversation preview in sidebar
+    const updateConversationPreview = (conversationId, message) => {
+        const index = conversations.value.findIndex(c => c.id === conversationId);
+
+        if (index !== -1) {
+            const conv = conversations.value[index];
+
+            // Create preview text
+            let previewText = message.message || '';
+
+            // If there are attachments and no text, show attachment type
+            if (!previewText && message.attachments?.length > 0) {
+                const attachmentTypes = message.attachments.map(a => a.type);
+                if (attachmentTypes.includes('image')) previewText = '📷 Photo';
+                else if (attachmentTypes.includes('video')) previewText = '🎥 Video';
+                else if (attachmentTypes.includes('audio')) previewText = '🎵 Audio';
+                else previewText = '📎 File';
+
+                if (message.attachments.length > 1) {
+                    previewText += ` +${message.attachments.length - 1}`;
+                }
+            }
+
+            // Update conversation
+            conversations.value[index] = {
+                ...conv,
+                lastMessage: previewText,
+                lastMessageTime: formatTime(message.created_at || new Date())
+            };
+
+            // Move to top
+            const [movedConv] = conversations.value.splice(index, 1);
+            conversations.value.unshift(movedConv);
+
+        }
+    };
+
 
     // New API method for sending files
     const sendMessageWithFilesAPI = async (formData) => {
@@ -1071,13 +1128,13 @@ export function useChat() {
                     'Content-Type': 'multipart/form-data'
                 }
             });
-            console.log(response.data.data);
             return response.data.data;
         } catch (error) {
             console.error('Failed to send message with files:', error);
             throw error;
         }
     };
+
 
     const replyToMessage = (message) => {
         replyingTo.value = message;
