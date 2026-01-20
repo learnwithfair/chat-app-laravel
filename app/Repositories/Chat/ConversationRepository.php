@@ -76,7 +76,6 @@ class ConversationRepository
             ->paginate($perPage);
 
         return ConversationResource::collection($conversations);
-        // return ConversationResource::collection($conversations)->resolve();
     }
 
     public function findPrivateBetween(int $userId1, int $userId2): ?Conversation
@@ -101,27 +100,72 @@ class ConversationRepository
         return $conversation;
     }
 
-    public function createGroupConversation(array $data, int $creadtedId): Conversation
+    // public function createGroupConversation(array $data, int $creadtedId): Conversation
+    // {
+    //     $conversation = Conversation::create([
+    //         'type'       => 'group',
+    //         'name'       => $data['name'] ?? 'New Group',
+    //         'created_by' => $creadtedId ?? null,
+    //     ]);
+
+    //     $participants = [];
+    //     foreach ($data['participants'] ?? [] as $userId) {
+    //         $participants[] = [
+    //             'user_id' => $userId,
+    //             'role'    => $userId === $creadtedId ? 'super_admin' : 'member',
+    //         ];
+    //     }
+
+    //     $conversation->participants()->createMany($participants);
+
+    //     app(ChatService::class)->createDefault($conversation->id);
+
+    //     return $conversation;
+    // }
+    public function createGroupConversation(array $data, int $creadtedId)
     {
         $conversation = Conversation::create([
             'type'       => 'group',
             'name'       => $data['name'] ?? 'New Group',
-            'created_by' => $creadtedId ?? null,
+            'created_by' => $creadtedId,
         ]);
 
         $participants = [];
+
+        $participants[] = ['user_id' => $creadtedId, 'role' => 'super_admin'];
+
+        // Add other members, skip creator if included
         foreach ($data['participants'] ?? [] as $userId) {
+            if ($userId == $creadtedId) {
+                continue;
+            }
+
             $participants[] = [
                 'user_id' => $userId,
-                'role'    => $userId === $creadtedId ? 'super_admin' : 'member',
+                'role'    => 'member',
             ];
         }
 
         $conversation->participants()->createMany($participants);
-
         app(ChatService::class)->createDefault($conversation->id);
 
-        return $conversation;
+        $conversation->groupSetting()->create([
+            'description' => $data['group']['description'] ?? null,
+            'type'        => $data['group']['type'] ?? 'private',
+        ]);
+
+        $conversation->load([
+            'participants' => function ($q) {
+                $q->where('is_active', true)->with('user');
+            },
+            'lastMessage.sender',
+            'groupSetting',
+        ]);
+
+        $conversation->setRelation('unread_count', 0);
+
+        //  Return wrapped in ConversationResource
+        return new ConversationResource($conversation);
     }
 
     public function deleteForUser(int $userId, int $conversationId): bool
@@ -392,6 +436,7 @@ class ConversationRepository
 
         return $isBlocked;
     }
+
     public function toggleRestrict(User $user, int $userId)
     {
         // Prevent restricting yourself

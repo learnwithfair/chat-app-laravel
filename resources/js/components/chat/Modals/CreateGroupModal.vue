@@ -10,7 +10,7 @@
       <!-- Header -->
       <div class="px-6 py-4 border-b flex items-center justify-between">
         <h3 class="text-lg font-semibold text-gray-800">Create New Group</h3>
-        <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600">
+        <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600 cursor-pointer">
           ✕
         </button>
       </div>
@@ -81,10 +81,7 @@
               v-for="user in filteredUsers"
               :key="user.id"
               @click="toggleUser(user.id)"
-              :class="[
-                'flex items-center px-4 py-3 cursor-pointer transition',
-                selectedMembers.includes(user.id) ? 'bg-blue-50' : 'hover:bg-gray-50',
-              ]"
+              class="flex items-center px-4 py-3 cursor-pointer hover:bg-gray-50"
             >
               <input
                 type="checkbox"
@@ -107,6 +104,15 @@
               No users found
             </p>
           </div>
+
+          <!-- Load more -->
+          <button
+            v-if="pagination?.hasMore"
+            @click="$emit('load-more')"
+            class="w-full text-sm py-2 text-blue-500 hover:underline"
+          >
+            Load more
+          </button>
         </div>
 
         <!-- Create button -->
@@ -132,6 +138,7 @@ import { ref, computed } from "vue";
 
 const props = defineProps({
   availableUsers: Array,
+  pagination: Object,
 });
 
 const emit = defineEmits(["close", "create"]);

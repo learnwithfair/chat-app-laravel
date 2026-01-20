@@ -14,7 +14,7 @@ Route::prefix('v1')->middleware(['auth', 'last_seen'])->group(function () {
     Route::apiResource('conversations', ConversationController::class)->only(['index', 'store', 'destroy']);
     Route::post('conversations/private', [ConversationController::class, 'startPrivateConversation']);
 
-// ----------------------- Messages ------------------------------
+    // ----------------------- Messages ------------------------------
     Route::apiResource('messages', MessageController::class)->only(['store', 'show', 'update']);
 
     Route::prefix('messages')->controller(MessageController::class)->group(function () {
@@ -45,6 +45,7 @@ Route::prefix('v1')->middleware(['auth', 'last_seen'])->group(function () {
 
     // -------------------- User Block / Restrict --------------------
     Route::controller(UserBlockController::class)->group(function () {
+        Route::get('available-users', 'index');
         Route::post('users/{user}/block-toggle', 'toggleBlock');
         Route::post('users/{user}/restrict-toggle', 'toggleRestrict');
     });

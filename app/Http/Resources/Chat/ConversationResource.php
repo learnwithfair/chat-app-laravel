@@ -28,14 +28,15 @@ class ConversationResource extends JsonResource
             'type'          => $this->type,
 
             'last_message'  => $this->lastMessage ? [
-                'id'         => $this->lastMessage->id,
-                'message'    => $this->lastMessage->message,
-                'sender'     => [
+                'id'          => $this->lastMessage->id,
+                'message'     => $this->lastMessage->message,
+                'attachments' => MessageAttachmentResource::collection($this->lastMessage->attachments),
+                'sender'      => [
                     'id'          => $this->lastMessage->sender->id,
                     'name'        => $this->lastMessage->sender->name,
                     'avatar_path' => $this->lastMessage->sender->avatar_path,
                 ],
-                'created_at' => $this->lastMessage->created_at->toDateTimeString(),
+                'created_at'  => $this->lastMessage->created_at->toDateTimeString(),
             ] : null,
 
             'participants'  => $this->type === 'group'

@@ -31,7 +31,7 @@ class ConversationController extends Controller
     public function store(Request $request)
     {
         $group = $this->chatService->createGroup(Auth::user(), $request->all());
-        return response()->json(['group' => $group]);
+        return $this->success($group, 'Group Created Successfully', 201);
     }
 
     public function destroy(Request $request, int $conversation)

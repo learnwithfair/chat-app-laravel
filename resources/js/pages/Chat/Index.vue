@@ -139,9 +139,17 @@
     />
 
     <!-- Modals -->
+    <!-- <CreateGroupModal
+      v-if="modals.createGroup"
+      :available-users="availableUsers"
+      @close="closeModal('createGroup')"
+      @create="createGroup"
+    /> -->
     <CreateGroupModal
       v-if="modals.createGroup"
       :available-users="availableUsers"
+      :pagination="availableUsersPagination"
+      @load-more="loadMoreAvailableUsers"
       @close="closeModal('createGroup')"
       @create="createGroup"
     />
@@ -223,7 +231,6 @@ const {
   activeRightTab,
   showRightPanel,
   onlineUsers,
-  availableUsers,
   newMessage,
   replyingTo,
   editingMessage,
@@ -262,6 +269,11 @@ const {
   handleAudioCall,
   handleVideoCall,
   handleAddReaction,
+
+  availableUsers,
+  availableUsersPagination,
+  fetchAvailableUsers,
+  loadMoreAvailableUsers,
 
   // Group Management
   openCreateGroupModal,

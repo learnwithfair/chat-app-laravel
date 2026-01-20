@@ -19,11 +19,13 @@ export function useChat() {
         { id: 12, name: 'Jordan', avatar: 'https://i.pravatar.cc/150?img=13', isOnline: true }
     ]);
 
-    const availableUsers = ref([
-        { id: 20, name: 'Chris Evans', avatar: 'https://i.pravatar.cc/150?img=33' },
-        { id: 21, name: 'Emma Stone', avatar: 'https://i.pravatar.cc/150?img=34' },
-        { id: 22, name: 'Ryan Gosling', avatar: 'https://i.pravatar.cc/150?img=35' }
-    ]);
+    // const availableUsers = ref([
+    //     { id: 20, name: 'Chris Evans', avatar: 'https://i.pravatar.cc/150?img=33' },
+    //     { id: 21, name: 'Emma Stone', avatar: 'https://i.pravatar.cc/150?img=34' },
+    //     { id: 22, name: 'Ryan Gosling', avatar: 'https://i.pravatar.cc/150?img=35' }
+    // ]);
+
+    const availableUsers = ref([]);
 
     const activeConversation = ref(null);
     const searchQuery = ref('');
@@ -55,6 +57,14 @@ export function useChat() {
         loading: false
     });
 
+    const availableUsersPagination = ref({
+        currentPage: 1,
+        lastPage: 1,
+        hasMore: true,
+        loading: false,
+    });
+
+
     // Modal states
     const modals = ref({
         createGroup: false,
@@ -79,6 +89,76 @@ export function useChat() {
     const API_BASE = '/api/v1';
 
     // ==================== API CALLS ====================
+
+    // Fetch available users
+    const fetchAvailableUsers = async (search = null, page = 1, append = false) => {
+        if (append) availableUsersPagination.value.loading = true;
+
+        try {
+            const params = {
+                page,
+                per_page: 20,
+            };
+
+            if (search) {
+                params.search = search;
+            }
+
+            const response = await axios.get(`${API_BASE}/available-users`, { params });
+
+            const data = response.data.data.data;
+
+            const meta = response.data.data;
+            console.log("meta");
+            console.log(response.data.data);
+
+            const users = data.map(user => ({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                avatar: user.avatar_path || generateAvatar(user.name),
+            }));
+
+            if (append) {
+                availableUsers.value.push(...users);
+            } else {
+                availableUsers.value = users;
+            }
+
+            availableUsersPagination.value = {
+                currentPage: meta.current_page,
+                lastPage: meta.last_page,
+                hasMore: meta.current_page < meta.last_page,
+                loading: false,
+            };
+        } catch (error) {
+            console.error('Failed to fetch available users:', error);
+        } finally {
+            availableUsersPagination.value.loading = false;
+        }
+    };
+
+    // Load more available users
+    const loadMoreAvailableUsers = async () => {
+        if (
+            !availableUsersPagination.value.hasMore ||
+            availableUsersPagination.value.loading
+        ) return;
+
+        await fetchAvailableUsers(
+            searchQuery.value,
+            availableUsersPagination.value.currentPage + 1,
+            true
+        );
+    };
+
+    // Search available users
+    const searchAvailableUsers = async () => {
+        availableUsersPagination.value.currentPage = 1;
+        await fetchAvailableUsers(searchQuery.value, 1, false);
+    };
+
+
 
     // Fetch conversations with CACHING and PAGINATION
     const fetchConversations = async (query = null, page = 1, append = false) => {
@@ -109,6 +189,7 @@ export function useChat() {
             const convs = data.data;
             const meta = data.meta;
 
+
             // Format conversations for frontend
             const formattedConversations = convs.map(conv => {
                 const name = conv.type === 'private' ? conv.receiver?.name : conv.name;
@@ -122,7 +203,7 @@ export function useChat() {
                     type: conv.type,
                     name: name || 'Unknown',
                     avatar: avatar,
-                    lastMessage: conv.last_message?.message || '',
+                    lastMessage: buildLastMessagePreview(conv.last_message),
                     lastMessageTime: conv.last_message?.created_at
                         ? formatTime(conv.last_message.created_at)
                         : '',
@@ -214,7 +295,7 @@ export function useChat() {
             const data = response.data;
             const meta = data.meta;
 
-            console.log('📩 Fetched messages:', data);
+            console.log(' Fetched messages:', data);
 
             // Reverse backend data to have oldest → newest for display
             const formattedMessages = data.data
@@ -235,7 +316,7 @@ export function useChat() {
                         senderName: msg.reply.sender.name,
                         text: msg.reply.message
                     } : null,
-                    // ✅ FIX: Format ALL attachments, not just first one
+                    //  FIX: Format ALL attachments, not just first one
                     attachments: formatAttachments(msg.attachments),
                     seenBy: msg.statuses?.filter(s => s.status === 'seen').map(s => ({
                         id: s.user_id,
@@ -246,7 +327,7 @@ export function useChat() {
                 }))
                 .reverse();
 
-            console.log("✅ Formatted Messages:", formattedMessages);
+            console.log(" Formatted Messages:", formattedMessages);
 
             if (append) {
                 messages.value = [...formattedMessages, ...messages.value];
@@ -424,6 +505,7 @@ export function useChat() {
 
     // Create group
     const createGroupAPI = async (groupData) => {
+
         try {
             const response = await axios.post(`${API_BASE}/conversations`, {
                 type: 'group',
@@ -1085,38 +1167,40 @@ export function useChat() {
     //  Update conversation preview in sidebar
     const updateConversationPreview = (conversationId, message) => {
         const index = conversations.value.findIndex(c => c.id === conversationId);
+        if (index === -1) return;
 
-        if (index !== -1) {
-            const conv = conversations.value[index];
+        const conv = conversations.value[index];
 
-            // Create preview text
-            let previewText = message.message || '';
+        conversations.value[index] = {
+            ...conv,
+            lastMessage: buildLastMessagePreview(message),
+            lastMessageTime: formatTime(message.created_at || new Date())
+        };
 
-            // If there are attachments and no text, show attachment type
-            if (!previewText && message.attachments?.length > 0) {
-                const attachmentTypes = message.attachments.map(a => a.type);
-                if (attachmentTypes.includes('image')) previewText = '📷 Photo';
-                else if (attachmentTypes.includes('video')) previewText = '🎥 Video';
-                else if (attachmentTypes.includes('audio')) previewText = '🎵 Audio';
-                else previewText = '📎 File';
+        // Move conversation to top
+        const [movedConv] = conversations.value.splice(index, 1);
+        conversations.value.unshift(movedConv);
+    };
 
-                if (message.attachments.length > 1) {
-                    previewText += ` +${message.attachments.length - 1}`;
-                }
+    const buildLastMessagePreview = (message) => {
+        if (!message) return '';
+
+        let previewText = message.message || '';
+
+        if (!previewText && message.attachments?.length > 0) {
+            const attachmentTypes = message.attachments.map(a => a.type);
+
+            if (attachmentTypes.includes('image')) previewText = '📷 Photo';
+            else if (attachmentTypes.includes('video')) previewText = '🎥 Video';
+            else if (attachmentTypes.includes('audio')) previewText = '🎵 Audio';
+            else previewText = '📎 File';
+
+            if (message.attachments.length > 1) {
+                previewText += ` +${message.attachments.length - 1}`;
             }
-
-            // Update conversation
-            conversations.value[index] = {
-                ...conv,
-                lastMessage: previewText,
-                lastMessageTime: formatTime(message.created_at || new Date())
-            };
-
-            // Move to top
-            const [movedConv] = conversations.value.splice(index, 1);
-            conversations.value.unshift(movedConv);
-
         }
+
+        return previewText;
     };
 
 
@@ -1247,9 +1331,32 @@ export function useChat() {
     };
 
     // Group Management
-    const openCreateGroupModal = () => {
-        modals.value.createGroup = true;
+    const openCreateGroup = async () => {
+        openCreateGroupModal();
+
+        // reset pagination
+        await fetchAvailableUsers(null, 1, false);
     };
+
+    const openCreateGroupModal = async () => {
+        modals.value.createGroup = true;
+
+        // reset & fetch users
+        availableUsers.value = [];
+        availableUsersPagination.value.currentPage = 1;
+
+        await fetchAvailableUsers(null, 1, false);
+    };
+
+    const openAddMemberModal = async () => {
+        modals.value.addMember = true;
+
+        availableUsers.value = [];
+        availableUsersPagination.value.currentPage = 1;
+
+        await fetchAvailableUsers(null, 1, false);
+    };
+
 
     const createGroup = async ({ name, description, type, members }) => {
         try {
@@ -1282,9 +1389,20 @@ export function useChat() {
         }
     };
 
-    const openAddMemberModal = () => {
-        modals.value.addMember = true;
+    // const openAddMemberModal = async () => {
+    //     modals.value.addMember = true;
+
+    //     availableUsers.value = [];
+    //     availableUsersPagination.value.currentPage = 1;
+
+    //     await fetchAvailableUsers();
+    // };
+    const openAddMember = async () => {
+        openAddMemberModal();
+
+        await fetchAvailableUsers(null, 1, false);
     };
+
 
     const addMembersToGroup = async (userIds) => {
         if (!activeConversation.value || activeConversation.value.type !== 'group') return;
@@ -1578,6 +1696,12 @@ export function useChat() {
         loadMoreConversations,
         loadMoreMessages,
         clearCache,
+
+        availableUsers,
+        availableUsersPagination,
+        fetchAvailableUsers,
+        loadMoreAvailableUsers,
+        searchAvailableUsers,
 
         // Group Management
         openCreateGroupModal,
