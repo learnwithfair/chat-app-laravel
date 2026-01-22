@@ -61,7 +61,7 @@ class ConversationResource extends JsonResource
 
             'is_blocked'    => $isBlocked,
             'unread_count'  => $this->unread_count ?? 0,
-            'is_admin'      => $participant?->role === 'super_admin',
+            'is_admin'      => $participant?->role === 'super_admin' || $participant?->role === 'admin',
             'is_muted'      => $participant?->is_muted,
             'group_setting' => $this->groupSetting,
             'updated_at'    => $this->updated_at->toDateTimeString(),

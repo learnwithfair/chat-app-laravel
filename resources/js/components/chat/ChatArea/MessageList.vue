@@ -5,7 +5,32 @@
     ref="messageContainer"
     @scroll="onScroll"
   >
-    <!-- Spinner shown when loading older messages (prepend) -->
+    <!-- NO MESSAGES FOUND -->
+    <div
+      v-if="!messages.length && !isLoadingMore"
+      class="flex h-full items-center justify-center"
+    >
+      <div class="text-center text-gray-500">
+        <svg
+          class="w-24 h-24 mx-auto mb-4 text-gray-300"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+          />
+        </svg>
+
+        <h3 class="text-xl font-semibold mb-2">No messages found</h3>
+        <p>Start the conversation by sending a message</p>
+      </div>
+    </div>
+
+    <!-- Spinner shown when loading older messages -->
     <div v-if="isLoadingMore" class="flex justify-center mb-2">
       <div
         class="spinner w-8 h-8 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"
@@ -25,7 +50,6 @@
       @edit="emit('edit', message)"
       @forward="emit('forward', message)"
       @delete="emit('delete', message)"
-      @show-reactions="(reaction) => emit('show-reactions', { message, reaction })"
       @show-details="emit('show-details', message)"
       @show-seen-by="emit('show-seen-by', message)"
       @add-reaction="emit('add-reaction', $event)"
@@ -38,7 +62,8 @@
       :typing-users="typingUsers"
       :is-group="isGroup"
     />
-    <!-- Spinner shown when auto-scrolling to a reply -->
+
+    <!-- Floating scroll spinner -->
     <div
       v-if="isLoadingForScroll"
       class="fixed bottom-40 z-50"

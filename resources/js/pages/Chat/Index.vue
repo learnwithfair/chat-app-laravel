@@ -124,9 +124,25 @@
     </div>
 
     <!-- Right Panel - Conversation Info -->
+    <!-- <ConversationInfo
+      v-if="showRightPanel && activeConversation"
+      :conversation="activeConversation"
+      :active-tab="activeRightTab"
+      @update-tab="activeRightTab = $event"
+      @add-member="openAddMemberModal"
+      @make-admin="makeAdmin"
+      @remove-admin="removeAdmin"
+      @remove-member="removeMember"
+      @leave-group="leaveGroup"
+      @update-settings="updateGroupSettings"
+      @trigger-search="triggerSearchFromRightPanel"
+    /> -->
     <ConversationInfo
       v-if="showRightPanel && activeConversation"
       :conversation="activeConversation"
+      :group-members="groupMembers"
+      :load-more-group-members="loadMoreGroupMembers || (() => {})"
+      :group-members-pagination="groupMembersPagination"
       :active-tab="activeRightTab"
       @update-tab="activeRightTab = $event"
       @add-member="openAddMemberModal"
@@ -157,6 +173,7 @@
     <AddMemberModal
       v-if="modals.addMember"
       :availableUsers="availableUsers"
+      :currentGroupMembers="activeConversation.members"
       @close="closeModal('addMember')"
       @add-multiple="addMembersToGroup"
     />
@@ -198,7 +215,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, watch } from "vue";
 import ConversationList from "@/Components/Chat/Sidebar/ConversationList.vue";
 import ChatHeader from "@/Components/Chat/ChatArea/ChatHeader.vue";
 import MessageList from "@/Components/Chat/ChatArea/MessageList.vue";
@@ -274,6 +291,11 @@ const {
   availableUsersPagination,
   fetchAvailableUsers,
   loadMoreAvailableUsers,
+
+  groupMembers,
+  groupMembersPagination,
+  fetchGroupMembers,
+  loadMoreGroupMembers,
 
   // Group Management
   openCreateGroupModal,
@@ -367,4 +389,20 @@ const getTypingUsers = computed(() => {
     avatar: user.avatar || generateAvatar(user.name), // fallback
   }));
 });
+
+watch(
+  activeConversation,
+  (conv) => {
+    if (!conv) return;
+
+    if (conv.type === "group") {
+      // Reset pagination
+      groupMembers.value = [];
+      groupMembersPagination.value = { current_page: 0, last_page: 1, per_page: 20 };
+
+      fetchGroupMembers(conv.id); // fetch first page
+    }
+  },
+  { immediate: true }
+);
 </script>

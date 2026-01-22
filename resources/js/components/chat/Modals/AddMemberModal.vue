@@ -40,6 +40,7 @@
             type="checkbox"
             class="mr-3"
             :checked="selectedUsers.includes(user.id)"
+            :disabled="props.currentGroupMembers.some((m) => m.id === user.id)"
             @click.stop
           />
 
@@ -82,12 +83,16 @@ import { ref, computed } from "vue";
 
 const props = defineProps({
   availableUsers: Array,
+  currentGroupMembers: {
+    type: Array,
+    default: () => [],
+  },
 });
 
 const emit = defineEmits(["close", "add-multiple"]);
 
 const search = ref("");
-const selectedUsers = ref([]);
+const selectedUsers = ref(props.currentGroupMembers.map((u) => u.id));
 
 // Filter logic for users based on search input
 const filteredUsers = computed(() => {

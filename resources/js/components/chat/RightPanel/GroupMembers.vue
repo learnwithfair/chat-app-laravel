@@ -1,7 +1,7 @@
 <script setup>
 import { generateAvatar } from "../../../Utils/Chat/avatarHelper";
 
-defineProps(["members"]);
+defineProps(["members", "is_admin"]);
 defineEmits(["add-member", "make-admin", "remove-admin", "remove-member"]);
 
 const formatRole = (role) => {
@@ -46,9 +46,9 @@ const formatRole = (role) => {
         </div>
 
         <!-- Member Actions -->
-        <div class="hidden group-hover:flex items-center space-x-1">
+        <div v-if="is_admin" class="hidden group-hover:flex items-center space-x-1">
           <button
-            v-if="member.role === 'Member'"
+            v-if="member.role === 'member'"
             @click="$emit('make-admin', member)"
             class="p-1 text-blue-600 hover:bg-blue-50 rounded"
             title="Make Admin"
@@ -63,7 +63,7 @@ const formatRole = (role) => {
             </svg>
           </button>
           <button
-            v-if="member.role === 'Admin'"
+            v-if="member.role === 'admin'"
             @click="$emit('remove-admin', member)"
             class="p-1 text-yellow-600 hover:bg-yellow-50 rounded"
             title="Remove Admin"
@@ -78,7 +78,7 @@ const formatRole = (role) => {
             </svg>
           </button>
           <button
-            v-if="member.role !== 'Super Admin'"
+            v-if="member.role !== 'super_admin'"
             @click="$emit('remove-member', member)"
             class="p-1 text-red-600 hover:bg-red-50 rounded"
             title="Remove"

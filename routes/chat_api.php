@@ -45,7 +45,7 @@ Route::prefix('v1')->middleware(['auth', 'last_seen'])->group(function () {
 
     // -------------------- User Block / Restrict --------------------
     Route::controller(UserBlockController::class)->group(function () {
-        Route::get('available-users', 'index');
+        Route::get('available-users', 'index'); // ?search=John
         Route::post('users/{user}/block-toggle', 'toggleBlock');
         Route::post('users/{user}/restrict-toggle', 'toggleRestrict');
     });

@@ -7,9 +7,17 @@ import FilesList from "./FilesList.vue";
 import LinksList from "./LinksList.vue";
 import GroupSettings from "./GroupSettings.vue";
 
+// const props = defineProps({
+//   conversation: { type: Object, required: true },
+//   activeTab: { type: String, default: "members" },
+// });
+
 const props = defineProps({
   conversation: { type: Object, required: true },
   activeTab: { type: String, default: "members" },
+  groupMembers: { type: Array, default: () => [] }, // <-- add this
+  groupMembersPagination: { type: Object, default: () => ({}) }, // <-- add this
+  loadMoreGroupMembers: { type: Function, required: true }, // <-- add this
 });
 
 const emit = defineEmits([
@@ -21,17 +29,14 @@ const emit = defineEmits([
   "leave-group",
   "update-settings",
   "trigger-search",
+  "toggle-block",
 ]);
 
 const isMuted = ref(false);
 
 const isGroup = computed(() => props.conversation.type === "group");
 
-const avatar = computed(
-  () =>
-    props.conversation.avatar ||
-    props.conversation.members?.[0]?.avatar_path
-);
+const avatar = computed(() => props.conversation.avatar);
 
 const tabs = [
   { label: "Members", value: "members", groupOnly: true },
@@ -45,7 +50,10 @@ const visibleTabs = computed(() => tabs.filter((tab) => !tab.groupOnly || isGrou
 const changeTab = (tab) => emit("update-tab", tab);
 
 const toggleMute = () => (isMuted.value = !isMuted.value);
-const toggleBlock = () => console.log("Block toggled");
+// const toggleBlock = () => console.log("Block toggled");
+const toggleBlock = () => {
+  emit("toggle-block", props.conversation.id);
+};
 
 watch(
   () => isGroup.value,
@@ -59,8 +67,8 @@ watch(
 </script>
 
 <template>
-  <aside class="hidden lg:block w-80 bg-white border-l border-gray-200 overflow-y-auto">
-    <div class="p-6">
+  <aside class="hidden lg:flex lg:flex-col w-80 bg-white border-l border-gray-200 h-full">
+    <div class="p-6 overflow-y-auto flex-1">
       <!-- ================= Conversation Info ================= -->
       <div class="text-center mb-6">
         <img
@@ -103,9 +111,23 @@ watch(
       </div>
 
       <!-- ================= Tab Content ================= -->
-      <GroupMembers
+
+      <!-- <GroupMembers
         v-if="isGroup && activeTab === 'members'"
         :members="conversation.members"
+        :is_admin="conversation.is_admin"
+        @add-member="$emit('add-member')"
+        @make-admin="$emit('make-admin', $event)"
+        @remove-admin="$emit('remove-admin', $event)"
+        @remove-member="$emit('remove-member', $event)"
+      /> -->
+
+      <GroupMembers
+        v-if="isGroup && activeTab === 'members'"
+        :members="groupMembers"
+        :pagination="groupMembersPagination"
+        :is_admin="conversation.is_admin"
+        @load-more="loadMoreGroupMembers"
         @add-member="$emit('add-member')"
         @make-admin="$emit('make-admin', $event)"
         @remove-admin="$emit('remove-admin', $event)"

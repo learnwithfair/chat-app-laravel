@@ -9,9 +9,12 @@ use App\Models\ConversationParticipant;
 use App\Models\GroupSettings;
 use App\Models\User;
 use App\Services\Chat\ChatService;
+use App\Traits\ApiResponse;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 class ConversationRepository
 {
+    use ApiResponse;
     public function find(int $conversationId): ?Conversation
     {
         return Conversation::with([
@@ -176,7 +179,7 @@ class ConversationRepository
             ->first();
 
         if (! $participant) {
-            abort(403, 'Conversation not found or already removed.');
+            throw new HttpResponseException($this->error(null, 'Conversation not found or already removed.', 404));
         }
 
         $participant->update([
@@ -195,17 +198,17 @@ class ConversationRepository
     public function getMembers(int $userId, int $conversationId)
     {
         if (! $this->canUserPermit($conversationId, $userId)) {
-            abort(403, 'You are not allowed to view this conversation.');
+            throw new HttpResponseException($this->error(null, 'You are not allowed to view this conversation.', 403));
         }
         $conversation = $this->find($conversationId);
-        return $conversation->participants()->active()->get();
+        return $conversation->participants()->active()->with('user')->get();
     }
 
     public function addMembers(User $adder, int $conversationId, array $memberIds)
     {
 
         if (! $this->canUserManageMembers($conversationId, $adder->id)) {
-            abort(403, 'Only admins can add members.');
+            throw new HttpResponseException($this->error(null, 'Only admins can add members.', 403));
         }
 
         $conversation = $this->find($conversationId);
@@ -240,7 +243,7 @@ class ConversationRepository
     public function removeMember(int $userId, int $conversationId, array $memberIds)
     {
         if (! $this->canUserManageMembers($conversationId, $userId)) {
-            abort(403, 'Only admins can remove members.');
+            throw new HttpResponseException($this->error(null, 'Only admins can remove members.', 403));
         }
 
         $conversation = $this->find($conversationId);
@@ -273,13 +276,13 @@ class ConversationRepository
     public function addGroupAdmins(User $actor, int $conversationId, array $userIds)
     {
         if (! $this->canUserManageMembers($conversationId, $actor->id)) {
-            abort(403, 'Only admins can add admins.');
+            throw new HttpResponseException($this->error(null, 'Only admins can add admins.', 403));
         }
 
         $conversation = $this->find($conversationId);
 
         if ($conversation->type !== 'group') {
-            abort(403, 'Admins are allowed only in group conversations.');
+            throw new HttpResponseException($this->error(null, 'Admins are allowed only in group conversations.', 403));
         }
 
         $participants = ConversationParticipant::where('conversation_id', $conversationId)->whereIn('user_id', $userIds)->where('role', 'member')->update(['role' => 'admin']);
@@ -290,13 +293,13 @@ class ConversationRepository
     public function removeGroupAdmins(User $actor, int $conversationId, array $userIds)
     {
         if (! $this->canUserManageMembers($conversationId, $actor->id)) {
-            abort(403, 'Only admins can remove admins.');
+            throw new HttpResponseException($this->error(null, 'Only admins can remove admins.', 403));
         }
 
         $conversation = $this->find($conversationId);
 
         if ($conversation->type !== 'group') {
-            abort(403, 'Admins are allowed only in group conversations.');
+            throw new HttpResponseException($this->error(null, 'Admins are allowed only in group conversations.', 403));
         }
 
         $participants = ConversationParticipant::where('conversation_id', $conversationId)->whereIn('user_id', $userIds)->where('role', 'admin')->update(['role' => 'member']);
@@ -358,7 +361,7 @@ class ConversationRepository
             ! $setting->allow_members_to_change_group_info &&
             ! in_array($participant->role, ['admin', 'super_admin'])
         ) {
-            abort(403, 'Only admins can update group info.');
+            throw new HttpResponseException($this->error(null, 'Only admins can update group info.', 403));
         }
 
         $conversation = $this->find($conversationId);
@@ -406,7 +409,7 @@ class ConversationRepository
             ! $setting->allow_members_to_change_group_info &&
             ! in_array($participant->role, ['admin', 'super_admin'])
         ) {
-            abort(403, 'Only admins can update group info.');
+            throw new HttpResponseException($this->error(null, 'Only admins can update group info.', 403));
         }
 
         $setting->update($data);

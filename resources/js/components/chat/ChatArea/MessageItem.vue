@@ -1,5 +1,24 @@
 <template>
+  <!-- SYSTEM MESSAGE -->
   <div
+    v-if="message.messageType === 'system'"
+    class="w-full flex flex-col items-center my-4"
+    :id="`message-${message.id}`"
+  >
+    <div
+      class="px-4 text-sm text-gray-700  max-w-md text-center"
+    >
+      {{ message.text }}
+    </div>
+
+    <!-- Date below system message -->
+    <span class="mt-1 text-xs text-gray-400">
+      {{ message.time }}
+    </span>
+  </div>
+
+  <div
+    v-else
     :class="['flex', message.isMine ? 'justify-end' : 'justify-start']"
     :id="`message-${message.id}`"
   >
@@ -339,7 +358,7 @@
         >
           <button
             @click.stop="emit('show-seen-by')"
-            class="flex -space-x-2 hover:opacity-80 transition-opacity"
+            class="flex -space-x-2 hover:opacity-80 transition-opacity cursor-pointer"
           >
             <img
               v-for="user in message.seenBy.slice(0, 3)"

@@ -26,6 +26,8 @@ export function useChat() {
     // ]);
 
     const availableUsers = ref([]);
+    const groupMembers = ref([]);
+
 
     const activeConversation = ref(null);
     const searchQuery = ref('');
@@ -61,6 +63,13 @@ export function useChat() {
         currentPage: 1,
         lastPage: 1,
         hasMore: true,
+        loading: false,
+    });
+
+    const groupMembersPagination = ref({
+        currentPage: 1,
+        lastPage: 1,
+        hasMore: false,
         loading: false,
     });
 
@@ -158,6 +167,65 @@ export function useChat() {
         await fetchAvailableUsers(searchQuery.value, 1, false);
     };
 
+    // Fetch group members
+    const fetchGroupMembers = async (page = 1, append = false) => {
+        if (append) groupMembersPagination.value.loading = true;
+
+        try {
+            const conversationId = activeConversation.value?.id;
+            if (!conversationId) return;
+
+            const response = await axios.get(
+                `${API_BASE}/group/${conversationId}/members`,
+                { params: { page, per_page: 20 } }
+            );
+            // Array of members
+            const data = response.data.data || [];
+
+            // Map the members correctly
+            const members = data.map(item => ({
+                id: item.user.id,
+                name: item.user.name,
+                role: item.role, // role is at top level
+                avatar: item.user.avatar_path || generateAvatar(item.user.name),
+            }));
+
+            if (append) {
+                groupMembers.value.push(...members);
+            } else {
+                groupMembers.value = members;
+            }
+
+            // Handle pagination safely
+            const paginationMeta = response.data.meta || {}; // adjust if your API returns meta
+            groupMembersPagination.value = {
+                currentPage: paginationMeta.current_page || page,
+                lastPage: paginationMeta.last_page || page,
+                hasMore: (paginationMeta.current_page || page) < (paginationMeta.last_page || page),
+                loading: false,
+            };
+
+        } catch (e) {
+            console.error("Failed to fetch group members", e);
+        } finally {
+            groupMembersPagination.value.loading = false;
+        }
+    };
+
+    // Load more group members
+    const loadMoreGroupMembers = async () => {
+        if (
+            !groupMembersPagination.value.hasMore ||
+            groupMembersPagination.value.loading
+        ) return;
+
+        await fetchGroupMembers(
+            groupMembersPagination.value.currentPage + 1,
+            true
+        );
+    };
+
+
 
 
     // Fetch conversations with CACHING and PAGINATION
@@ -203,7 +271,7 @@ export function useChat() {
                     type: conv.type,
                     name: name || 'Unknown',
                     avatar: avatar,
-                    lastMessage: buildLastMessagePreview(conv.last_message),
+                    lastMessage: buildLastMessagePreview(conv.last_message) || 'No preview available',
                     lastMessageTime: conv.last_message?.created_at
                         ? formatTime(conv.last_message.created_at)
                         : '',
@@ -214,7 +282,8 @@ export function useChat() {
                     members: conv.participants || [],
                     settings: conv.group_setting || null,
                     isMuted: conv.is_muted || false,
-                    receiver: conv.receiver || null
+                    receiver: conv.receiver || null,
+                    is_admin: conv.is_admin
                 };
             });
 
@@ -527,11 +596,12 @@ export function useChat() {
         }
     };
 
+
     // Add members to group
     const addMembersToGroupAPI = async (conversationId, memberIds) => {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/members/add`, {
-                user_ids: memberIds
+                member_ids: memberIds
             });
             return response.data;
         } catch (error) {
@@ -544,7 +614,7 @@ export function useChat() {
     const removeMemberAPI = async (conversationId, memberIds) => {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/members/remove`, {
-                user_ids: memberIds
+                member_ids: memberIds
             });
             return response.data;
         } catch (error) {
@@ -557,7 +627,7 @@ export function useChat() {
     const addAdminAPI = async (conversationId, userIds) => {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/admins/add`, {
-                user_ids: userIds
+                member_ids: userIds
             });
             return response.data;
         } catch (error) {
@@ -570,7 +640,7 @@ export function useChat() {
     const removeAdminAPI = async (conversationId, userIds) => {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/admins/remove`, {
-                user_ids: userIds
+                member_ids: userIds
             });
             return response.data;
         } catch (error) {
@@ -1397,11 +1467,11 @@ export function useChat() {
 
     //     await fetchAvailableUsers();
     // };
-    const openAddMember = async () => {
-        openAddMemberModal();
+    // const openAddMember = async () => {
+    //     openAddMemberModal();
 
-        await fetchAvailableUsers(null, 1, false);
-    };
+    //     await fetchAvailableUsers(null, 1, false);
+    // };
 
 
     const addMembersToGroup = async (userIds) => {
@@ -1426,6 +1496,51 @@ export function useChat() {
             console.error('Failed to add members:', error);
         }
     };
+
+    // const addMembersToGroup = async (memberIds) => {
+    //     if (!activeConversation.value) return;
+
+    //     try {
+    //         const conversationId = activeConversation.value.id;
+
+    //         // Call API to add members
+    //         const res = await addMembersToGroupAPI(conversationId, memberIds);
+
+    //         if (res.success) {
+    //             const membersData = Array.isArray(res.data) ? res.data : [res.data];
+    //             console.log("membersData");
+    //             console.log(membersData);
+    //             const newMembers = membersData.map(item => {
+    //                 const user = item.user || item;
+    //                 return {
+    //                     id: user.id,
+    //                     name: user.name,
+    //                     role: item.role || "member",
+    //                     avatar: user.avatar_path || generateAvatar(user.name),
+    //                 };
+    //             });
+
+    //             // Merge with existing members
+    //             const existingIds = groupMembers.value.map(m => m.id);
+    //             newMembers.forEach(m => {
+    //                 if (!existingIds.includes(m.id)) {
+    //                     groupMembers.value.push(m);
+    //                 }
+    //             });
+
+    //             console.log(`${newMembers.length} members added to group`);
+    //             closeModal('addMember');
+
+    //         } else {
+    //             console.error('Failed to add members:', res.message);
+    //         }
+
+    //     } catch (err) {
+    //         console.error('Error adding members to group:', err);
+    //     }
+    // };
+
+
 
     const makeAdmin = async (member) => {
         try {
@@ -1702,6 +1817,11 @@ export function useChat() {
         fetchAvailableUsers,
         loadMoreAvailableUsers,
         searchAvailableUsers,
+
+        groupMembers,
+        groupMembersPagination,
+        fetchGroupMembers,
+        loadMoreGroupMembers,
 
         // Group Management
         openCreateGroupModal,

@@ -10,11 +10,13 @@ use App\Models\Message;
 use App\Models\MessageStatus;
 use App\Models\User;
 use App\Services\Chat\ChatService;
+use App\Traits\ApiResponse;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Str;
 
 class MessageRepository
 {
-
+    use ApiResponse;
     public function getByConversation(User $user, int $conversationId, ?string $query = null, int $perPage = 20)
     {
         $messages = Message::where('conversation_id', $conversationId)
@@ -129,7 +131,7 @@ class MessageRepository
         $participant = ConversationParticipant::where('conversation_id', $data['conversation_id'])->where('user_id', $user->id)->active()->first();
 
         if (! $participant) {
-            abort(403, 'You are no longer a member of this conversation.');
+            throw new HttpResponseException($this->error(null, 'You are no longer a member of this conversation.', 403));
         }
         $conversation = Conversation::findOrFail($data['conversation_id']);
 
@@ -137,7 +139,7 @@ class MessageRepository
         if ($conversation->type === 'private' &&
             $conversation->otherParticipant($user)?->hasBlocked($user)
         ) {
-            abort(403, 'You cannot send message to this user.');
+            throw new HttpResponseException($this->error(null, 'You cannot send message to this user.', 403));
         }
 
         // 4. Create message
@@ -206,7 +208,7 @@ class MessageRepository
     public function updateMessage(User $user, array $data, Message $message)
     {
         if ($message->sender_id !== $user->id) {
-            abort(403, 'You are not allowed to update this message.');
+            throw new HttpResponseException($this->error(null, 'You are not allowed to update this message.', 403));
         }
         $message->update($data);
         return $message->refresh();
