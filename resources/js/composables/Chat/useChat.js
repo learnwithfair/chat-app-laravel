@@ -642,6 +642,8 @@ export function useChat() {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/admins/remove`, {
                 member_ids: userIds
             });
+            console.log("response");
+            console.log(response);
             return response.data;
         } catch (error) {
             console.error('Failed to remove admin:', error);
@@ -667,25 +669,48 @@ export function useChat() {
     const updateGroupInfoAPI = async (conversationId, data) => {
         try {
             const formData = new FormData();
-            formData.append('name', data.name);
 
+            // Conversation name
+            if (data.name) {
+                formData.append('name', data.name);
+            }
+
+            // Group fields
             if (data.group) {
                 Object.keys(data.group).forEach(key => {
-                    if (data.group[key] !== null && data.group[key] !== undefined) {
-                        formData.append(`group[${key}]`, data.group[key]);
+                    let value = data.group[key];
+
+                    // Skip null/undefined
+                    if (value === null || value === undefined) return;
+
+                    // Booleans must be 1/0 for FormData
+                    if (typeof value === 'boolean') {
+                        value = value ? 1 : 0;
+                    }
+
+                    // Special case: avatar file
+                    if (key === 'avatar') {
+                        formData.append(`group[avatar]`, value); // file object
+                    } else {
+                        formData.append(`group[${key}]`, value);
                     }
                 });
             }
 
-            const response = await axios.post(`${API_BASE}/group/${conversationId}/update`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            const response = await axios.post(
+                `${API_BASE}/group/${conversationId}/update`,
+                formData,
+                { headers: { 'Content-Type': 'multipart/form-data' } }
+            );
+
             return response.data.data;
         } catch (error) {
-            console.error('Failed to update group:', error);
+            console.error('Failed to update group:', error.response?.data || error);
             throw error;
         }
     };
+
+
 
     // Mute/Unmute group
     const muteGroupAPI = async (conversationId, minutes = 0) => {
@@ -1474,79 +1499,110 @@ export function useChat() {
     // };
 
 
-    const addMembersToGroup = async (userIds) => {
-        if (!activeConversation.value || activeConversation.value.type !== 'group') return;
+    // const addMembersToGroup = async (userIds) => {
+    //     if (!activeConversation.value || activeConversation.value.type !== 'group') return;
+
+    //     try {
+    //         await addMembersToGroupAPI(activeConversation.value.id, userIds);
+
+    //         // Refresh conversation or add members locally
+    //         userIds.forEach((userId) => {
+    //             const user = availableUsers.value.find(u => u.id === userId);
+    //             console.log(user);
+    //             if (user) {
+    //                 activeConversation.value.members.push({
+    //                     ...user,
+    //                     role: 'Member'
+    //                 });
+    //             }
+    //         });
+
+    //         closeModal('addMember');
+    //     } catch (error) {
+    //         console.error('Failed to add members:', error);
+    //     }
+    // };
+
+    const addMembersToGroup = async (memberIds) => {
+        if (!activeConversation.value) return;
 
         try {
-            await addMembersToGroupAPI(activeConversation.value.id, userIds);
+            const conversationId = activeConversation.value.id;
+            const res = await addMembersToGroupAPI(conversationId, memberIds);
 
-            // Refresh conversation or add members locally
-            userIds.forEach((userId) => {
-                const user = availableUsers.value.find(u => u.id === userId);
-                if (user) {
-                    activeConversation.value.members.push({
-                        ...user,
-                        role: 'Member'
+            const members = res.data?.original?.data?.members || [];
+
+            members.forEach(user => {
+                if (!groupMembers.value.some(m => m.id === user.id)) {
+                    groupMembers.value.push({
+                        id: user.id,
+                        name: user.name,
+                        role: user.role ?? 'member',
+                        avatar: user.avatar || generateAvatar(user.name),
                     });
                 }
             });
 
+            console.log(`${members.length} members added (realtime)`);
             closeModal('addMember');
-        } catch (error) {
-            console.error('Failed to add members:', error);
+
+        } catch (err) {
+            console.error('Error adding members:', err);
         }
     };
 
-    // const addMembersToGroup = async (memberIds) => {
-    //     if (!activeConversation.value) return;
 
+
+
+    // const makeAdmin = async (member) => {
     //     try {
-    //         const conversationId = activeConversation.value.id;
-
-    //         // Call API to add members
-    //         const res = await addMembersToGroupAPI(conversationId, memberIds);
-
-    //         if (res.success) {
-    //             const membersData = Array.isArray(res.data) ? res.data : [res.data];
-    //             console.log("membersData");
-    //             console.log(membersData);
-    //             const newMembers = membersData.map(item => {
-    //                 const user = item.user || item;
-    //                 return {
-    //                     id: user.id,
-    //                     name: user.name,
-    //                     role: item.role || "member",
-    //                     avatar: user.avatar_path || generateAvatar(user.name),
-    //                 };
-    //             });
-
-    //             // Merge with existing members
-    //             const existingIds = groupMembers.value.map(m => m.id);
-    //             newMembers.forEach(m => {
-    //                 if (!existingIds.includes(m.id)) {
-    //                     groupMembers.value.push(m);
-    //                 }
-    //             });
-
-    //             console.log(`${newMembers.length} members added to group`);
-    //             closeModal('addMember');
-
-    //         } else {
-    //             console.error('Failed to add members:', res.message);
-    //         }
-
-    //     } catch (err) {
-    //         console.error('Error adding members to group:', err);
+    //         await addAdminAPI(activeConversation.value.id, [member.id]);
+    //         const m = activeConversation.value.members.find(mem => mem.id === member.id);
+    //         console.log("makeAdmin");
+    //         console.log(m);
+    //         if (m) m.role = 'admin';
+    //         console.log("later");
+    //         console.log(m);
+    //     } catch (error) {
+    //         console.error('Failed to make admin:', error);
     //     }
     // };
 
-
+    // const removeAdmin = async (member) => {
+    //     try {
+    //         await removeAdminAPI(activeConversation.value.id, [member.id]);
+    //         const m = activeConversation.value.members.find(mem => mem.id === member.id);
+    //         console.log("removeAdmin");
+    //         console.log(m);
+    //         if (m) m.role = 'member';
+    //         console.log("later");
+    //         console.log(m);
+    //     } catch (error) {
+    //         console.error('Failed to remove admin:', error);
+    //     }
+    // };
 
     const makeAdmin = async (member) => {
         try {
             await addAdminAPI(activeConversation.value.id, [member.id]);
-            const m = activeConversation.value.members.find(mem => mem.id === member.id);
-            if (m) m.role = 'admin';
+
+            // Update activeConversation members
+            const index1 = activeConversation.value.members.findIndex(m => m.id === member.id);
+            if (index1 !== -1) {
+                activeConversation.value.members[index1] = {
+                    ...activeConversation.value.members[index1],
+                    role: 'admin'
+                };
+            }
+
+            // Update groupMembers for GroupMembers.vue
+            const index2 = groupMembers.value.findIndex(m => m.id === member.id);
+            if (index2 !== -1) {
+                groupMembers.value[index2] = {
+                    ...groupMembers.value[index2],
+                    role: 'admin'
+                };
+            }
         } catch (error) {
             console.error('Failed to make admin:', error);
         }
@@ -1554,20 +1610,61 @@ export function useChat() {
 
     const removeAdmin = async (member) => {
         try {
-            await removeAdminAPI(activeConversation.value.id, [member.id]);
-            const m = activeConversation.value.members.find(mem => mem.id === member.id);
-            if (m) m.role = 'member';
+            const res = await removeAdminAPI(activeConversation.value.id, [member.id]);
+
+            console.log(res);
+            // Update activeConversation members
+            const index1 = activeConversation.value.members.findIndex(m => m.id === member.id);
+            if (index1 !== -1) {
+                activeConversation.value.members[index1] = {
+                    ...activeConversation.value.members[index1],
+                    role: 'member'
+                };
+            }
+
+            // Update groupMembers for GroupMembers.vue
+            const index2 = groupMembers.value.findIndex(m => m.id === member.id);
+            if (index2 !== -1) {
+                groupMembers.value[index2] = {
+                    ...groupMembers.value[index2],
+                    role: 'member'
+                };
+            }
         } catch (error) {
             console.error('Failed to remove admin:', error);
         }
     };
 
+
+    // const removeMember = async (member) => {
+    //     if (!confirm(`Remove ${member.name} from the group?`)) return;
+
+    //     try {
+    //         await removeMemberAPI(activeConversation.value.id, [member.id]);
+    //         activeConversation.value.members = activeConversation.value.members.filter(m => m.id !== member.id);
+    //     } catch (error) {
+    //         console.error('Failed to remove member:', error);
+    //     }
+    // };
+
     const removeMember = async (member) => {
         if (!confirm(`Remove ${member.name} from the group?`)) return;
 
         try {
-            await removeMemberAPI(activeConversation.value.id, [member.id]);
-            activeConversation.value.members = activeConversation.value.members.filter(m => m.id !== member.id);
+            const res = await removeMemberAPI(
+                activeConversation.value.id,
+                [member.id]
+            );
+
+            // Optional immediate UI update (actor only)
+            const removedMembers = res?.data?.original?.data?.members || [];
+
+            removedMembers.forEach(u => {
+                groupMembers.value = groupMembers.value.filter(
+                    m => m.id !== u.id
+                );
+            });
+
         } catch (error) {
             console.error('Failed to remove member:', error);
         }
@@ -1590,12 +1687,22 @@ export function useChat() {
         if (!activeConversation.value || activeConversation.value.type !== 'group') return;
 
         try {
-            const updated = await updateGroupInfoAPI(activeConversation.value.id, settings);
-            activeConversation.value.settings = { ...activeConversation.value.settings, ...updated.group_setting };
+            const updated = await updateGroupInfoAPI(activeConversation.value.id, {
+                name: activeConversation.value.name,
+                group: settings
+            });
+
+
+            // merge backend response into reactive object
+            activeConversation.value.settings = {
+                ...activeConversation.value.settings,
+                ...updated.group_setting
+            };
         } catch (error) {
             console.error('Failed to update group settings:', error);
         }
     };
+
 
     const closeModal = (modalName) => {
         modals.value[modalName] = false;

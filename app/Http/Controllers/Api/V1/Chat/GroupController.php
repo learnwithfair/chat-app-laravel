@@ -45,8 +45,8 @@ class GroupController extends Controller
     public function removeAdmins(ManageGroupAdminRequest $request, $conversationId)
     {
         $request->validated();
-        $this->chatService->removeGroupAdmins(Auth::user(), $conversationId, $request->member_ids);
-        $this->success(null, 'Admins removed successfully');
+        $result = $this->chatService->removeGroupAdmins(Auth::user(), $conversationId, $request->member_ids);
+        $this->success($result, 'Admins removed successfully');
     }
 
     public function muteToggleGroup(Request $request, $conversationId)

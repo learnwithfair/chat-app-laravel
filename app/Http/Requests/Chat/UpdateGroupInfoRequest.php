@@ -15,6 +15,7 @@ class UpdateGroupInfoRequest extends FormRequest
     {
         return [
             'name'                                           => 'required|string|max:255',
+            'group'                                          => 'sometimes|array',
             'group.avatar'                                   => 'sometimes|nullable|file|mimes:jpg,jpeg,png,gif,svg|max:20480',
             'group.description'                              => 'sometimes|nullable|string|max:1000',
             'group.type'                                     => 'sometimes|in:public,private',

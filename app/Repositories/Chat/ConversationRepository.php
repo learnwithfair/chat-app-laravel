@@ -204,73 +204,191 @@ class ConversationRepository
         return $conversation->participants()->active()->with('user')->get();
     }
 
+    // public function addMembers(User $adder, int $conversationId, array $memberIds)
+    // {
+
+    //     if (! $this->canUserManageMembers($conversationId, $adder->id)) {
+    //         throw new HttpResponseException($this->error(null, 'Only admins can add members.', 403));
+    //     }
+
+    //     $conversation = $this->find($conversationId);
+    //     $lastMessage  = null;
+
+    //     foreach ($memberIds as $id) {
+
+    //         $conversation->participants()->firstOrCreate([
+    //             'user_id'    => $id,
+    //             'is_active'  => true, // for remove user
+    //             'removed_at' => null,
+    //             'left_at'    => null,
+    //         ]);
+    //         $addedUser = $this->findUser($id);
+
+    //         $lastMessage = $conversation->messages()->create([
+    //             'sender_id'    => $adder->id,
+    //             'message'      => $adder->name . ' added ' . $addedUser->name . ' to the conversation',
+    //             'message_type' => 'system',
+    //         ]);
+
+    //         //  Message broadcast
+    //         event(new MessageEvent('sent', $lastMessage->conversation_id, ['message' => $lastMessage]));
+
+    //         //  Send conversation to NEW user
+    //         event(new ConversationEvent($conversation, 'added', $id));
+    //     }
+
+    //     return $lastMessage;
+    // }
+
     public function addMembers(User $adder, int $conversationId, array $memberIds)
     {
-
         if (! $this->canUserManageMembers($conversationId, $adder->id)) {
-            throw new HttpResponseException($this->error(null, 'Only admins can add members.', 403));
+            throw new HttpResponseException(
+                $this->error(null, 'Only admins can add members.', 403)
+            );
         }
 
         $conversation = $this->find($conversationId);
+
+        $addedMembers = [];
         $lastMessage  = null;
 
         foreach ($memberIds as $id) {
 
-            $conversation->participants()->firstOrCreate([
-                'user_id'    => $id,
-                'is_active'  => true, // for remove user
-                'removed_at' => null,
-                'left_at'    => null,
-            ]);
-            $addedUser = $this->findUser($id);
+            // Skip self-add (optional safety)
+            if ($id === $adder->id) {continue;}
 
+            $participant = $conversation->participants()
+                ->where('user_id', $id)
+                ->first();
+
+            $user = $this->findUser($id);
+
+            $wasAdded = false;
+            $action   = null;
+
+            if ($participant) {
+                //  Re-add removed / left users
+                if ($participant->removed_at || $participant->left_at || ! $participant->is_active) {
+                    $participant->update([
+                        'is_active'  => true,
+                        'removed_at' => null,
+                        'left_at'    => null,
+                    ]);
+
+                    $wasAdded = true;
+                    $action   = 're-added';
+                }
+            } else {
+                // Brand new participant
+                $participant = $conversation->participants()->create([
+                    'user_id'    => $id,
+                    'is_active'  => true,
+                    'removed_at' => null,
+                    'left_at'    => null,
+                ]);
+
+                $wasAdded = true;
+                $action   = 'added';
+            }
+
+            // If user was already active, skip everything
+            if (! $wasAdded) {continue;}
+
+            //  Collect for frontend realtime update
+            $addedMembers[] = [
+                'id'     => $user->id,
+                'name'   => $user->name,
+                'avatar' => $user->avatar_path,
+                'role'   => $participant->is_admin ? 'admin' : 'member',
+            ];
+
+            // System message
             $lastMessage = $conversation->messages()->create([
-                'sender_id'    => $adder->id,
-                'message'      => $adder->name . ' added ' . $addedUser->name . ' to the conversation',
+                'sender_id' => $adder->id,
+                'message'   => "{$adder->name} {$action} {$user->name} to the conversation",
                 'message_type' => 'system',
             ]);
 
-            //  Message broadcast
-            event(new MessageEvent('sent', $lastMessage->conversation_id, ['message' => $lastMessage]));
+            // Broadcast message
+            event(new MessageEvent('sent', $conversation->id, ['message' => $lastMessage]));
 
-            //  Send conversation to NEW user
+            // Send conversation to added user
             event(new ConversationEvent($conversation, 'added', $id));
         }
 
-        return $lastMessage;
+        return $this->success(['members' => $addedMembers, 'message' => $lastMessage], 'Members added successfully');
     }
 
-    public function removeMember(int $userId, int $conversationId, array $memberIds)
+    // public function removeMember(int $userId, int $conversationId, array $memberIds)
+    // {
+    //     if (! $this->canUserManageMembers($conversationId, $userId)) {
+    //         throw new HttpResponseException($this->error(null, 'Only admins can remove members.', 403));
+    //     }
+
+    //     $conversation = $this->find($conversationId);
+
+    //     $members = User::whereIn('id', $memberIds)->get();
+
+    //     $conversation->participants()
+    //         ->whereIn('user_id', $memberIds)
+    //         ->where('is_active', true)
+    //         ->update([
+    //             'is_active'  => false,
+    //             'removed_at' => now(),
+    //         ]);
+    //     $lastMessage = null;
+    //     foreach ($members as $member) {
+    //         $lastMessage = $conversation->messages()->create([
+    //             'sender_id' => $userId,
+    //             'message'   => "{$member->name} was removed from the conversation",
+    //             'message_type' => 'system',
+    //         ]);
+
+    //         event(new MessageEvent('sent', $lastMessage->conversation_id, ['message' => $lastMessage]));
+
+    //         event(new ConversationEvent($conversation, 'removed', $member->id));
+    //     }
+
+    //     return $lastMessage;
+    // }
+
+    public function removeMember(int $actorId, int $conversationId, array $memberIds)
     {
-        if (! $this->canUserManageMembers($conversationId, $userId)) {
-            throw new HttpResponseException($this->error(null, 'Only admins can remove members.', 403));
+        if (! $this->canUserManageMembers($conversationId, $actorId)) {
+            throw new HttpResponseException(
+                $this->error(null, 'Only admins can remove members.', 403)
+            );
         }
 
         $conversation = $this->find($conversationId);
+        $actor        = $this->findUser($actorId);
 
-        $members = User::whereIn('id', $memberIds)->get();
+        $participants = $conversation->participants()->whereIn('user_id', $memberIds)->where('is_active', true)->get();
 
-        $conversation->participants()
-            ->whereIn('user_id', $memberIds)
-            ->where('is_active', true)
-            ->update([
-                'is_active'  => false,
-                'removed_at' => now(),
-            ]);
-        $lastMessage = null;
-        foreach ($members as $member) {
+        $removedMembers = [];
+        $lastMessage    = null;
+
+        foreach ($participants as $participant) {
+
+            $participant->update(['is_active' => false, 'removed_at' => now()]);
+            $user             = $this->findUser($participant->user_id);
+            $removedMembers[] = ['id' => $user->id, 'name' => $user->name];
+
             $lastMessage = $conversation->messages()->create([
-                'sender_id' => $userId,
-                'message'   => "{$member->name} was removed from the conversation",
+                'sender_id' => $actorId,
+                'message'   => "{$actor->name} removed {$user->name} from the conversation",
                 'message_type' => 'system',
             ]);
 
-            event(new MessageEvent('sent', $lastMessage->conversation_id, ['message' => $lastMessage]));
+            //  Realtime message
+            event(new MessageEvent('sent', $conversation->id, ['message' => $lastMessage]));
 
-            event(new ConversationEvent($conversation, 'removed', $member->id));
+            //  Realtime member removal
+            event(new ConversationEvent($conversation, 'removed', $user->id));
         }
 
-        return $lastMessage;
+        return $this->success(['members' => $removedMembers, 'message' => $lastMessage], 'Members removed successfully');
     }
 
     public function addGroupAdmins(User $actor, int $conversationId, array $userIds)
@@ -290,20 +408,72 @@ class ConversationRepository
 
     }
 
+    // public function removeGroupAdmins(User $actor, int $conversationId, array $userIds)
+    // {
+    //     if (! $this->canUserManageMembers($conversationId, $actor->id)) {
+    //         throw new HttpResponseException($this->error(null, 'Only admins can remove admins.', 403));
+    //     }
+
+    //     $conversation = $this->find($conversationId);
+
+    //     if ($conversation->type !== 'group') {
+    //         throw new HttpResponseException($this->error(null, 'Admins are allowed only in group conversations.', 403));
+    //     }
+
+    //     $participants = ConversationParticipant::where('conversation_id', $conversationId)->whereIn('user_id', $userIds)->where('role', 'admin')->update(['role' => 'member']);
+    //     return $participants;
+    // }
+
     public function removeGroupAdmins(User $actor, int $conversationId, array $userIds)
     {
         if (! $this->canUserManageMembers($conversationId, $actor->id)) {
-            throw new HttpResponseException($this->error(null, 'Only admins can remove admins.', 403));
+            throw new HttpResponseException(
+                $this->error(null, 'Only admins can remove admins.', 403)
+            );
         }
 
         $conversation = $this->find($conversationId);
 
         if ($conversation->type !== 'group') {
-            throw new HttpResponseException($this->error(null, 'Admins are allowed only in group conversations.', 403));
+            throw new HttpResponseException(
+                $this->error(null, 'Admins are allowed only in group conversations.', 403)
+            );
         }
 
-        $participants = ConversationParticipant::where('conversation_id', $conversationId)->whereIn('user_id', $userIds)->where('role', 'admin')->update(['role' => 'member']);
-        return $participants;
+        $participants = ConversationParticipant::where('conversation_id', $conversationId)
+            ->whereIn('user_id', $userIds)
+            ->where('role', 'admin')
+            ->get();
+
+        $updatedMembers = [];
+        $lastMessage    = null;
+
+        foreach ($participants as $participant) {
+
+            $participant->update(['role' => 'member']);
+
+            $user = $this->findUser($participant->user_id);
+
+            $updatedMembers[] = [
+                'id'   => $user->id,
+                'role' => 'member',
+            ];
+
+            $lastMessage = $conversation->messages()->create([
+                'sender_id' => $actor->id,
+                'message'   => "{$actor->name} removed admin rights from {$user->name}",
+                'message_type' => 'system',
+            ]);
+
+            //  Realtime role update
+            event(new ConversationEvent($conversation, 'admin_removed', $user->id));
+        }
+        $data = [
+            'members' => $updatedMembers,
+            'message' => $lastMessage,
+        ];
+
+        return $data;
     }
 
     public function leaveGroup(User $user, int $conversationId)
@@ -380,7 +550,9 @@ class ConversationRepository
             $conversation->groupSetting()->update($data['group']);
         }
 
-        return $conversation->fresh();
+        $conversation = $conversation->fresh(); // reload
+
+        return $conversation->load('groupSetting');
     }
 
     public function deleteGroup(int $conversationId)
