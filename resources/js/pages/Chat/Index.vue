@@ -14,6 +14,15 @@
       @create-group="openCreateGroupModal"
       @start-chat="startPrivateChat"
       @load-more="loadMoreConversations"
+      :show-start-chat-modal="modals.startChat"
+      :start-chat-users="startChatUsers"
+      :start-chat-loading="startChatLoading"
+      :start-chat-pagination="startChatPagination"
+      @open-start-chat-modal="openStartChatModal"
+      @close-start-chat-modal="modals.startChat = false"
+      @search-start-chat-users="searchStartChatUsers"
+      @load-more-start-chat-users="loadMoreStartChatUsers"
+      @select-start-chat-user="handleStartChatUserSelect"
     />
 
     <!-- Main Chat Area -->
@@ -291,6 +300,14 @@ const {
   availableUsersPagination,
   fetchAvailableUsers,
   loadMoreAvailableUsers,
+
+  startChatUsers,
+  startChatLoading,
+  startChatPagination,
+  openStartChatModal,
+  searchStartChatUsers,
+  loadMoreStartChatUsers,
+  handleStartChatUserSelect,
 
   groupMembers,
   groupMembersPagination,

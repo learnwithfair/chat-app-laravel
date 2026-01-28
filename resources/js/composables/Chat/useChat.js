@@ -82,7 +82,8 @@ export function useChat() {
         seenBy: false,
         messageDetails: false,
         deleteMessage: false,
-        forwardMessage: false
+        forwardMessage: false,
+        startChat: false
     });
 
     const selectedReactionUsers = ref([]);
@@ -91,6 +92,16 @@ export function useChat() {
     const messageToDelete = ref(null);
     const messageToForward = ref(null);
     const messageContainer = ref(null);
+
+
+    const startChatUsers = ref([]);
+    const startChatLoading = ref(false);
+    const startChatPagination = ref({
+        currentPage: 1,
+        lastPage: 1,
+        hasMore: true,
+        loading: false,
+    });
 
 
 
@@ -146,6 +157,56 @@ export function useChat() {
             availableUsersPagination.value.loading = false;
         }
     };
+    // Fetch users for starting chat
+    const fetchStartChatUsers = async (search = null, page = 1, append = false) => {
+        if (append) {
+            startChatPagination.value.loading = true;
+        } else {
+            startChatLoading.value = true;
+        }
+
+        try {
+            const params = {
+                page,
+                per_page: 20,
+            };
+
+            if (search) {
+                params.search = search;
+            }
+
+            const response = await axios.get(`${API_BASE}/available-users`, { params });
+
+            const data = response.data.data.data;
+            const meta = response.data.data;
+
+            const users = data.map(user => ({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                avatar: user.avatar_path || generateAvatar(user.name),
+                isOnline: user.is_online || false,
+            }));
+
+            if (append) {
+                startChatUsers.value.push(...users);
+            } else {
+                startChatUsers.value = users;
+            }
+
+            startChatPagination.value = {
+                currentPage: meta.current_page,
+                lastPage: meta.last_page,
+                hasMore: meta.current_page < meta.last_page,
+                loading: false,
+            };
+        } catch (error) {
+            console.error('Failed to fetch users for start chat:', error);
+        } finally {
+            startChatLoading.value = false;
+            startChatPagination.value.loading = false;
+        }
+    };
 
     // Load more available users
     const loadMoreAvailableUsers = async () => {
@@ -165,6 +226,32 @@ export function useChat() {
     const searchAvailableUsers = async () => {
         availableUsersPagination.value.currentPage = 1;
         await fetchAvailableUsers(searchQuery.value, 1, false);
+    };
+
+
+    //* Load more users in start chat modal (infinite scroll)
+    const loadMoreStartChatUsers = async () => {
+        if (
+            !startChatPagination.value.hasMore ||
+            startChatPagination.value.loading
+        ) {
+            return;
+        }
+
+        await fetchStartChatUsers(
+            null,
+            startChatPagination.value.currentPage + 1,
+            true
+        );
+    };
+
+    // Search users in start chat modal
+    const searchStartChatUsers = async (query) => {
+        // Reset pagination for new search
+        startChatPagination.value.currentPage = 1;
+
+        // Fetch users with search query
+        await fetchStartChatUsers(query, 1, false);
     };
 
     // Fetch group members
@@ -283,7 +370,8 @@ export function useChat() {
                     settings: conv.group_setting || null,
                     isMuted: conv.is_muted || false,
                     receiver: conv.receiver || null,
-                    is_admin: conv.is_admin
+                    is_admin: conv.is_admin,
+                    role: conv.role
                 };
             });
 
@@ -450,8 +538,8 @@ export function useChat() {
                 id: conv.id,
                 type: 'private',
                 name: conv.receiver?.name || '',
-                avatar: conv.receiver?.avatar_path || '',
-                lastMessage: '',
+                avatar: conv.receiver?.avatar_path || generateAvatar(conv.receiver?.name),
+                lastMessage: 'Started a new conversation',
                 lastMessageTime: 'Just now',
                 unreadCount: 0,
                 isOnline: conv.receiver?.is_online || false,
@@ -1128,6 +1216,41 @@ export function useChat() {
 
     // In your useChat.js composable
 
+
+    // Updated handleStartChatUserSelect to check for existing conversation
+    const handleStartChatUserSelect = async (user) => {
+        try {
+            // Check if conversation already exists with this user
+            const existingConv = conversations.value.find(
+                c => c.type === 'private' && c.receiver?.id === user.id
+            );
+
+            if (existingConv) {
+                // Select existing conversation
+                console.log('Opening existing conversation with', user.name);
+                selectConversation(existingConv);
+            } else {
+                // Create new private conversation
+                console.log('Creating new conversation with', user.name);
+                const newConv = await startPrivateConversationAPI(user.id);
+
+                // Select the new conversation
+                selectConversation(newConv);
+            }
+
+            // Close the modal
+            modals.value.startChat = false;
+
+            // Clear search/users state
+            startChatUsers.value = [];
+
+        } catch (error) {
+            console.error('Failed to start chat:', error);
+            alert('Failed to start chat. Please try again.');
+        }
+    };
+
+    // Updated handleSendMessage to support file attachments
     const handleSendMessage = async (filesFromInput = null) => {
         const files = filesFromInput || selectedFiles.value;
 
@@ -1408,6 +1531,23 @@ export function useChat() {
     };
     // old
 
+    // Start Chat
+    const openStartChatModal = async () => {
+        modals.value.startChat = true;
+
+        // Reset state
+        startChatUsers.value = [];
+        startChatPagination.value = {
+            currentPage: 1,
+            lastPage: 1,
+            hasMore: true,
+            loading: false,
+        };
+
+        // Fetch initial users
+        await fetchStartChatUsers(null, 1, false);
+    };
+
     const showSeenByModal = (message) => {
         currentSeenBy.value = message.seenBy || [];
         modals.value.seenBy = true;
@@ -1466,7 +1606,7 @@ export function useChat() {
                 id: newGroup.id,
                 type: 'group',
                 name: newGroup.name,
-                avatar: null,
+                avatar: generateAvatar(newGroup.name),
                 lastMessage: 'Group created',
                 lastMessageTime: 'Just now',
                 unreadCount: 0,
@@ -1924,6 +2064,15 @@ export function useChat() {
         fetchAvailableUsers,
         loadMoreAvailableUsers,
         searchAvailableUsers,
+
+        startChatUsers,
+        startChatLoading,
+        startChatPagination,
+        openStartChatModal,
+        fetchStartChatUsers,
+        loadMoreStartChatUsers,
+        searchStartChatUsers,
+        handleStartChatUserSelect,
 
         groupMembers,
         groupMembersPagination,

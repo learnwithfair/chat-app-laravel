@@ -12,6 +12,7 @@ const formatRole = (role) => {
 <template>
   <div class="mb-6">
     <button
+      v-if="is_admin"
       @click="$emit('add-member')"
       class="w-full mb-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center space-x-2"
     >

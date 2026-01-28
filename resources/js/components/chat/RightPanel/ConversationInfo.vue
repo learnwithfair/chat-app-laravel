@@ -110,17 +110,7 @@ watch(
         </button>
       </div>
 
-      <!-- ================= Tab Content ================= -->
-
-      <!-- <GroupMembers
-        v-if="isGroup && activeTab === 'members'"
-        :members="conversation.members"
-        :is_admin="conversation.is_admin"
-        @add-member="$emit('add-member')"
-        @make-admin="$emit('make-admin', $event)"
-        @remove-admin="$emit('remove-admin', $event)"
-        @remove-member="$emit('remove-member', $event)"
-      /> -->
+      <!-- ================= Tab Content ================= -->     
 
       <GroupMembers
         v-if="isGroup && activeTab === 'members'"
@@ -140,7 +130,7 @@ watch(
 
       <!-- ================= Group Settings ================= -->
       <GroupSettings
-        v-if="isGroup && activeTab === 'members'"
+        v-if="isGroup && activeTab === 'members' && conversation.role === 'super_admin'"
         :settings="conversation.settings"
         @update="$emit('update-settings', $event)"
       />
@@ -231,6 +221,7 @@ watch(
 
         <!-- Block -->
         <button
+          v-else
           @click="toggleBlock"
           class="w-full text-left px-4 py-2 text-sm rounded flex items-center transition-colors text-red-600 hover:bg-red-50"
         >

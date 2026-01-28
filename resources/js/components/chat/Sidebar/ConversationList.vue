@@ -7,6 +7,7 @@ import OnlineUsers from "./OnlineUsers.vue";
 import SearchBar from "./SearchBar.vue";
 import { generateAvatar } from "../../../Utils/Chat/avatarHelper";
 import { ref, computed } from "vue";
+import Startchatmodal from "../Modals/Startchatmodal.vue";
 
 // Tabs
 const tabs = [
@@ -26,6 +27,11 @@ const props = defineProps({
   searchQuery: String,
   onlineUsers: Array,
   conversationPagination: Object,
+  // Start Chat Modal props
+  showStartChatModal: Boolean,
+  startChatUsers: Array,
+  startChatLoading: Boolean,
+  startChatPagination: Object,
 });
 
 // Emits
@@ -36,6 +42,12 @@ const emit = defineEmits([
   "create-group",
   "start-chat",
   "loadMore",
+  // Start Chat Modal events
+  "open-start-chat-modal",
+  "close-start-chat-modal",
+  "search-start-chat-users",
+  "load-more-start-chat-users",
+  "select-start-chat-user",
 ]);
 
 // Scroll ref
@@ -52,6 +64,37 @@ const onScroll = (e) => {
     !props.conversationPagination?.loading
   ) {
     emit("loadMore");
+  }
+};
+
+// Empty state messages
+const getEmptyStateTitle = () => {
+  if (props.searchQuery) {
+    return "No Results Found";
+  }
+
+  switch (props.activeTab) {
+    case "private":
+      return "No Personal Chats";
+    case "group":
+      return "No Group Conversations";
+    default:
+      return "No Conversations Yet";
+  }
+};
+
+const getEmptyStateDescription = () => {
+  if (props.searchQuery) {
+    return `We couldn't find any conversations matching "${props.searchQuery}". Try a different search term.`;
+  }
+
+  switch (props.activeTab) {
+    case "private":
+      return "Start a new conversation with your contacts to begin chatting.";
+    case "group":
+      return "Create a group to start collaborating with multiple people at once.";
+    default:
+      return "Your conversation list is empty. Start chatting with someone to get started.";
   }
 };
 
@@ -147,6 +190,7 @@ const logout = () => {
       v-if="onlineUsers.length > 0"
       :users="onlineUsers"
       @start-chat="emit('start-chat', $event)"
+      @open-search="emit('open-start-chat-modal')"
     />
 
     <!-- Tabs -->
@@ -172,6 +216,91 @@ const logout = () => {
       class="conversations-scroll telegram-scrollbar flex-1 overflow-y-auto px-2"
       @scroll="onScroll"
     >
+      <!-- Empty State -->
+      <div
+        v-if="conversations.length === 0 && !conversationPagination.loading"
+        class="empty-state"
+      >
+        <div class="empty-state-content">
+          <svg
+            class="empty-state-icon"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              v-if="activeTab === 'all'"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+            />
+            <path
+              v-else-if="activeTab === 'private'"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+            />
+            <path
+              v-else-if="activeTab === 'group'"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+            />
+            <path
+              v-else
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+
+          <h3 class="empty-state-title">
+            {{ getEmptyStateTitle() }}
+          </h3>
+
+          <p class="empty-state-description">
+            {{ getEmptyStateDescription() }}
+          </p>
+
+          <button
+            v-if="!searchQuery && activeTab === 'group'"
+            @click="emit('create-group')"
+            class="empty-state-button"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Create Group
+          </button>
+
+          <button
+            v-else-if="!searchQuery"
+            @click="emit('open-start-chat-modal')"
+            class="empty-state-button"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Start a Chat
+          </button>
+        </div>
+      </div>
+
+      <!-- Conversation Items -->
       <ConversationItem
         v-for="conversation in conversations"
         :key="conversation.id"
@@ -186,6 +315,18 @@ const logout = () => {
       <div class="spinner"></div>
       <span>Loading more...</span>
     </div>
+
+    <!-- Start Chat Modal -->
+    <Startchatmodal
+      :is-open="showStartChatModal"
+      :users="startChatUsers"
+      :pagination="startChatPagination"
+      :loading="startChatLoading"
+      @close="emit('close-start-chat-modal')"
+      @select-user="emit('select-start-chat-user', $event)"
+      @search="emit('search-start-chat-users', $event)"
+      @load-more="emit('load-more-start-chat-users')"
+    />
   </div>
 </template>
 
@@ -221,6 +362,67 @@ const logout = () => {
 
 .telegram-scrollbar:hover::-webkit-scrollbar-thumb:hover {
   background-color: rgba(0, 0, 0, 0.35);
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  padding: 40px 20px;
+}
+
+.empty-state-content {
+  text-align: center;
+  max-width: 320px;
+}
+
+.empty-state-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  color: #cbd5e1;
+  stroke-width: 1.5;
+}
+
+.empty-state-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 12px;
+}
+
+.empty-state-description {
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.empty-state-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background-color: #3b82f6;
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.empty-state-button:hover {
+  background-color: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.empty-state-button:active {
+  transform: translateY(0);
 }
 
 /* Loading */

@@ -27,7 +27,6 @@ class MessageController extends Controller
     public function store(SendMessageRequest $request)
     {
         $message = $this->chatService->sendMessage(Auth::user(), $request->validated());
-        // return response()->json(['status' => 'success', 'message' => $message]);
         return $this->success($message, 'Message Sent Successfully', 201);
     }
     public function update(SendMessageRequest $request, Message $message)

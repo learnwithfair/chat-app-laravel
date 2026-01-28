@@ -24,7 +24,7 @@ class ConversationController extends Controller
     public function startPrivateConversation(Request $request)
     {
         $conversation = $this->chatService->startConversation(Auth::user(), $request->receiver_id);
-        return response()->json(['conversation' => $conversation]);
+        return $this->success($conversation, 'Conversation Created Successfully', 201);
     }
 
     // create group

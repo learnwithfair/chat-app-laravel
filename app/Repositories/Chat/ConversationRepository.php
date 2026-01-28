@@ -89,42 +89,49 @@ class ConversationRepository
             ->first();
     }
 
-    public function createPrivateConversation(int $userId1, int $userId2): Conversation
+    // public function createPrivateConversation(int $userId1, int $userId2): Conversation
+    // {
+    //     $conversation = Conversation::create([
+    //         'type' => 'private',
+    //     ]);
+
+    //     $conversation->participants()->createMany([
+    //         ['user_id' => $userId1, 'role' => 'member'],
+    //         ['user_id' => $userId2, 'role' => 'member'],
+    //     ]);
+
+    //     return $conversation;
+    // }
+
+    public function createPrivateConversation(int $userId1, int $userId2): ConversationResource
     {
+        // Create the conversation
         $conversation = Conversation::create([
             'type' => 'private',
         ]);
 
-        $conversation->participants()->createMany([
+        // Create participants
+        $participants = [
             ['user_id' => $userId1, 'role' => 'member'],
             ['user_id' => $userId2, 'role' => 'member'],
+        ];
+
+        $conversation->participants()->createMany($participants);
+
+        // Load relationships (same pattern as createGroupConversation)
+        $conversation->load([
+            'participants' => function ($q) {
+                $q->where('is_active', true)->with('user');
+            },
+            'lastMessage.sender',
+            'groupSetting', // Will be null for private conversations
         ]);
 
-        return $conversation;
+        $conversation->setRelation('unread_count', 0);
+
+        return new ConversationResource($conversation);
     }
 
-    // public function createGroupConversation(array $data, int $creadtedId): Conversation
-    // {
-    //     $conversation = Conversation::create([
-    //         'type'       => 'group',
-    //         'name'       => $data['name'] ?? 'New Group',
-    //         'created_by' => $creadtedId ?? null,
-    //     ]);
-
-    //     $participants = [];
-    //     foreach ($data['participants'] ?? [] as $userId) {
-    //         $participants[] = [
-    //             'user_id' => $userId,
-    //             'role'    => $userId === $creadtedId ? 'super_admin' : 'member',
-    //         ];
-    //     }
-
-    //     $conversation->participants()->createMany($participants);
-
-    //     app(ChatService::class)->createDefault($conversation->id);
-
-    //     return $conversation;
-    // }
     public function createGroupConversation(array $data, int $creadtedId)
     {
         $conversation = Conversation::create([
