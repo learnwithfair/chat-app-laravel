@@ -41,6 +41,11 @@ export function useChat() {
     const loading = ref(false);
     const messagesLoading = ref(false);
 
+    const conversationMedia = ref([]);
+    const conversationFiles = ref([]);
+    const conversationLinks = ref([]);
+    const pendingMembers = ref([]);
+
     const typingUsers = ref({});
     let typingTimeout = null;
 
@@ -845,6 +850,140 @@ export function useChat() {
             lastConversationFetch.value = null;
         } catch (error) {
             console.error('Failed to delete conversation:', error);
+            throw error;
+        }
+    };
+
+
+    // Fetch conversation media
+    const fetchConversationMedia = async (conversationId) => {
+        try {
+            const response = await axios.get(`${API_BASE}/conversations/${conversationId}/media`);
+            conversationMedia.value = response.data.data.map(item => ({
+                id: item.id,
+                type: item.type,
+                url: item.path,
+                name: item.name || 'media',
+                createdAt: item.created_at
+            }));
+        } catch (error) {
+            console.error('Failed to fetch media:', error);
+        }
+    };
+
+    // Fetch conversation files
+    const fetchConversationFiles = async (conversationId) => {
+        try {
+            const response = await axios.get(`${API_BASE}/conversations/${conversationId}/files`);
+            conversationFiles.value = response.data.data.map(item => ({
+                id: item.id,
+                type: item.type,
+                url: item.path,
+                name: item.name || 'file',
+                size: item.size || 0,
+                createdAt: item.created_at
+            }));
+        } catch (error) {
+            console.error('Failed to fetch files:', error);
+        }
+    };
+
+    // Fetch conversation links
+    const fetchConversationLinks = async (conversationId) => {
+        try {
+            const response = await axios.get(`${API_BASE}/conversations/${conversationId}/links`);
+            conversationLinks.value = response.data.data.map(item => ({
+                id: item.id,
+                url: item.url,
+                sharedAt: item.created_at
+            }));
+        } catch (error) {
+            console.error('Failed to fetch links:', error);
+        }
+    };
+
+    // Toggle mute
+    const toggleMuteAPI = async (conversationId, isMuted) => {
+        try {
+            const response = await axios.post(`${API_BASE}/conversations/${conversationId}/mute`, {
+                mute: isMuted
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to toggle mute:', error);
+            throw error;
+        }
+    };
+
+    // Update group avatar
+    const updateGroupAvatarAPI = async (conversationId, avatarFile) => {
+        try {
+            const formData = new FormData();
+            formData.append('group[avatar]', avatarFile);
+
+            const response = await axios.post(
+                `${API_BASE}/group/${conversationId}/update`,
+                formData,
+                { headers: { 'Content-Type': 'multipart/form-data' } }
+            );
+
+            return response.data.data;
+        } catch (error) {
+            console.error('Failed to update avatar:', error);
+            throw error;
+        }
+    };
+
+    // Update group description
+    const updateGroupDescriptionAPI = async (conversationId, description) => {
+        try {
+            const response = await axios.post(`${API_BASE}/group/${conversationId}/update`, {
+                group: { description }
+            });
+            return response.data.data;
+        } catch (error) {
+            console.error('Failed to update description:', error);
+            throw error;
+        }
+    };
+
+    // Fetch pending members (for approval system)
+    const fetchPendingMembers = async (conversationId) => {
+        try {
+            const response = await axios.get(`${API_BASE}/group/${conversationId}/pending-members`);
+            pendingMembers.value = response.data.data.map(item => ({
+                id: item.user.id,
+                name: item.user.name,
+                avatar: item.user.avatar_path || generateAvatar(item.user.name),
+                requestedAt: item.created_at
+            }));
+        } catch (error) {
+            console.error('Failed to fetch pending members:', error);
+        }
+    };
+
+    // Approve member
+    const approveMemberAPI = async (conversationId, userId) => {
+        try {
+            const response = await axios.post(`${API_BASE}/group/${conversationId}/approve-member`, {
+                user_id: userId
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to approve member:', error);
+            throw error;
+        }
+    };
+
+    // Reject member
+    const rejectMemberAPI = async (conversationId, userId) => {
+        try {
+            const response = await axios.post(`${API_BASE}/group/${conversationId}/reject-member`, {
+                user_id: userId
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Failed to reject member:', error);
             throw error;
         }
     };
@@ -1945,6 +2084,162 @@ export function useChat() {
         await uploadVoiceMessage(audioBlob, voiceMsg, activeConversation.value.id);
     };
 
+    // Handle tab change and fetch data accordingly
+    const handleTabChange = async (tab) => {
+        activeRightTab.value = tab;
+
+        if (!activeConversation.value) return;
+
+        const conversationId = activeConversation.value.id;
+
+        if (tab === 'media' && conversationMedia.value.length === 0) {
+            await fetchConversationMedia(conversationId);
+        } else if (tab === 'files' && conversationFiles.value.length === 0) {
+            await fetchConversationFiles(conversationId);
+        } else if (tab === 'links' && conversationLinks.value.length === 0) {
+            await fetchConversationLinks(conversationId);
+        } else if (tab === 'members' && activeConversation.value.type === 'group') {
+            if (groupMembers.value.length === 0) {
+                await fetchGroupMembers();
+            }
+            // Check for pending members if admin
+            if (activeConversation.value.settings?.admins_must_approve_new_members &&
+                (activeConversation.value.role === 'super_admin' || activeConversation.value.role === 'admin')) {
+                await fetchPendingMembers(conversationId);
+            }
+        }
+    };
+
+    // Handle toggle block
+    const handleToggleBlock = async (conversationId) => {
+        try {
+            const conv = conversations.value.find(c => c.id === conversationId);
+            if (!conv || !conv.receiver) return;
+
+            await toggleBlockAPI(conv.receiver.id);
+
+            // Update local state
+            conv.isBlocked = !conv.isBlocked;
+
+            if (activeConversation.value?.id === conversationId) {
+                activeConversation.value.isBlocked = conv.isBlocked;
+            }
+        } catch (error) {
+            console.error('Failed to toggle block:', error);
+            alert('Failed to update block status');
+        }
+    };
+
+    // Handle toggle mute
+    const handleToggleMute = async (isMuted) => {
+        try {
+            if (!activeConversation.value) return;
+
+            await toggleMuteAPI(activeConversation.value.id, isMuted);
+
+            // Update local state
+            activeConversation.value.isMuted = isMuted;
+
+            const conv = conversations.value.find(c => c.id === activeConversation.value.id);
+            if (conv) {
+                conv.isMuted = isMuted;
+            }
+        } catch (error) {
+            console.error('Failed to toggle mute:', error);
+            alert('Failed to update notification settings');
+        }
+    };
+
+    // Handle delete conversation
+    const handleDeleteConversation = async (conversationId) => {
+        try {
+            await deleteConversationAPI(conversationId);
+
+            // Remove from list
+            conversations.value = conversations.value.filter(c => c.id !== conversationId);
+
+            // Clear active conversation if it's the deleted one
+            if (activeConversation.value?.id === conversationId) {
+                activeConversation.value = null;
+                showRightPanel.value = false;
+            }
+        } catch (error) {
+            console.error('Failed to delete conversation:', error);
+            alert('Failed to delete conversation');
+        }
+    };
+
+    // Handle update avatar
+    const handleUpdateAvatar = async (file) => {
+        try {
+            if (!activeConversation.value || activeConversation.value.type !== 'group') return;
+
+            const updated = await updateGroupAvatarAPI(activeConversation.value.id, file);
+
+            // Update local state
+            const newAvatar = updated.group_setting?.avatar || generateAvatar(activeConversation.value.name);
+            activeConversation.value.avatar = newAvatar;
+
+            const conv = conversations.value.find(c => c.id === activeConversation.value.id);
+            if (conv) {
+                conv.avatar = newAvatar;
+            }
+        } catch (error) {
+            console.error('Failed to update avatar:', error);
+            alert('Failed to update group avatar');
+        }
+    };
+
+    // Handle update description
+    const handleUpdateDescription = async (description) => {
+        try {
+            if (!activeConversation.value || activeConversation.value.type !== 'group') return;
+
+            const updated = await updateGroupDescriptionAPI(activeConversation.value.id, description);
+
+            // Update local state
+            if (activeConversation.value.settings) {
+                activeConversation.value.settings.description = description;
+            }
+        } catch (error) {
+            console.error('Failed to update description:', error);
+            alert('Failed to update group description');
+        }
+    };
+
+    // Approve pending member
+    const approveMember = async (userId) => {
+        try {
+            if (!activeConversation.value) return;
+
+            await approveMemberAPI(activeConversation.value.id, userId);
+
+            // Remove from pending list
+            pendingMembers.value = pendingMembers.value.filter(m => m.id !== userId);
+
+            // Refresh group members
+            await fetchGroupMembers();
+        } catch (error) {
+            console.error('Failed to approve member:', error);
+            alert('Failed to approve member');
+        }
+    };
+
+    // Reject pending member
+    const rejectMember = async (userId) => {
+        try {
+            if (!activeConversation.value) return;
+
+            await rejectMemberAPI(activeConversation.value.id, userId);
+
+            // Remove from pending list
+            pendingMembers.value = pendingMembers.value.filter(m => m.id !== userId);
+        } catch (error) {
+            console.error('Failed to reject member:', error);
+            alert('Failed to reject member');
+        }
+    };
+
     const uploadVoiceMessage = async (audioBlob, message, conversationId) => {
         const formData = new FormData();
         formData.append('audio', audioBlob, 'voice-message.webm');
@@ -2079,6 +2374,8 @@ export function useChat() {
         fetchGroupMembers,
         loadMoreGroupMembers,
 
+
+
         // Group Management
         openCreateGroupModal,
         createGroup,
@@ -2089,6 +2386,25 @@ export function useChat() {
         removeMember,
         leaveGroup,
         updateGroupSettings,
+
+
+        // New additions
+        conversationMedia,
+        conversationFiles,
+        conversationLinks,
+        pendingMembers,
+        fetchConversationMedia,
+        fetchConversationFiles,
+        fetchConversationLinks,
+        handleTabChange,
+        handleToggleBlock,
+        handleToggleMute,
+        handleDeleteConversation,
+        handleUpdateAvatar,
+        handleUpdateDescription,
+        fetchPendingMembers,
+        approveMember,
+        rejectMember,
 
         // Modal Management
         closeModal,

@@ -146,7 +146,7 @@
       @update-settings="updateGroupSettings"
       @trigger-search="triggerSearchFromRightPanel"
     /> -->
-    <ConversationInfo
+    <!-- <ConversationInfo
       v-if="showRightPanel && activeConversation"
       :conversation="activeConversation"
       :group-members="groupMembers"
@@ -161,6 +161,31 @@
       @leave-group="leaveGroup"
       @update-settings="updateGroupSettings"
       @trigger-search="triggerSearchFromRightPanel"
+    /> -->
+
+    <ConversationInfo
+      v-if="showRightPanel && activeConversation"
+      :conversation="activeConversation"
+      :group-members="groupMembers"
+      :load-more-group-members="loadMoreGroupMembers || (() => {})"
+      :group-members-pagination="groupMembersPagination"
+      :active-tab="activeRightTab"
+      :conversation-media="conversationMedia"
+      :conversation-files="conversationFiles"
+      :conversation-links="conversationLinks"
+      @update-tab="handleTabChange"
+      @add-member="openAddMemberModal"
+      @make-admin="makeAdmin"
+      @remove-admin="removeAdmin"
+      @remove-member="removeMember"
+      @leave-group="leaveGroup"
+      @update-settings="updateGroupSettings"
+      @trigger-search="triggerSearchFromRightPanel"
+      @toggle-block="handleToggleBlock"
+      @toggle-mute="handleToggleMute"
+      @delete-conversation="handleDeleteConversation"
+      @update-avatar="handleUpdateAvatar"
+      @update-description="handleUpdateDescription"
     />
 
     <!-- Modals -->
