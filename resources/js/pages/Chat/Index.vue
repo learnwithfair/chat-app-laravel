@@ -101,7 +101,8 @@
       <!-- In your main Chat component -->
       <MessageInput
         v-model="newMessage"
-        :is-blocked="activeConversation.isBlocked"
+        :isBlocked="activeConversation.isBlocked"
+        :canSendMessage="activeConversation.canSendMessage"
         :is-editing="!!editingMessage"
         :conversation-id="activeConversation.id"
         @send="handleSendMessage()"
@@ -349,6 +350,13 @@ const {
   removeMember,
   leaveGroup,
   updateGroupSettings,
+
+  handleTabChange,
+  handleToggleBlock,
+  handleToggleMute,
+  handleDeleteConversation,
+  handleUpdateAvatar,
+  handleUpdateDescription,
 
   // Modal Management
   closeModal,

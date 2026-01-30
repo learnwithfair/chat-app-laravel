@@ -108,9 +108,9 @@ const canEditDescription = computed(() => {
 
 const tabs = [
   { label: "Members", value: "members", groupOnly: true },
-  { label: "Media", value: "media" },
-  { label: "Files", value: "files" },
-  { label: "Links", value: "links" },
+  // { label: "Media", value: "media" },
+  // { label: "Files", value: "files" },
+  // { label: "Links", value: "links" },
   { label: "About", value: "about", groupOnly: true },
 ];
 
@@ -240,7 +240,7 @@ watch(
           :key="tab.value"
           @click="changeTab(tab.value)"
           :class="[
-            'flex-1 py-2 px-2 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap',
+            'flex-1 py-2 px-2 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer',
             activeTab === tab.value
               ? 'border-blue-500 text-blue-600'
               : 'border-transparent text-gray-500 hover:text-gray-700',
@@ -267,34 +267,40 @@ watch(
         @remove-member="$emit('remove-member', $event)"
       />
 
-      <MediaGallery
+      <!-- <MediaGallery
         v-else-if="activeTab === 'media'"
         :media="conversationMedia"
         :conversation-id="conversation.id"
-      />
+      /> -->
 
-      <FilesList
+      <!-- <FilesList
         v-else-if="activeTab === 'files'"
         :files="conversationFiles"
         :conversation-id="conversation.id"
-      />
+      /> -->
 
-      <LinksList
+      <!-- <LinksList
         v-else-if="activeTab === 'links'"
         :links="conversationLinks"
         :conversation-id="conversation.id"
-      />
+      /> -->
 
       <AboutTab
         v-else-if="isGroup && activeTab === 'about'"
         :description="conversation.settings?.description || ''"
+        :created-by="conversation.createdBy"
+        :created-at="conversation.createdAt"
         :can-edit="canEditDescription"
         @update-description="$emit('update-description', $event)"
       />
 
       <!-- ================= Group Settings ================= -->
       <GroupSettings
-        v-if="isGroup && activeTab === 'members' && conversation.role === 'super_admin'"
+        v-if="
+          isGroup &&
+          activeTab === 'members' &&
+          (conversation.role === 'super_admin' || conversation.role === 'admin')
+        "
         :settings="conversation.settings"
         @update="$emit('update-settings', $event)"
       />

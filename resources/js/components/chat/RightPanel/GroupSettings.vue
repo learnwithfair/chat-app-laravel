@@ -12,8 +12,8 @@
 
       <SettingSwitch
         v-model="localSettings.allow_members_to_add_remove_participants"
-        label="Allow members to add/remove participants"
-        description="Members can manage group participants"
+        label="Allow members to add participants"
+        description="Members can only add group participants"
         @change="updateSettings"
       />
 
@@ -24,12 +24,12 @@
         @change="updateSettings"
       />
 
-      <SettingSwitch
+      <!-- <SettingSwitch
         v-model="localSettings.admins_must_approve_new_members"
         label="Admins must approve new members"
         description="New members must be approved by admins"
         @change="updateSettings"
-      />
+      /> -->
     </div>
   </div>
 </template>

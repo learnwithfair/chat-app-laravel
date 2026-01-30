@@ -6,7 +6,7 @@
         <button
           v-if="canEdit && !isEditing"
           @click="startEditing"
-          class="text-blue-600 hover:text-blue-700 text-sm"
+          class="text-blue-600 hover:text-blue-700 text-sm cursor-pointer"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -24,6 +24,7 @@
           {{ description }}
         </p>
         <p v-else class="text-sm text-gray-400 italic">No description set</p>
+        <p class="text-sm mt-4">Created By {{ createdBy }} at {{ createdAt }}</p>
       </div>
 
       <div v-else class="space-y-2">
@@ -62,6 +63,8 @@ import { ref, watch } from "vue";
 const props = defineProps({
   description: { type: String, default: "" },
   canEdit: { type: Boolean, default: false },
+  createdBy: { type: String, default: "" },
+  createdAt: { type: String, default: "" },
 });
 
 const emit = defineEmits(["update-description"]);

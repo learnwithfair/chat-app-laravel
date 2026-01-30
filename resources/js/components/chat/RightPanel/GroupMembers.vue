@@ -73,12 +73,12 @@ const canDemoteAdmin = (member) => {
       Members ({{ members.length }})
     </h4>
 
-    <PendingMembers
+    <!-- <PendingMembers
       v-if="showPendingApprovals && pendingMembers.length > 0"
       :members="pendingMembers"
       @approve="$emit('approve-member', $event)"
       @reject="$emit('reject-member', $event)"
-    />
+    /> -->
 
     <div class="space-y-2">
       <div

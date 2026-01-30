@@ -23,11 +23,11 @@ class ConversationResource extends JsonResource
         }
 
         return [
-            'id'            => $this->id,
-            'name'          => $this->name,
-            'type'          => $this->type,
+            'id'               => $this->id,
+            'name'             => $this->name,
+            'type'             => $this->type,
 
-            'last_message'  => $this->lastMessage ? [
+            'last_message'     => $this->lastMessage ? [
                 'id'          => $this->lastMessage->id,
                 'message'     => $this->lastMessage->message,
                 'attachments' => MessageAttachmentResource::collection($this->lastMessage->attachments),
@@ -39,7 +39,7 @@ class ConversationResource extends JsonResource
                 'created_at'  => $this->lastMessage->created_at->toDateTimeString(),
             ] : null,
 
-            'participants'  => $this->type === 'group'
+            'participants'     => $this->type === 'group'
                 ? $this->participants
                 ->take(3)
                 ->map(fn($p) => [
@@ -51,7 +51,7 @@ class ConversationResource extends JsonResource
                 ])
                 : null,
 
-            'receiver'      => $receiver ? [
+            'receiver'         => $receiver ? [
                 'id'          => $receiver->id,
                 'name'        => $receiver->name,
                 'avatar_path' => $receiver->avatar_path,
@@ -59,13 +59,16 @@ class ConversationResource extends JsonResource
                 'last_seen'   => $receiver->last_seen_at?->diffForHumans(),
             ] : null,
 
-            'is_blocked'    => $isBlocked,
-            'unread_count'  => $this->unread_count ?? 0,
-            'is_admin'      => $participant?->role === 'super_admin' || $participant?->role === 'admin',
-            'role'          => $participant?->role,
-            'is_muted'      => $participant?->is_muted,
-            'group_setting' => $this->groupSetting,
-            'updated_at'    => $this->updated_at->toDateTimeString(),
+            'is_blocked'       => $isBlocked,
+            'unread_count'     => $this->unread_count ?? 0,
+            'is_admin'         => $participant?->role === 'super_admin' || $participant?->role === 'admin',
+            'role'             => $participant?->role,
+            'is_muted'         => $participant?->is_muted,
+            'group_setting'    => $this->groupSetting,
+            'can_send_message' => $this->canUserSendMessage($participant),
+            'updated_at'       => $this->updated_at->toDateTimeString(),
+            'created_by'       => $this->creator->name ?? null,
+            'created_at'       => $this->created_at->format('Y/m/d h:i:s A'),
         ];
     }
 }

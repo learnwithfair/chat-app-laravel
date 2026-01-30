@@ -370,13 +370,15 @@ export function useChat() {
                     unreadCount: conv.unread_count || 0,
                     isOnline: conv.receiver?.is_online || false,
                     isBlocked: conv.is_blocked || false,
-                    createdBy: conv.is_admin ? 1 : 0,
+                    createdBy: conv.created_by,
+                    createdAt: conv.created_at,
                     members: conv.participants || [],
                     settings: conv.group_setting || null,
                     isMuted: conv.is_muted || false,
                     receiver: conv.receiver || null,
                     is_admin: conv.is_admin,
-                    role: conv.role
+                    role: conv.role,
+                    canSendMessage: conv.can_send_message,
                 };
             });
 
@@ -549,7 +551,7 @@ export function useChat() {
                 unreadCount: 0,
                 isOnline: conv.receiver?.is_online || false,
                 isBlocked: conv.is_blocked || false,
-                created_by: 1,
+                createdBy: conv.created_by,
                 receiver: conv.receiver
             };
 
@@ -950,7 +952,8 @@ export function useChat() {
     // Fetch pending members (for approval system)
     const fetchPendingMembers = async (conversationId) => {
         try {
-            const response = await axios.get(`${API_BASE}/group/${conversationId}/pending-members`);
+            // const response = await axios.get(`${API_BASE}/group/${conversationId}/pending-members`);
+            const response = await axios.get(`${API_BASE}/group/${conversationId}/members`);
             pendingMembers.value = response.data.data.map(item => ({
                 id: item.user.id,
                 name: item.user.name,
@@ -1751,7 +1754,7 @@ export function useChat() {
                 unreadCount: 0,
                 isOnline: false,
                 isBlocked: false,
-                created_by: 1,
+                createdBy: newGroup.created_by,
                 members: newGroup.participants || [],
                 settings: newGroup.group_setting || null
             });
@@ -2105,7 +2108,7 @@ export function useChat() {
             // Check for pending members if admin
             if (activeConversation.value.settings?.admins_must_approve_new_members &&
                 (activeConversation.value.role === 'super_admin' || activeConversation.value.role === 'admin')) {
-                await fetchPendingMembers(conversationId);
+                // await fetchPendingMembers(conversationId);
             }
         }
     };

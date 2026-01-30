@@ -142,6 +142,11 @@ class MessageRepository
             throw new HttpResponseException($this->error(null, 'You cannot send message to this user.', 403));
         }
 
+        // 3.1. Check allow_members_to_send_messages
+        if (! $conversation->canUserSendMessage($participant)) {
+            throw new HttpResponseException($this->error(null, 'You are not allowed to send messages.', 403));
+        }
+
         // 4. Create message
         $message = Message::create([
             'conversation_id'     => $data['conversation_id'],

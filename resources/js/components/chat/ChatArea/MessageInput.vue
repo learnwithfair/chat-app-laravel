@@ -6,6 +6,7 @@ const props = defineProps({
   modelValue: String,
   conversationId: [String, Number],
   isBlocked: Boolean,
+  canSendMessage: Boolean,
   isEditing: Boolean,
 });
 
@@ -445,20 +446,21 @@ watch(
         </div>
       </div>
 
-      <div v-if="isBlocked" class="text-center py-4 text-gray-500">
-        <svg
-          class="w-8 h-8 mx-auto mb-2 text-red-500"
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path
-            fill-rule="evenodd"
-            d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z"
-            clip-rule="evenodd"
-          />
-        </svg>
-        <p class="font-semibold">You can't send messages to this conversation</p>
-        <p class="text-sm">This user is blocked</p>
+      <!-- Blocked / Cannot Send Message Indicator -->
+      <div v-if="isBlocked || !canSendMessage" class="py-1 text-center text-gray-500">
+        <p class="flex items-center justify-center gap-2 font-semibold">
+          <svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fill-rule="evenodd"
+              d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z"
+              clip-rule="evenodd"
+            />
+          </svg>
+
+          <span>You can't send messages to this conversation</span>
+        </p>
+
+        <p v-if="isBlocked" class="text-sm mt-1">This user is blocked</p>
       </div>
 
       <!-- Recording Mode -->

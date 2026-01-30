@@ -17,6 +17,9 @@ class Conversation extends Model
         return $this->hasMany(Message::class)->latest();
     }
 
+    public function creator()
+    {return $this->belongsTo(User::class, 'created_by');}
+
     public function lastMessage()
     {
         return $this->hasOne(Message::class)->latestOfMany();
@@ -38,6 +41,30 @@ class Conversation extends Model
         }
         // return the participant that is NOT the current user
         return $this->participants->where('user_id', '!=', $currentUser->id)->first()?->user;
+    }
+
+    // check allow_members_to_send_messages
+
+    public function canUserSendMessage(?ConversationParticipant $participant = null): bool
+    {
+        // Private chat → always allowed
+        if ($this->type === 'private') {
+            return true;
+        }
+
+        // Admins can always send
+        if ($participant && in_array($participant->role, ['admin', 'super_admin'])) {
+            return true;
+        }
+
+        $settings = $this->groupSetting;
+
+        // No settings → allowed
+        if (! $settings) {
+            return true;
+        }
+
+        return (bool) $settings->allow_members_to_send_messages;
     }
 
 }
