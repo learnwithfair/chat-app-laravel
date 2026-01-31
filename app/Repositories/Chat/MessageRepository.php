@@ -19,7 +19,15 @@ class MessageRepository
     use ApiResponse;
     public function getByConversation(User $user, int $conversationId, ?string $query = null, int $perPage = 20)
     {
+        $participant = ConversationParticipant::where('conversation_id', $conversationId)
+            ->where('user_id', $user->id)
+            ->active()
+            ->firstOrFail();
+            
         $messages = Message::where('conversation_id', $conversationId)
+            ->when($participant->last_deleted_message_id, function ($q) use ($participant) {
+                $q->where('id', '>', $participant->last_deleted_message_id);
+            })
             ->whereDoesntHave('deletions', function ($q) use ($user) {
                 $q->where('user_id', $user->id);
             })
@@ -178,6 +186,14 @@ class MessageRepository
 
         // 6. Update last read
         $participant->update(['last_read_message_id' => $message->id]);
+
+        // If previously deleted conversation, reactivate it
+        ConversationParticipant::where('conversation_id', $data['conversation_id'])
+            ->whereNotNull('deleted_at')
+            ->update([
+                'is_active'  => true,
+                'deleted_at' => null,
+            ]);
 
         // 7. Create message statuses (bulk)
         $participants = ConversationParticipant::where('conversation_id', $data['conversation_id'])->active()->get();

@@ -89,20 +89,6 @@ class ConversationRepository
             ->first();
     }
 
-    // public function createPrivateConversation(int $userId1, int $userId2): Conversation
-    // {
-    //     $conversation = Conversation::create([
-    //         'type' => 'private',
-    //     ]);
-
-    //     $conversation->participants()->createMany([
-    //         ['user_id' => $userId1, 'role' => 'member'],
-    //         ['user_id' => $userId2, 'role' => 'member'],
-    //     ]);
-
-    //     return $conversation;
-    // }
-
     public function createPrivateConversation(int $userId1, int $userId2): ConversationResource
     {
         // Create the conversation
@@ -178,20 +164,23 @@ class ConversationRepository
         return new ConversationResource($conversation);
     }
 
+    // need to work on it
     public function deleteForUser(int $userId, int $conversationId): bool
     {
         $participant = ConversationParticipant::where('conversation_id', $conversationId)
             ->where('user_id', $userId)
             ->where('is_active', true)
             ->first();
+        $lastMgsId = $participant->conversation->lastMessage->id;
 
         if (! $participant) {
             throw new HttpResponseException($this->error(null, 'Conversation not found or already removed.', 404));
         }
 
         $participant->update([
-            'is_active' => false,
-            'left_at'   => now(),
+            'is_active'               => false,
+            'last_deleted_message_id' => $lastMgsId,
+            'deleted_at'              => now(),
         ]);
 
         return true;
@@ -600,7 +589,7 @@ class ConversationRepository
     {
         // 1. Prevent self block
         if ($user->id === $userId) {
-            return response()->json(['error' => 'You cannot block yourself.'], 422);
+            throw new HttpResponseException($this->error(null, 'You cannot block yourself.', 422));
         }
 
         // 2. Toggle block
@@ -610,7 +599,7 @@ class ConversationRepository
         $isBlocked = $user->blockedUsers()->where('users.id', $userId)->exists();
 
         // 4. Notify via event (only if private conversation exists)
-        $conversation = app(ConversationRepository::class)->findPrivateBetween($user->id, $userId);
+        $conversation = $this->findPrivateBetween($user->id, $userId);
 
         if ($conversation) {
             event(new ConversationEvent($conversation, $isBlocked ? 'blocked' : 'unblocked', $userId));
@@ -623,7 +612,7 @@ class ConversationRepository
     {
         // Prevent restricting yourself
         if ($user->id === $userId) {
-            return response()->json(['error' => 'You cannot restrict yourself.'], 422);
+            throw new HttpResponseException($this->error(null, 'You cannot restrict yourself.', 422));
         }
 
         // Toggle restrict
@@ -673,5 +662,16 @@ class ConversationRepository
     public function canUserPermit(int $conversationId, int $userId): bool
     {
         return ConversationParticipant::where('conversation_id', $conversationId)->where('user_id', $userId)->exists();
+    }
+    public function canGroupDeletePermit(int $userId, int $conversationId): bool
+    {
+        $participant = ConversationParticipant::where('conversation_id', $conversationId)
+            ->where('user_id', $userId)
+            ->firstOrFail();
+
+        if (! in_array($participant->role, ['super_admin'])) {
+            throw new HttpResponseException($this->error(null, 'Only super admins can delete the group.', 403));
+        }
+        return true;
     }
 }

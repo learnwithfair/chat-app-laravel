@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('group_settings', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('conversation_id')->constrained();
+            $table->foreignId('conversation_id')->constrained()->cascadeOnDelete();
             $table->string('avatar')->nullable();
             $table->text('description')->nullable();
             $table->enum('type', ['public', 'private'])->default('private');

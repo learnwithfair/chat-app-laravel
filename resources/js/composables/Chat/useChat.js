@@ -785,7 +785,7 @@ export function useChat() {
 
                     // Special case: avatar file
                     if (key === 'avatar') {
-                        formData.append(`group[avatar]`, value); // file object
+                        // formData.append(`group[avatar]`, value); // file object
                     } else {
                         formData.append(`group[${key}]`, value);
                     }
@@ -852,6 +852,20 @@ export function useChat() {
             lastConversationFetch.value = null;
         } catch (error) {
             console.error('Failed to delete conversation:', error);
+            throw error;
+        }
+    };
+
+    // Delete group
+    const deleteGroupAPI = async (conversationId) => {
+        try {
+            await axios.delete(`${API_BASE}/group/${conversationId}/delete-group`);
+
+            // Clear caches
+            messageCache.delete(conversationId);
+            lastConversationFetch.value = null;
+        } catch (error) {
+            console.error('Failed to delete group:', error);
             throw error;
         }
     };
@@ -941,6 +955,18 @@ export function useChat() {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/update`, {
                 group: { description }
+            });
+            return response.data.data;
+        } catch (error) {
+            console.error('Failed to update description:', error);
+            throw error;
+        }
+    };
+    // Update group description
+    const updateGroupNameAPI = async (conversationId, name) => {
+        try {
+            const response = await axios.post(`${API_BASE}/group/${conversationId}/update`, {
+                name: name
             });
             return response.data.data;
         } catch (error) {
@@ -2171,6 +2197,24 @@ export function useChat() {
             alert('Failed to delete conversation');
         }
     };
+    // Handle delete conversation
+    const handleDeleteGroup = async (conversationId) => {
+        try {
+            await deleteGroupAPI(conversationId);
+
+            // Remove from list
+            conversations.value = conversations.value.filter(c => c.id !== conversationId);
+
+            // Clear active conversation if it's the deleted one
+            if (activeConversation.value?.id === conversationId) {
+                activeConversation.value = null;
+                showRightPanel.value = false;
+            }
+        } catch (error) {
+            console.error('Failed to delete group:', error);
+            alert('Failed to delete group');
+        }
+    };
 
     // Handle update avatar
     const handleUpdateAvatar = async (file) => {
@@ -2193,7 +2237,7 @@ export function useChat() {
         }
     };
 
-    // Handle update description
+    // Handle update group description
     const handleUpdateDescription = async (description) => {
         try {
             if (!activeConversation.value || activeConversation.value.type !== 'group') return;
@@ -2207,6 +2251,23 @@ export function useChat() {
         } catch (error) {
             console.error('Failed to update description:', error);
             alert('Failed to update group description');
+        }
+    };
+
+    // Handle update group name
+    const handleUpdateName = async (name) => {
+        try {
+            if (!activeConversation.value || activeConversation.value.type !== 'group') return;
+
+            const updated = await updateGroupNameAPI(activeConversation.value.id, name);
+
+            // Update local state
+            if (activeConversation.value) {
+                activeConversation.value.name = name;
+            }
+        } catch (error) {
+            console.error('Failed to update name:', error);
+            alert('Failed to update group name');
         }
     };
 
@@ -2403,8 +2464,10 @@ export function useChat() {
         handleToggleBlock,
         handleToggleMute,
         handleDeleteConversation,
+        handleDeleteGroup,
         handleUpdateAvatar,
         handleUpdateDescription,
+        handleUpdateName,
         fetchPendingMembers,
         approveMember,
         rejectMember,

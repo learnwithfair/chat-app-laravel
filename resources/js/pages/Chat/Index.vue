@@ -185,8 +185,10 @@
       @toggle-block="handleToggleBlock"
       @toggle-mute="handleToggleMute"
       @delete-conversation="handleDeleteConversation"
+      @delete-group="handleDeleteGroup"
       @update-avatar="handleUpdateAvatar"
       @update-description="handleUpdateDescription"
+      @update-name="handleUpdateName"
     />
 
     <!-- Modals -->
@@ -355,8 +357,10 @@ const {
   handleToggleBlock,
   handleToggleMute,
   handleDeleteConversation,
+  handleDeleteGroup,
   handleUpdateAvatar,
   handleUpdateDescription,
+  handleUpdateName,
 
   // Modal Management
   closeModal,

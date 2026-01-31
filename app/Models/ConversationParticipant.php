@@ -12,6 +12,7 @@ class ConversationParticipant extends Model
         'muted_until' => 'datetime',
         'created_at'  => 'datetime',
         'updated_at'  => 'datetime',
+        'deleted_at'  => 'datetime',
     ];
     public function scopeActive($query)
     {

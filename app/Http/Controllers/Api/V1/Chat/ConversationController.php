@@ -37,7 +37,7 @@ class ConversationController extends Controller
     public function destroy(Request $request, int $conversation)
     {
         $this->chatService->deleteConversationForUser(Auth::id(), $conversation);
-        return response()->json(['status' => 'success', 'message' => 'Conversation removed from your list']);
+        return $this->success(null, 'Conversation removed from your list', 200);
     }
 
 }

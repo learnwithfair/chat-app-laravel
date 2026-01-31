@@ -41,6 +41,7 @@ Route::prefix('v1')->middleware(['auth', 'last_seen'])->group(function () {
         Route::post('admins/remove', 'removeAdmins')->name('group.admins.remove');
         Route::post('mute', 'muteToggleGroup')->name('group.mute'); // 0 = unmute, 1 = Unlimited mute, otherwise specify miniutes
         Route::post('leave', 'leaveGroup')->name('group.leave');
+        Route::delete('delete-group', 'deleteGroup')->name('group.delete');
     });
 
     // -------------------- User Block / Restrict --------------------

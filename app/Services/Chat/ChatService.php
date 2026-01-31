@@ -246,6 +246,7 @@ class ChatService
 
     public function deleteGroup(User $user, int $groupId)
     {
+        $this->conversationRepo->canGroupDeletePermit($user->id, $groupId);
         return $this->conversationRepo->deleteGroup($groupId);
     }
 

@@ -2,9 +2,6 @@
 import { ref, computed, watch } from "vue";
 
 import GroupMembers from "./GroupMembers.vue";
-import MediaGallery from "./MediaGallery.vue";
-import FilesList from "./FilesList.vue";
-import LinksList from "./LinksList.vue";
 import GroupSettings from "./GroupSettings.vue";
 import AboutTab from "./AboutTab.vue";
 
@@ -14,9 +11,6 @@ const props = defineProps({
   groupMembers: { type: Array, default: () => [] },
   groupMembersPagination: { type: Object, default: () => ({}) },
   loadMoreGroupMembers: { type: Function, required: true },
-  conversationMedia: { type: Array, default: () => [] },
-  conversationFiles: { type: Array, default: () => [] },
-  conversationLinks: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits([
@@ -31,110 +25,88 @@ const emit = defineEmits([
   "toggle-block",
   "toggle-mute",
   "delete-conversation",
+  "delete-group",
   "update-avatar",
   "update-description",
+  "update-name",
 ]);
+
+/* ================= STATE ================= */
 
 const isMuted = ref(props.conversation.isMuted || false);
 const avatarInput = ref(null);
 
-const isGroup = computed(() => props.conversation.type === "group");
+const isEditingName = ref(false);
+const editedName = ref(props.conversation.name);
 
+/* ================= COMPUTED ================= */
+
+const isGroup = computed(() => props.conversation.type === "group");
 const avatar = computed(() => props.conversation.avatar);
 
-// Check if current user can add members based on settings and role
-const canAddMembers = computed(() => {
-  if (!isGroup.value) return false;
-
-  const settings = props.conversation.settings;
-  const role = props.conversation.role;
-
-  // Super admin and admin can always add members
-  if (role === "super_admin" || role === "admin") return true;
-
-  // Members can add only if settings allow
-  return settings?.allow_members_to_add_remove_participants || false;
-});
-
-// Check if current user can remove members
-const canRemoveMembers = computed(() => {
-  if (!isGroup.value) return false;
-
-  const settings = props.conversation.settings;
-  const role = props.conversation.role;
-
-  // Super admin and admin can always remove members
-  if (role === "super_admin" || role === "admin") return true;
-
-  // Members can remove only if settings allow
-  return settings?.allow_members_to_add_remove_participants || false;
-});
-
-// Check if current user can manage admins
-const canManageAdmins = computed(() => {
-  if (!isGroup.value) return false;
-
-  // Only super admin can manage admins
-  return props.conversation.role === "super_admin";
-});
-
-// Check if current user can change avatar
-const canChangeAvatar = computed(() => {
-  if (!isGroup.value) return false;
-
-  const settings = props.conversation.settings;
-  const role = props.conversation.role;
-
-  // Super admin and admin can always change avatar
-  if (role === "super_admin" || role === "admin") return true;
-
-  // Members can change only if settings allow
-  return settings?.allow_members_to_change_group_info || false;
-});
-
-// Check if current user can edit description
 const canEditDescription = computed(() => {
   if (!isGroup.value) return false;
 
-  const settings = props.conversation.settings;
   const role = props.conversation.role;
+  const settings = props.conversation.settings;
 
-  // Super admin and admin can always edit
   if (role === "super_admin" || role === "admin") return true;
+  return settings?.allow_members_to_change_group_info || false;
+});
 
-  // Members can edit only if settings allow
+const canAddMembers = computed(() => {
+  if (!isGroup.value) return false;
+
+  const role = props.conversation.role;
+  const settings = props.conversation.settings;
+
+  if (role === "super_admin" || role === "admin") return true;
+  return settings?.allow_members_to_add_remove_participants || false;
+});
+
+const canRemoveMembers = computed(() => {
+  if (!isGroup.value) return false;
+
+  const role = props.conversation.role;
+  const settings = props.conversation.settings;
+
+  if (role === "super_admin" || role === "admin") return true;
+  return settings?.allow_members_to_add_remove_participants || false;
+});
+
+const canManageAdmins = computed(() => {
+  return isGroup.value && props.conversation.role === "super_admin";
+});
+
+const canChangeAvatar = computed(() => {
+  if (!isGroup.value) return false;
+
+  const role = props.conversation.role;
+  const settings = props.conversation.settings;
+
+  if (role === "super_admin" || role === "admin") return true;
   return settings?.allow_members_to_change_group_info || false;
 });
 
 const tabs = [
-  { label: "Members", value: "members", groupOnly: true },
-  // { label: "Media", value: "media" },
-  // { label: "Files", value: "files" },
-  // { label: "Links", value: "links" },
-  { label: "About", value: "about", groupOnly: true },
+  { label: "Members", value: "members" },
+  { label: "About", value: "about" },
 ];
 
-const visibleTabs = computed(() => tabs.filter((tab) => !tab.groupOnly || isGroup.value));
+/* ================= METHODS ================= */
 
 const changeTab = (tab) => emit("update-tab", tab);
+
+const triggerAvatarUpload = () => avatarInput.value?.click();
+
+const handleAvatarChange = (e) => {
+  const file = e.target.files?.[0];
+  if (file) emit("update-avatar", file);
+};
 
 const toggleMute = () => {
   isMuted.value = !isMuted.value;
   emit("toggle-mute", isMuted.value);
-};
-
-const toggleBlock = () => {
-  emit("toggle-block", props.conversation.id);
-};
-
-const deleteConversation = () => {
-  if (
-    confirm(
-      `Are you sure you want to delete this ${isGroup.value ? "group" : "conversation"}?`
-    )
-  ) {
-    emit("delete-conversation", props.conversation.id);
-  }
 };
 
 const leaveGroup = () => {
@@ -143,52 +115,70 @@ const leaveGroup = () => {
   }
 };
 
-const triggerAvatarUpload = () => {
-  avatarInput.value?.click();
+const deleteConversation = () => {
+  if (confirm("Are you sure you want to delete this conversation?")) {
+    emit("delete-conversation", props.conversation.id);
+  }
 };
-
-const handleAvatarChange = (event) => {
-  const file = event.target.files?.[0];
-  if (file) {
-    emit("update-avatar", file);
+const deleteGroup = () => {
+  if (confirm("Are you sure you want to delete this group?")) {
+    emit("delete-group", props.conversation.id);
   }
 };
 
+/* ===== Group Name Edit (same UX as description) ===== */
+
+const startEditingName = () => {
+  isEditingName.value = true;
+  editedName.value = props.conversation.name;
+};
+
+const cancelEditingName = () => {
+  isEditingName.value = false;
+  editedName.value = props.conversation.name;
+};
+
+const saveGroupName = () => {
+  if (!editedName.value.trim()) return;
+
+  emit("update-name", editedName.value.trim());
+  isEditingName.value = false;
+};
+
+/* ================= WATCHERS ================= */
+
 watch(
-  () => props.conversation.isMuted,
-  (newVal) => {
-    isMuted.value = newVal || false;
+  () => props.conversation.name,
+  (val) => {
+    editedName.value = val;
   }
 );
 
 watch(
-  () => isGroup.value,
-  (group) => {
-    if (!group && props.activeTab === "members") {
-      emit("update-tab", "media");
-    }
-  },
-  { immediate: true }
+  () => props.conversation.isMuted,
+  (val) => {
+    isMuted.value = val || false;
+  }
 );
 </script>
 
 <template>
   <aside class="hidden lg:flex lg:flex-col w-80 bg-white border-l border-gray-200 h-full">
     <div class="p-6 overflow-y-auto flex-1">
-      <!-- ================= Conversation Info ================= -->
-      <div class="text-center mb-6">
+      <!-- ================= Avatar ================= -->
+      <div class="text-center mb-4 relative">
         <div class="relative inline-block">
           <img
             :src="avatar"
             :alt="conversation.name"
-            class="w-24 h-24 rounded-full mx-auto mb-3 object-cover ring-2 ring-gray-100"
+            class="w-24 h-24 rounded-full mx-auto object-cover ring-2 ring-blue-300"
           />
 
           <!-- Avatar change button for groups -->
           <button
             v-if="isGroup && canChangeAvatar"
             @click="triggerAvatarUpload"
-            class="absolute bottom-3 right-0 bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition-colors shadow-lg"
+            class="absolute bottom-0 right-0 bg-blue-500 text-white p-2 rounded-full hover:bg-blue-600 transition-colors shadow-lg"
             title="Change group avatar"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -207,7 +197,6 @@ watch(
             </svg>
           </button>
 
-          <!-- Hidden file input -->
           <input
             ref="avatarInput"
             type="file"
@@ -216,44 +205,89 @@ watch(
             @change="handleAvatarChange"
           />
         </div>
+      </div>
 
-        <h3 class="text-xl font-semibold text-gray-900 truncate">
+      <!-- ================= Group Name ================= -->
+      <div class="relative text-center mb-2">
+        <!-- Edit icon -->
+        <button
+          v-if="isGroup && canEditDescription && !isEditingName"
+          @click="startEditingName"
+          class="absolute right-0 top-0 text-blue-600 hover:text-blue-700"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5
+             m-1.414-9.414a2 2 0 112.828 2.828
+             L11.828 15H9v-2.828l8.586-8.586z"
+            />
+          </svg>
+        </button>
+
+        <!-- View -->
+        <h3
+          v-if="!isEditingName"
+          class="text-xl font-semibold text-gray-900 truncate px-6"
+        >
           {{ conversation.name }}
         </h3>
 
-        <p class="text-sm text-gray-500">
-          <template v-if="isGroup">
-            {{ conversation.members?.length || 0 }} members
-          </template>
-          <template v-else>
-            <span :class="conversation.isOnline ? 'text-green-600' : 'text-gray-400'">
-              {{ conversation.isOnline ? "Online" : "Offline" }}
-            </span>
-          </template>
-        </p>
+        <!-- Edit -->
+        <div v-else class="space-y-2 px-6">
+          <input
+            v-model="editedName"
+            type="text"
+            maxlength="100"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm text-center"
+            placeholder="Enter group name..."
+          />
+
+          <div class="flex justify-center gap-2">
+            <button
+              @click="cancelEditingName"
+              class="px-3 py-1 text-sm text-gray-600 bg-gray-200 hover:bg-gray-400 rounded"
+            >
+              Cancel
+            </button>
+            <button
+              @click="saveGroupName"
+              class="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Save
+            </button>
+          </div>
+        </div>
       </div>
 
+      <!-- ================= Members Count ================= -->
+      <p class="text-sm text-gray-500 text-center mb-4">
+        {{ conversation.members?.length || 0 }} members
+      </p>
+
       <!-- ================= Tabs ================= -->
-      <div class="flex border-b border-gray-200 mb-4 overflow-x-auto">
+      <div class="flex border-b border-gray-200 mb-4">
         <button
-          v-for="tab in visibleTabs"
+          v-for="tab in tabs"
           :key="tab.value"
           @click="changeTab(tab.value)"
           :class="[
-            'flex-1 py-2 px-2 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap cursor-pointer',
+            'flex-1 py-2 text-sm font-medium border-b-2',
             activeTab === tab.value
               ? 'border-blue-500 text-blue-600'
-              : 'border-transparent text-gray-500 hover:text-gray-700',
+              : 'border-transparent text-gray-500',
           ]"
         >
           {{ tab.label }}
         </button>
       </div>
 
-      <!-- ================= Tab Content ================= -->
+      <!-- ================= Content ================= -->
 
       <GroupMembers
-        v-if="isGroup && activeTab === 'members'"
+        v-if="activeTab === 'members'"
         :members="groupMembers"
         :pagination="groupMembersPagination"
         :can-add-members="canAddMembers"
@@ -267,26 +301,8 @@ watch(
         @remove-member="$emit('remove-member', $event)"
       />
 
-      <!-- <MediaGallery
-        v-else-if="activeTab === 'media'"
-        :media="conversationMedia"
-        :conversation-id="conversation.id"
-      /> -->
-
-      <!-- <FilesList
-        v-else-if="activeTab === 'files'"
-        :files="conversationFiles"
-        :conversation-id="conversation.id"
-      /> -->
-
-      <!-- <LinksList
-        v-else-if="activeTab === 'links'"
-        :links="conversationLinks"
-        :conversation-id="conversation.id"
-      /> -->
-
       <AboutTab
-        v-else-if="isGroup && activeTab === 'about'"
+        v-if="activeTab === 'about'"
         :description="conversation.settings?.description || ''"
         :created-by="conversation.createdBy"
         :created-at="conversation.createdAt"
@@ -294,7 +310,6 @@ watch(
         @update-description="$emit('update-description', $event)"
       />
 
-      <!-- ================= Group Settings ================= -->
       <GroupSettings
         v-if="
           isGroup &&
@@ -365,27 +380,6 @@ watch(
           {{ isMuted ? "Unmute notifications" : "Mute notifications" }}
         </button>
 
-        <!-- Delete Conversation -->
-        <button
-          @click="deleteConversation"
-          class="w-full text-left px-4 py-2 text-sm rounded flex items-center transition-colors text-red-600 hover:bg-red-50"
-        >
-          <svg
-            class="w-5 h-5 mr-3 text-gray-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-            />
-          </svg>
-          Delete {{ isGroup ? "group" : "conversation" }}
-        </button>
-
         <!-- Leave Group -->
         <button
           v-if="isGroup"
@@ -393,7 +387,7 @@ watch(
           class="w-full text-left px-4 py-2 text-sm rounded flex items-center transition-colors text-yellow-600 hover:bg-yellow-50"
         >
           <svg
-            class="w-5 h-5 mr-3 text-gray-600"
+            class="w-5 h-5 mr-3 text-yellow-600 hover:bg-yellow-50"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -433,9 +427,56 @@ watch(
           </svg>
           {{ conversation.isBlocked ? "Unblock user" : "Block user" }}
         </button>
+
+        <!-- Delete Conversation -->
+        <button
+          @click="deleteConversation"
+          class="w-full text-left px-4 py-2 text-sm rounded flex items-center transition-colors text-red-600 hover:bg-red-50"
+        >
+          <svg
+            class="w-5 h-5 mr-3 text-red-600 hover:bg-red-50"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+            />
+          </svg>
+          Delete conversation
+        </button>
+
+        <!-- Delete Group -->
+        <button
+          v-if="isGroup && conversation.role === 'super_admin'"
+          @click="deleteGroup"
+          class="w-full text-left px-4 py-2 text-sm rounded flex items-center transition-colors text-red-600 hover:bg-red-50"
+        >
+          <svg
+            class="w-5 h-5 mr-3 text-red-600 hover:bg-red-50"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+            />
+          </svg>
+          Delete group
+        </button>
       </div>
     </div>
   </aside>
 </template>
 
-<style></style>
+<style scoped>
+button {
+  cursor: pointer;
+}
+</style>

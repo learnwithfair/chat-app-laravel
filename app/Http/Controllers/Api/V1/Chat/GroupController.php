@@ -39,14 +39,14 @@ class GroupController extends Controller
     {
         $request->validated();
         $this->chatService->addGroupAdmins(Auth::user(), $conversationId, $request->member_ids);
-        $this->success(null, 'Admins added successfully');
+        return $this->success(null, 'Admins added successfully');
     }
 
     public function removeAdmins(ManageGroupAdminRequest $request, $conversationId)
     {
         $request->validated();
         $result = $this->chatService->removeGroupAdmins(Auth::user(), $conversationId, $request->member_ids);
-        $this->success($result, 'Admins removed successfully');
+        return $this->success($result, 'Admins removed successfully');
     }
 
     public function muteToggleGroup(Request $request, $conversationId)
@@ -59,6 +59,11 @@ class GroupController extends Controller
     {
         $this->chatService->leaveGroup(Auth::user(), $conversationId);
         return $this->success(null, 'Group left successfully');
+    }
+    public function deleteGroup($conversationId)
+    {
+        $this->chatService->deleteGroup(Auth::user(), $conversationId);
+        return $this->success(null, 'Group delete successfully');
     }
 
     public function update(UpdateGroupInfoRequest $request, $conversation)
