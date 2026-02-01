@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('v1')->middleware(['auth', 'last_seen'])->group(function () {
 
     // -------------------- Conversations --------------------
+    // create group & list conversations
     Route::apiResource('conversations', ConversationController::class)->only(['index', 'store', 'destroy']);
     Route::post('conversations/private', [ConversationController::class, 'startPrivateConversation']);
 

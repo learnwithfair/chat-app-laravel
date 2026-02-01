@@ -543,16 +543,25 @@ export function useChat() {
             const conv = response.data.data;
             const newConv = {
                 id: conv.id,
-                type: 'private',
+                type: conv.type || 'private',
                 name: conv.receiver?.name || '',
                 avatar: conv.receiver?.avatar_path || generateAvatar(conv.receiver?.name),
-                lastMessage: 'Started a new conversation',
-                lastMessageTime: 'Just now',
-                unreadCount: 0,
+                lastMessage: buildLastMessagePreview(conv.last_message) || 'No preview available',
+                lastMessageTime: conv.last_message?.created_at
+                    ? formatTime(conv.last_message.created_at)
+                    : 'Just now',
+                unreadCount: conv.unread_count || 0,
                 isOnline: conv.receiver?.is_online || false,
                 isBlocked: conv.is_blocked || false,
                 createdBy: conv.created_by,
-                receiver: conv.receiver
+                createdAt: conv.created_at,
+                members: conv.participants || [],
+                settings: conv.group_setting || null,
+                isMuted: conv.is_muted || false,
+                receiver: conv.receiver || null,
+                is_admin: conv.is_admin,
+                role: conv.role,
+                canSendMessage: conv.can_send_message,
             };
 
             const existing = conversations.value.find(c => c.id === newConv.id);
@@ -1781,8 +1790,14 @@ export function useChat() {
                 isOnline: false,
                 isBlocked: false,
                 createdBy: newGroup.created_by,
+                createdAt: newGroup.created_at,
                 members: newGroup.participants || [],
-                settings: newGroup.group_setting || null
+                settings: newGroup.group_setting || null,
+                isMuted: false,
+                receiver: null,
+                is_admin: newGroup.is_admin || false,
+                role: newGroup.role,
+                canSendMessage: newGroup.can_send_message,
             });
 
             selectConversation(conversations.value[0]);

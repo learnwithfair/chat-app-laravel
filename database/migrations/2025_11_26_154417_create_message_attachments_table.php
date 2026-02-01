@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('message_id')->constrained()->cascadeOnDelete();
             $table->string('path');
-            $table->string('type');
+            $table->string('type')->comment('e.g., image,audio, video, file');
             $table->string('name')->nullable();
             $table->unsignedBigInteger('size')->nullable();
             $table->timestamps();
