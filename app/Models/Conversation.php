@@ -36,9 +36,9 @@ class Conversation extends Model
     }
     public function otherParticipant(User $currentUser)
     {
-        if ($this->type !== 'private') {
-            return null;
-        }
+        // if ($this->type !== 'private') {
+        //     return null;
+        // }
         // return the participant that is NOT the current user
         return $this->participants->where('user_id', '!=', $currentUser->id)->first()?->user;
     }
