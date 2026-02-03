@@ -1,16 +1,13 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch, computed } from "vue";
+import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import EmojiPicker from "./EmojiPicker.vue";
 
 const props = defineProps({
   modelValue: String,
   conversationId: [String, Number],
   isBlocked: Boolean,
-  blockedByMe: Boolean,
-  blockedByThem: Boolean,
   canSendMessage: Boolean,
   isEditing: Boolean,
-  conversationType: String, // 'private' or 'group'
 });
 
 const emit = defineEmits([
@@ -19,7 +16,6 @@ const emit = defineEmits([
   "send-voice",
   "typing-change",
   "send-files",
-  "unblock-user",
 ]);
 
 const showEmoji = ref(false);
@@ -40,42 +36,6 @@ const imageInputRef = ref(null);
 const videoInputRef = ref(null);
 const audioInputRef = ref(null);
 const documentInputRef = ref(null);
-
-// Computed properties for blocking status
-const isBlockedByMe = computed(() => props.blockedByMe || false);
-const isBlockedByThem = computed(() => props.blockedByThem || false);
-const isAnyBlocked = computed(
-  () => props.isBlocked || isBlockedByMe.value || isBlockedByThem.value
-);
-const canInteract = computed(() => {
-  // For groups, check canSendMessage
-  if (props.conversationType === "group") {
-    return props.canSendMessage;
-  }
-  // For private chats, check blocking status
-  return !isAnyBlocked.value && props.canSendMessage;
-});
-
-const blockMessage = computed(() => {
-  if (props.conversationType === "group") {
-    return props.canSendMessage ? null : "You can't send messages to this group";
-  }
-
-  if (isBlockedByMe.value) {
-    return "You blocked this user. After unblocking, you can send messages to this user";
-  }
-  if (isBlockedByThem.value) {
-    return "You are blocked. You can't send messages to this user";
-  }
-  if (props.isBlocked) {
-    return "You can't send messages to this conversation";
-  }
-  return null;
-});
-
-const showUnblockButton = computed(() => {
-  return props.conversationType === "private" && isBlockedByMe.value;
-});
 
 // Attachment options
 const attachmentOptions = [
@@ -136,24 +96,19 @@ const attachmentOptions = [
 ];
 
 function toggleEmoji() {
-  if (!canInteract.value) return;
   showEmoji.value = !showEmoji.value;
 }
 
 function addEmoji(emoji) {
-  if (!canInteract.value) return;
   emit("update:modelValue", (props.modelValue || "") + emoji);
 }
 
 // File handling functions
 function toggleAttachMenu() {
-  if (!canInteract.value) return;
   showAttachMenu.value = !showAttachMenu.value;
 }
 
 function handleFileSelect(event, option) {
-  if (!canInteract.value) return;
-
   const files = Array.from(event.target.files);
   if (files.length > 0) {
     const newFiles = files.map((file) => ({
@@ -173,7 +128,6 @@ function handleFileSelect(event, option) {
 }
 
 function handleDragOver(event) {
-  if (!canInteract.value) return;
   event.preventDefault();
   isDragging.value = true;
 }
@@ -183,8 +137,6 @@ function handleDragLeave() {
 }
 
 function handleDrop(event) {
-  if (!canInteract.value) return;
-
   event.preventDefault();
   isDragging.value = false;
 
@@ -235,25 +187,24 @@ function getFileIconClass(type) {
   return "file";
 }
 
+// function handleSendWithFiles() {
+//   if (selectedFiles.value.length > 0) {
+//     emit("send-files", selectedFiles.value);
+//     clearAllFiles();
+//   } else {
+//     emit("send");
+//   }
+// }
 function handleSendWithFiles() {
-  if (!canInteract.value) return;
-
   if (selectedFiles.value.length > 0) {
-    emit("send-files", selectedFiles.value);
+    emit("send-files", selectedFiles.value); // ← This emits files
     clearAllFiles();
   } else {
-    emit("send");
+    emit("send"); // ← This doesn't include files
   }
 }
-
-function handleUnblock() {
-  emit("unblock-user");
-}
-
 // Voice Recording Functions
 async function startRecording() {
-  if (!canInteract.value) return;
-
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     mediaRecorder.value = new MediaRecorder(stream);
@@ -346,8 +297,6 @@ onBeforeUnmount(() => {
 watch(
   () => props.modelValue,
   (newVal, oldVal) => {
-    if (!canInteract.value) return;
-
     if (newVal && newVal.length > 0) {
       emit("typing-change", true);
     } else if (oldVal && oldVal.length > 0 && (!newVal || newVal.length === 0)) {
@@ -471,14 +420,12 @@ watch(
       @drop="handleDrop"
       :class="[
         'p-4 transition-colors relative',
-        isDragging && canInteract
-          ? 'bg-blue-50 border-2 border-blue-400 border-dashed'
-          : '',
+        isDragging ? 'bg-blue-50 border-2 border-blue-400 border-dashed' : '',
       ]"
     >
       <!-- Drag Drop Overlay -->
       <div
-        v-if="isDragging && canInteract"
+        v-if="isDragging"
         class="absolute inset-0 flex items-center justify-center bg-blue-50 bg-opacity-90 z-10 rounded-lg"
       >
         <div class="text-center">
@@ -500,8 +447,8 @@ watch(
       </div>
 
       <!-- Blocked / Cannot Send Message Indicator -->
-      <div v-if="!canInteract" class="py-3 text-center">
-        <div class="flex items-center justify-center gap-2 mb-2">
+      <div v-if="isBlocked || !canSendMessage" class="py-1 text-center text-gray-500">
+        <p class="flex items-center justify-center gap-2 font-semibold">
           <svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
             <path
               fill-rule="evenodd"
@@ -509,17 +456,11 @@ watch(
               clip-rule="evenodd"
             />
           </svg>
-          <span class="font-semibold text-gray-700">{{ blockMessage }}</span>
-        </div>
 
-        <!-- Unblock Button (only shown if blocked by me) -->
-        <!-- <button
-          v-if="showUnblockButton"
-          @click="handleUnblock"
-          class="mt-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium text-sm"
-        >
-          Unblock User
-        </button> -->
+          <span>You can't send messages to this conversation</span>
+        </p>
+
+        <p v-if="isBlocked" class="text-sm mt-1">This user is blocked</p>
       </div>
 
       <!-- Recording Mode -->
@@ -562,13 +503,7 @@ watch(
         <div class="relative attach-wrapper">
           <button
             @click.stop="toggleAttachMenu"
-            :disabled="!canInteract"
-            :class="[
-              'p-2 rounded-full transition-colors',
-              canInteract
-                ? 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                : 'text-gray-300 cursor-not-allowed',
-            ]"
+            class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
             title="Attach files"
           >
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -686,13 +621,7 @@ watch(
         <div class="relative emoji-wrapper">
           <button
             @click.stop="toggleEmoji"
-            :disabled="!canInteract"
-            :class="[
-              'p-2 rounded-full cursor-pointer transition-colors',
-              canInteract
-                ? 'text-gray-500 hover:bg-gray-100'
-                : 'text-gray-300 cursor-not-allowed',
-            ]"
+            class="p-2 text-gray-500 hover:bg-gray-100 rounded-full cursor-pointer transition-colors"
           >
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -716,15 +645,9 @@ watch(
             :value="modelValue"
             @input="$emit('update:modelValue', $event.target.value)"
             @keydown.enter.prevent="handleSendWithFiles"
-            :disabled="!canInteract"
             placeholder="Type a message..."
             rows="1"
-            :class="[
-              'w-full px-4 py-2 border rounded-full focus:outline-none resize-none',
-              canInteract
-                ? 'border-gray-300 focus:ring-2 focus:ring-blue-500'
-                : 'border-gray-200 bg-gray-50 cursor-not-allowed text-gray-400',
-            ]"
+            class="w-full px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
           ></textarea>
         </div>
 
@@ -732,13 +655,7 @@ watch(
         <button
           v-if="!modelValue?.trim() && selectedFiles.length === 0"
           @click="startRecording"
-          :disabled="!canInteract"
-          :class="[
-            'p-2 rounded-full transition-colors',
-            canInteract
-              ? 'text-gray-500 hover:bg-gray-100'
-              : 'text-gray-300 cursor-not-allowed',
-          ]"
+          class="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
           title="Record voice message"
         >
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -754,10 +671,10 @@ watch(
         <button
           v-else
           @click="handleSendWithFiles"
-          :disabled="!canInteract || (!modelValue?.trim() && selectedFiles.length === 0)"
+          :disabled="!modelValue?.trim() && selectedFiles.length === 0"
           :class="[
             'p-2 rounded-full transition-colors',
-            canInteract && (modelValue?.trim() || selectedFiles.length > 0)
+            modelValue?.trim() || selectedFiles.length > 0
               ? 'bg-blue-500 text-white hover:bg-blue-600'
               : 'bg-gray-200 text-gray-400 cursor-not-allowed',
           ]"

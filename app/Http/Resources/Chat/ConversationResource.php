@@ -16,8 +16,11 @@ class ConversationResource extends JsonResource
         if ($this->type === 'private') {
             $receiver = $this->otherParticipant($authUser);
 
-            if ($receiver) {
-                $isBlocked = $receiver->hasBlocked($authUser);
+            if ($receiver && $authUser) {
+                $blockedByMe   = $authUser->hasBlocked($receiver); // I blocked them
+                $blockedByThem = $receiver->hasBlocked($authUser); // They blocked me
+
+                $isBlocked = $blockedByMe || $blockedByThem;
                 $isOnline  = $receiver->isOnline();
             }
         }
@@ -59,7 +62,10 @@ class ConversationResource extends JsonResource
                 'last_seen'   => $receiver->last_seen_at?->diffForHumans(),
             ] : null,
 
-            'is_blocked'       => $isBlocked,
+            'blocked'          => [
+                'by_me'   => $blockedByMe ?? false,
+                'by_them' => $blockedByThem ?? false,
+            ],
             'unread_count'     => $this->unread_count ?? 0,
             'is_admin'         => $participant?->role === 'super_admin' || $participant?->role === 'admin',
             'role'             => $participant?->role,

@@ -349,7 +349,8 @@ export function useChat() {
             const convs = data.data;
             const meta = data.meta;
 
-
+            console.log("convs");
+            console.log(convs);
             // Format conversations for frontend
             const formattedConversations = convs.map(conv => {
                 const name = conv.type === 'private' ? conv.receiver?.name : conv.name;
@@ -357,6 +358,9 @@ export function useChat() {
                     conv.type === 'private'
                         ? conv.receiver?.avatar_path ?? generateAvatar(conv.receiver?.name)
                         : conv.group_setting?.avatar ?? generateAvatar(conv.name);
+
+                const blocked = conv.blocked || { by_me: false, by_them: false };
+                const isBlocked = conv.is_blocked || blocked.by_me || blocked.by_them;
 
                 return {
                     id: conv.id,
@@ -369,7 +373,9 @@ export function useChat() {
                         : '',
                     unreadCount: conv.unread_count || 0,
                     isOnline: conv.receiver?.is_online || false,
-                    isBlocked: conv.is_blocked || false,
+                    isBlocked,
+                    blockedByMe: blocked.by_me,
+                    blockedByThem: blocked.by_them,
                     createdBy: conv.created_by,
                     createdAt: conv.created_at,
                     members: conv.participants || [],
@@ -381,6 +387,9 @@ export function useChat() {
                     canSendMessage: conv.can_send_message,
                 };
             });
+
+            console.log("formattedConversations");
+            console.log(formattedConversations);
 
             // Append older conversations or replace
             if (append) {
@@ -541,6 +550,9 @@ export function useChat() {
             });
 
             const conv = response.data.data;
+
+            const blocked = conv.blocked || { by_me: false, by_them: false };
+            const isBlocked = conv.is_blocked || blocked.by_me || blocked.by_them;
             const newConv = {
                 id: conv.id,
                 type: conv.type || 'private',
@@ -552,7 +564,9 @@ export function useChat() {
                     : 'Just now',
                 unreadCount: conv.unread_count || 0,
                 isOnline: conv.receiver?.is_online || false,
-                isBlocked: conv.is_blocked || false,
+                isBlocked,
+                blockedByMe: blocked.by_me,
+                blockedByThem: blocked.by_them,
                 createdBy: conv.created_by,
                 createdAt: conv.created_at,
                 members: conv.participants || [],
@@ -833,7 +847,10 @@ export function useChat() {
     const toggleBlockAPI = async (userId) => {
         try {
             const response = await axios.post(`${API_BASE}/users/${userId}/block-toggle`);
+            console.log("block");
+            console.log(response.data);
             return response.data;
+
         } catch (error) {
             console.error('Failed to toggle block:', error);
             throw error;
@@ -2162,11 +2179,15 @@ export function useChat() {
 
             await toggleBlockAPI(conv.receiver.id);
 
-            // Update local state
+            // Update local state        
             conv.isBlocked = !conv.isBlocked;
+            conv.blockedByMe = !conv.blockedByMe;
+            conv.blockedByThem = !conv.blockedByThem;
 
             if (activeConversation.value?.id === conversationId) {
                 activeConversation.value.isBlocked = conv.isBlocked;
+                activeConversation.value.blockedByMe = conv.blockedByMe;
+                activeConversation.value.blockedByThem = !conv.blockedByThem;
             }
         } catch (error) {
             console.error('Failed to toggle block:', error);

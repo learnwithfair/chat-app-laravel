@@ -59,13 +59,14 @@ class UserBlockController extends Controller
     public function toggleBlock(Request $request, User $user)
     {
         $isBlocked = $this->chatService->toggleBlock($request->user(), $user->id);
-        return response()->json(['status' => 'success', 'blocked' => $isBlocked]);
+
+        return $this->success($isBlocked, 'User ' . $isBlocked ? 'blocked' : 'unblocked', 200);
     }
 
     // Toggle restrict/unrestrict for a user.
     public function toggleRestrict(Request $request, User $user)
     {
         $isRestricted = $this->chatService->toggleRestrict($request->user(), $user->id);
-        return response()->json(['status' => 'success', 'restricted' => $isRestricted]);
+        return $this->success($isRestricted, 'User ' . $isRestricted ? 'restricted' : 'unrestricted', 200);
     }
 }

@@ -75,40 +75,21 @@
       <!-- Edit Preview -->
       <EditPreview v-if="editingMessage" :message="editingMessage" @cancel="cancelEdit" />
 
-      <!-- Message Input -->
-      <!-- <MessageInput
-        v-model="newMessage"
-        :is-blocked="activeConversation.isBlocked"
-        :is-editing="!!editingMessage"
-        :conversation-id="activeConversation.id"
-        @send="handleSendMessage"
-        @send-voice="handleSendVoice"
-        @typing-change="(isTyping) => listenForTyping(activeConversation.id, isTyping)"
-      /> -->
-
-      <!-- In your main Chat component -->
-      <!-- <MessageInput
-        v-model="newMessage"
-        :is-blocked="activeConversation.isBlocked"
-        :is-editing="!!editingMessage"
-        :conversation-id="activeConversation.id"
-        @send="handleSendMessage"
-        @send-voice="handleSendVoice"
-        @send-files="handleSendMessage"
-        @typing-change="(isTyping) => listenForTyping(activeConversation.id, isTyping)"
-      /> -->
-
-      <!-- In your main Chat component -->
+      <!-- Message Input - UPDATED WITH BLOCK PROPS -->
       <MessageInput
         v-model="newMessage"
-        :isBlocked="activeConversation.isBlocked"
-        :canSendMessage="activeConversation.canSendMessage"
+        :is-blocked="activeConversation.isBlocked"
+        :blocked-by-me="activeConversation.blockedByMe"
+        :blocked-by-them="activeConversation.blockedByThem"
+        :can-send-message="activeConversation.canSendMessage"
+        :conversation-type="activeConversation.type"
         :is-editing="!!editingMessage"
         :conversation-id="activeConversation.id"
         @send="handleSendMessage()"
         @send-voice="handleSendVoice"
         @send-files="handleSendMessage"
         @typing-change="(isTyping) => listenForTyping(activeConversation.id, isTyping)"
+        @unblock-user="handleUnblockUser"
       />
     </div>
 
@@ -134,36 +115,6 @@
     </div>
 
     <!-- Right Panel - Conversation Info -->
-    <!-- <ConversationInfo
-      v-if="showRightPanel && activeConversation"
-      :conversation="activeConversation"
-      :active-tab="activeRightTab"
-      @update-tab="activeRightTab = $event"
-      @add-member="openAddMemberModal"
-      @make-admin="makeAdmin"
-      @remove-admin="removeAdmin"
-      @remove-member="removeMember"
-      @leave-group="leaveGroup"
-      @update-settings="updateGroupSettings"
-      @trigger-search="triggerSearchFromRightPanel"
-    /> -->
-    <!-- <ConversationInfo
-      v-if="showRightPanel && activeConversation"
-      :conversation="activeConversation"
-      :group-members="groupMembers"
-      :load-more-group-members="loadMoreGroupMembers || (() => {})"
-      :group-members-pagination="groupMembersPagination"
-      :active-tab="activeRightTab"
-      @update-tab="activeRightTab = $event"
-      @add-member="openAddMemberModal"
-      @make-admin="makeAdmin"
-      @remove-admin="removeAdmin"
-      @remove-member="removeMember"
-      @leave-group="leaveGroup"
-      @update-settings="updateGroupSettings"
-      @trigger-search="triggerSearchFromRightPanel"
-    /> -->
-
     <ConversationInfo
       v-if="showRightPanel && activeConversation"
       :conversation="activeConversation"
@@ -192,12 +143,6 @@
     />
 
     <!-- Modals -->
-    <!-- <CreateGroupModal
-      v-if="modals.createGroup"
-      :available-users="availableUsers"
-      @close="closeModal('createGroup')"
-      @create="createGroup"
-    /> -->
     <CreateGroupModal
       v-if="modals.createGroup"
       :available-users="availableUsers"
@@ -342,6 +287,10 @@ const {
   fetchGroupMembers,
   loadMoreGroupMembers,
 
+  conversationMedia,
+  conversationFiles,
+  conversationLinks,
+
   // Group Management
   openCreateGroupModal,
   createGroup,
@@ -361,6 +310,9 @@ const {
   handleUpdateAvatar,
   handleUpdateDescription,
   handleUpdateName,
+
+  // BLOCK/UNBLOCK - This should come from useChat
+  handleUnblockUser,
 
   // Modal Management
   closeModal,
