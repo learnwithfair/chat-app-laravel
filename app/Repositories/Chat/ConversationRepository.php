@@ -56,7 +56,14 @@ class ConversationRepository
             })
             ->with([
                 'participants' => function ($q) {
-                    $q->where('is_active', true)->with('user');
+                    $q->where(function ($q) {
+                        $q->whereNotNull('deleted_at') // for conversation removed
+                            ->orWhere(function ($q) {
+                                $q->whereNull('deleted_at') 
+                                    ->where('is_active', true); 
+                            });
+                    })
+                        ->with('user');
                 },
                 'lastMessage.sender',
                 'groupSetting',

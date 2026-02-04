@@ -8,7 +8,7 @@ class ConversationParticipant extends Model
     protected $guarded = [];
     protected $casts   = [
         'is_muted'    => 'boolean',
-        'is_active'    => 'boolean',
+        'is_active'   => 'boolean',
         'muted_until' => 'datetime',
         'created_at'  => 'datetime',
         'updated_at'  => 'datetime',
