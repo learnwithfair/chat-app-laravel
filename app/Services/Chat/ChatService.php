@@ -12,9 +12,12 @@ use App\Models\MessageStatus;
 use App\Models\User;
 use App\Repositories\Chat\ConversationRepository;
 use App\Repositories\Chat\MessageRepository;
+use App\Traits\ApiResponse;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 class ChatService
 {
+    use ApiResponse;
     public function __construct(
         protected ConversationRepository $conversationRepo,
         protected MessageRepository $messageRepo,
@@ -52,6 +55,14 @@ class ChatService
     public function getMessages(User $user, int $conversationId, ?string $query = null, int $perPage = 20)
     {
         return $this->messageRepo->getByConversation($user, $conversationId, $query, $perPage);
+    }
+
+    public function mediaLibrary(User $user, $conversationId, int $perPage = 30)
+    {
+        if (! $this->conversationRepo->canUserPermit($conversationId, $user->id)) {
+            throw new HttpResponseException($this->error(null, 'You are no longer a member of this conversation.', 403));
+        }
+        return $this->messageRepo->mediaLibrary($user, $conversationId, $perPage);
     }
 
     public function sendMessage(User $user, array $data)

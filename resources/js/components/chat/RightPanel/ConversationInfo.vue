@@ -29,6 +29,7 @@ const emit = defineEmits([
   "update-avatar",
   "update-description",
   "update-name",
+  "open-media-library", // NEW: Add this emit
 ]);
 
 /* ================= STATE ================= */
@@ -175,6 +176,12 @@ const saveGroupName = () => {
 
   emit("update-name", editedName.value.trim());
   isEditingName.value = false;
+};
+
+/* ===== NEW: Media Library ===== */
+
+const openMediaLibrary = () => {
+  emit("open-media-library");
 };
 
 /* ================= WATCHERS ================= */
@@ -402,6 +409,27 @@ watch(
           Search in conversation
         </button>
 
+        <!-- NEW: Media & Links -->
+        <button
+          @click="openMediaLibrary"
+          class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded flex items-center transition-colors"
+        >
+          <svg
+            class="w-5 h-5 mr-3 text-gray-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+          Media & Links
+        </button>
+
         <!-- Mute -->
         <button
           @click="toggleMute"
@@ -507,7 +535,7 @@ watch(
               d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
             />
           </svg>
-         Your are blocked.
+          Your are blocked.
         </div>
 
         <!-- Delete Conversation -->

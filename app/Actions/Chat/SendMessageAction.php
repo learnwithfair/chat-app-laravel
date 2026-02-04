@@ -7,7 +7,8 @@ use App\Repositories\Chat\MessageRepository;
 
 class SendMessageAction
 {
-    public function __construct(protected MessageRepository $messageRepo) {}
+    public function __construct(protected MessageRepository $messageRepo)
+    {}
 
     public function execute(User $user, array $data)
     {
@@ -16,5 +17,10 @@ class SendMessageAction
     public function update(User $user, array $data, Message $message)
     {
         return $this->messageRepo->updateMessage($user, $data, $message);
+    }
+    // mediaLibrary
+    public function mediaLibrary(User $user, $conversationId, int $perPage = 30)
+    {
+        return $this->messageRepo->mediaLibrary($user, $conversationId, $perPage);
     }
 }

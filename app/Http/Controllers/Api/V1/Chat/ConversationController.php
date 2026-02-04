@@ -20,6 +20,12 @@ class ConversationController extends Controller
         $conversations = $this->chatService->listConversations(Auth::user(), $perPage, $request->query('q'));
         return $this->success($conversations, 'Conversations list Fetched Successfully', 200, true);
     }
+    public function mediaLibrary(Request $request, int $conversationId)
+    {
+        $perPage       = (int) $request->get('per_page', 30);
+        $meadiaLibrary = $this->chatService->mediaLibrary($request->user(), $conversationId, $perPage);
+        return $this->success($meadiaLibrary, 'Media Library Fetched Successfully');
+    }
 
     public function startPrivateConversation(Request $request)
     {

@@ -59,8 +59,8 @@ class ConversationRepository
                     $q->where(function ($q) {
                         $q->whereNotNull('deleted_at') // for conversation removed
                             ->orWhere(function ($q) {
-                                $q->whereNull('deleted_at') 
-                                    ->where('is_active', true); 
+                                $q->whereNull('deleted_at')
+                                    ->where('is_active', true);
                             });
                     })
                         ->with('user');

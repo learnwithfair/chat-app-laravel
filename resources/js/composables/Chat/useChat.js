@@ -49,6 +49,14 @@ export function useChat() {
     const typingUsers = ref({});
     let typingTimeout = null;
 
+    const mediaLibrary = ref({
+        media: [],
+        audio: [],
+        files: [],
+        links: []
+    });
+    const mediaLibraryLoading = ref(false);
+
     // ==================== PAGINATION STATE ====================
     const conversationPagination = ref({
         currentPage: 1,
@@ -88,8 +96,11 @@ export function useChat() {
         messageDetails: false,
         deleteMessage: false,
         forwardMessage: false,
-        startChat: false
+        startChat: false,
+        mediaLibrary: false
     });
+
+
 
     const selectedReactionUsers = ref([]);
     const currentSeenBy = ref([]);
@@ -532,6 +543,76 @@ export function useChat() {
         }
     };
 
+    const fetchMediaLibrary = async (conversationId) => {
+        mediaLibraryLoading.value = true;
+
+        try {
+            const response = await axios.get(`${API_BASE}/conversations/${conversationId}/media`);
+            const data = response.data.data;
+
+            console.log('📚 Media Library Response:', data);
+
+            // Format media (images & videos)
+            mediaLibrary.value.media = (data.media || []).map(item => ({
+                id: item.id,
+                type: item.type,
+                url: item.path,
+                name: item.name || 'media',
+                createdAt: item.created_at
+            }));
+
+            // Format audio
+            mediaLibrary.value.audio = (data.audio || []).map(item => ({
+                id: item.id,
+                type: item.type,
+                url: item.path,
+                name: item.name || 'audio',
+                size: item.size || 0,
+                createdAt: item.created_at
+            }));
+
+            // Format files
+            mediaLibrary.value.files = (data.files || []).map(item => ({
+                id: item.id,
+                type: item.type,
+                url: item.path,
+                name: item.name || 'file',
+                size: item.size || 0,
+                createdAt: item.created_at
+            }));
+
+            // Format links
+            mediaLibrary.value.links = (data.links || []).map(item => ({
+                message_id: item.message_id,
+                url: item.url,
+                created_at: item.created_at
+            }));
+
+            console.log('📚 Formatted Media Library:', mediaLibrary.value);
+
+        } catch (error) {
+            console.error('Failed to fetch media library:', error);
+            // Reset on error
+            mediaLibrary.value = {
+                media: [],
+                audio: [],
+                files: [],
+                links: []
+            };
+        } finally {
+            mediaLibraryLoading.value = false;
+        }
+    };
+
+    // 4. ADD HANDLER FUNCTION (add after other handlers, around line 1200):
+
+    // Handle open media library
+    const handleOpenMediaLibrary = async () => {
+        if (!activeConversation.value) return;
+
+        modals.value.mediaLibrary = true;
+        await fetchMediaLibrary(activeConversation.value.id);
+    };
 
     // Load more messages (older messages - for infinite scroll UP)
     const loadMoreMessages = async (conversationId) => {
@@ -2473,6 +2554,10 @@ export function useChat() {
         groupMembersPagination,
         fetchGroupMembers,
         loadMoreGroupMembers,
+
+        mediaLibrary,
+        mediaLibraryLoading,
+        handleOpenMediaLibrary,
 
 
 

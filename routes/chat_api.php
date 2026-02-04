@@ -12,6 +12,7 @@ Route::prefix('v1')->middleware(['auth', 'last_seen'])->group(function () {
 
     // -------------------- Conversations --------------------
     // create group & list conversations
+    Route::get('conversations/{conversation}/media', [ConversationController::class, 'mediaLibrary']);
     Route::apiResource('conversations', ConversationController::class)->only(['index', 'store', 'destroy']);
     Route::post('conversations/private', [ConversationController::class, 'startPrivateConversation']);
 

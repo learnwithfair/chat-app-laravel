@@ -2,11 +2,13 @@
 namespace App\Repositories\Chat;
 
 use App\Events\MessageEvent;
+use App\Http\Resources\Chat\MediaLibraryResource;
 use App\Http\Resources\Chat\MessageResource;
 use App\Jobs\SendPushNotificationJob;
 use App\Models\Conversation;
 use App\Models\ConversationParticipant;
 use App\Models\Message;
+use App\Models\MessageAttachment;
 use App\Models\MessageStatus;
 use App\Models\User;
 use App\Services\Chat\ChatService;
@@ -23,7 +25,7 @@ class MessageRepository
             ->where('user_id', $user->id)
             ->active()
             ->firstOrFail();
-            
+
         $messages = Message::where('conversation_id', $conversationId)
             ->when($participant->last_deleted_message_id, function ($q) use ($participant) {
                 $q->where('id', '>', $participant->last_deleted_message_id);
@@ -56,77 +58,103 @@ class MessageRepository
         ])->find($messageId);
     }
 
-    // public function storeMessage(User $user, array $data)
-    // {
-    //     // 1. Auto-create private conversation
-    //     if (empty($data['conversation_id']) && ! empty($data['receiver_id'])) {
-    //         $data['conversation_id'] = app(ChatService::class)->startConversation($user, $data['receiver_id'])->id;
-    //     }
+    // mediaLibrary
 
-    //     // 2. Validate membership
-    //     $participant = ConversationParticipant::where('conversation_id', $data['conversation_id'])->where('user_id', $user->id)->active()->first();
+    public function mediaLibrary(User $user, $conversationId, int $perPage)
+    {
+        $participant = ConversationParticipant::where('conversation_id', $conversationId)
+            ->where('user_id', $user->id)
+            ->active()
+            ->firstOrFail();
 
-    //     if (! $participant) {
-    //         abort(403, 'You are no longer a member of this conversation.');
-    //     }
-    //     $conversation = Conversation::findOrFail($data['conversation_id']);
+        $attachments = MessageAttachment::whereHas('message', function ($q) use ($conversationId, $participant, $user) {
 
-    //     // 3. Block check (receiver blocked sender)
-    //     if ($conversation->type === 'private' &&
-    //         $conversation->otherParticipant($user)?->hasBlocked($user)
-    //     ) {
-    //         abort(403, 'You cannot send message to this user.');
-    //     }
+            $q->where('conversation_id', $conversationId)
 
-    //     // 4. Create message
-    //     $message = Message::create([
-    //         'conversation_id'     => $data['conversation_id'],
-    //         'sender_id'           => $user->id,
-    //         'receiver_id'         => $data['receiver_id'] ?? null,
-    //         'message'             => $data['message'] ?? null,
-    //         'message_type'        => $data['message_type'] ?? 'text',
-    //         'reply_to_message_id' => $data['reply_to_message_id'] ?? null,
-    //         'is_restricted'       => ! empty($data['receiver_id']) &&
-    //         $user->restrictedByUsers()->where('users.id', $data['receiver_id'])->exists(),
-    //     ]);
+            //  deleted conversation logic
+                ->when($participant->last_deleted_message_id, function ($q) use ($participant) {
+                    $q->where('id', '>', $participant->last_deleted_message_id);
+                })
 
-    //     // 5. Attachments
-    //     if (! empty($data['attachments'])) {
-    //         foreach ($data['attachments'] as $file) {
+            //  individual message delete (same as messages list)
+                ->whereDoesntHave('deletions', function ($q) use ($user) {
+                    $q->where('user_id', $user->id);
+                });
+        })
+            ->latest()
+            ->paginate($perPage);
 
-    //             $media_path = uploadFile($file['path'], 'uploads/messages', (string) Str::uuid());
-    //             $message->attachments()->create([
-    //                 'path' => $media_path,
-    //                 'type' => getFileType($media_path),
-    //                 'size' => file_exists(public_path($media_path)) ? filesize(public_path($media_path)) : null,
-    //             ]);
-    //         }
-    //     }
+        //  links also must respect delete logic
+        $links = $this->getConversationLinks(
+            $conversationId,
+            $participant->last_deleted_message_id,
+            $user->id
+        );
 
-    //     // 6. Update last read
-    //     $participant->update(['last_read_message_id' => $message->id]);
+        $data = [
+            'media'      => $attachments->whereIn('type', ['image', 'video'])->values(),
+            'audio'      => $attachments->where('type', 'audio')->values(),
+            'files'      => $attachments->whereNotIn('type', ['image', 'video', 'audio'])->values(),
+            'links'      => $links,
+            'pagination' => [
+                'current_page' => $attachments->currentPage(),
+                'last_page'    => $attachments->lastPage(),
+                'per_page'     => $attachments->perPage(),
+                'total'        => $attachments->total(),
+            ],
+        ];
 
-    //     // 7. Create message statuses (bulk)
-    //     $participants = ConversationParticipant::where('conversation_id', $data['conversation_id'])->active()->get();
+        return new MediaLibraryResource($data);
+    }
 
-    //     $statuses = $participants->map(fn($p) => [
-    //         'message_id' => $message->id,
-    //         'user_id'    => $p->user_id,
-    //         'status'     => $p->user_id === $user->id ? 'seen' : 'sent',
-    //         'created_at' => now(),
-    //         'updated_at' => now(),
-    //     ])->toArray();
+    private function extractLinks(string $text): array
+    {
+        preg_match_all(
+            '/https?:\/\/[^\s\)\]\}\>,"]+/i',
+            $text,
+            $matches
+        );
 
-    //     MessageStatus::insert($statuses);
+        return array_values(array_unique($matches[0] ?? []));
+    }
 
-    //     // 8. Touch conversation for last activity
-    //     $conversation->touch();
+    private function getConversationLinks(
+        int $conversationId,
+        ?int $lastDeletedMessageId,
+        int $userId
+    ): array {
+        $messages = Message::where('conversation_id', $conversationId)
+            ->whereNotNull('message')
+            ->whereIn('message_type', ['text', 'multiple'])
 
-    //     // 9. Push notification
-    //     $this->sendMessagePushNotification($conversation, $message, $user);
+        //  conversation delete
+            ->when($lastDeletedMessageId, function ($q) use ($lastDeletedMessageId) {
+                $q->where('id', '>', $lastDeletedMessageId);
+            })
 
-    //     return new MessageResource($message);
-    // }
+        // per-user deleted messages
+            ->whereDoesntHave('deletions', function ($q) use ($userId) {
+                $q->where('user_id', $userId);
+            })
+
+            ->select('id', 'message', 'created_at')
+            ->latest()
+            ->get();
+
+        $links = [];
+
+        foreach ($messages as $message) {
+            foreach ($this->extractLinks($message->message) as $url) {
+                $links[] = [
+                    'message_id' => $message->id,
+                    'url'        => $url,
+                    'created_at' => $message->created_at,
+                ];
+            }
+        }
+
+        return $links;
+    }
 
     public function storeMessage(User $user, array $data)
     {

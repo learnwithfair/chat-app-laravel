@@ -115,6 +115,33 @@
     </div>
 
     <!-- Right Panel - Conversation Info -->
+    <!-- <ConversationInfo
+      v-if="showRightPanel && activeConversation"
+      :conversation="activeConversation"
+      :group-members="groupMembers"
+      :load-more-group-members="loadMoreGroupMembers || (() => {})"
+      :group-members-pagination="groupMembersPagination"
+      :active-tab="activeRightTab"
+      :conversation-media="conversationMedia"
+      :conversation-files="conversationFiles"
+      :conversation-links="conversationLinks"
+      @update-tab="handleTabChange"
+      @add-member="openAddMemberModal"
+      @make-admin="makeAdmin"
+      @remove-admin="removeAdmin"
+      @remove-member="removeMember"
+      @leave-group="leaveGroup"
+      @update-settings="updateGroupSettings"
+      @trigger-search="triggerSearchFromRightPanel"
+      @toggle-block="handleToggleBlock"
+      @toggle-mute="handleToggleMute"
+      @delete-conversation="handleDeleteConversation"
+      @delete-group="handleDeleteGroup"
+      @update-avatar="handleUpdateAvatar"
+      @update-description="handleUpdateDescription"
+      @update-name="handleUpdateName"
+    /> -->
+
     <ConversationInfo
       v-if="showRightPanel && activeConversation"
       :conversation="activeConversation"
@@ -140,6 +167,7 @@
       @update-avatar="handleUpdateAvatar"
       @update-description="handleUpdateDescription"
       @update-name="handleUpdateName"
+      @open-media-library="handleOpenMediaLibrary"
     />
 
     <!-- Modals -->
@@ -150,6 +178,16 @@
       @load-more="loadMoreAvailableUsers"
       @close="closeModal('createGroup')"
       @create="createGroup"
+    />
+
+    <MediaLibraryModal
+      v-if="modals.mediaLibrary"
+      :media="mediaLibrary.media"
+      :audio="mediaLibrary.audio"
+      :files="mediaLibrary.files"
+      :links="mediaLibrary.links"
+      :loading="mediaLibraryLoading"
+      @close="closeModal('mediaLibrary')"
     />
 
     <AddMemberModal
@@ -215,6 +253,7 @@ import ForwardMessageModal from "@/Components/Chat/Modals/ForwardMessageModal.vu
 
 import { useChat } from "@/Composables/Chat/useChat";
 import { generateAvatar } from "../../Utils/Chat/avatarHelper";
+import MediaLibraryModal from "../../components/chat/Modals/MediaLibraryModal.vue";
 
 const {
   // State
@@ -287,9 +326,14 @@ const {
   fetchGroupMembers,
   loadMoreGroupMembers,
 
+  //need to remove
   conversationMedia,
   conversationFiles,
   conversationLinks,
+  // Media Library
+  mediaLibrary,
+  mediaLibraryLoading,
+  handleOpenMediaLibrary,
 
   // Group Management
   openCreateGroupModal,
