@@ -148,10 +148,7 @@
       :group-members="groupMembers"
       :load-more-group-members="loadMoreGroupMembers || (() => {})"
       :group-members-pagination="groupMembersPagination"
-      :active-tab="activeRightTab"
-      :conversation-media="conversationMedia"
-      :conversation-files="conversationFiles"
-      :conversation-links="conversationLinks"
+      :active-tab="activeRightTab"   
       @update-tab="handleTabChange"
       @add-member="openAddMemberModal"
       @make-admin="makeAdmin"
@@ -325,11 +322,7 @@ const {
   groupMembersPagination,
   fetchGroupMembers,
   loadMoreGroupMembers,
-
-  //need to remove
-  conversationMedia,
-  conversationFiles,
-  conversationLinks,
+  
   // Media Library
   mediaLibrary,
   mediaLibraryLoading,

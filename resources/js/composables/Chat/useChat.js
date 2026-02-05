@@ -41,9 +41,7 @@ export function useChat() {
     const loading = ref(false);
     const messagesLoading = ref(false);
 
-    const conversationMedia = ref([]);
-    const conversationFiles = ref([]);
-    const conversationLinks = ref([]);
+
     const pendingMembers = ref([]);
 
     const typingUsers = ref({});
@@ -974,54 +972,6 @@ export function useChat() {
         } catch (error) {
             console.error('Failed to delete group:', error);
             throw error;
-        }
-    };
-
-
-    // Fetch conversation media
-    const fetchConversationMedia = async (conversationId) => {
-        try {
-            const response = await axios.get(`${API_BASE}/conversations/${conversationId}/media`);
-            conversationMedia.value = response.data.data.map(item => ({
-                id: item.id,
-                type: item.type,
-                url: item.path,
-                name: item.name || 'media',
-                createdAt: item.created_at
-            }));
-        } catch (error) {
-            console.error('Failed to fetch media:', error);
-        }
-    };
-
-    // Fetch conversation files
-    const fetchConversationFiles = async (conversationId) => {
-        try {
-            const response = await axios.get(`${API_BASE}/conversations/${conversationId}/files`);
-            conversationFiles.value = response.data.data.map(item => ({
-                id: item.id,
-                type: item.type,
-                url: item.path,
-                name: item.name || 'file',
-                size: item.size || 0,
-                createdAt: item.created_at
-            }));
-        } catch (error) {
-            console.error('Failed to fetch files:', error);
-        }
-    };
-
-    // Fetch conversation links
-    const fetchConversationLinks = async (conversationId) => {
-        try {
-            const response = await axios.get(`${API_BASE}/conversations/${conversationId}/links`);
-            conversationLinks.value = response.data.data.map(item => ({
-                id: item.id,
-                url: item.url,
-                sharedAt: item.created_at
-            }));
-        } catch (error) {
-            console.error('Failed to fetch links:', error);
         }
     };
 
@@ -2233,14 +2183,7 @@ export function useChat() {
         if (!activeConversation.value) return;
 
         const conversationId = activeConversation.value.id;
-
-        if (tab === 'media' && conversationMedia.value.length === 0) {
-            await fetchConversationMedia(conversationId);
-        } else if (tab === 'files' && conversationFiles.value.length === 0) {
-            await fetchConversationFiles(conversationId);
-        } else if (tab === 'links' && conversationLinks.value.length === 0) {
-            await fetchConversationLinks(conversationId);
-        } else if (tab === 'members' && activeConversation.value.type === 'group') {
+        if (tab === 'members' && activeConversation.value.type === 'group') {
             if (groupMembers.value.length === 0) {
                 await fetchGroupMembers();
             }
@@ -2574,13 +2517,8 @@ export function useChat() {
 
 
         // New additions
-        conversationMedia,
-        conversationFiles,
-        conversationLinks,
+
         pendingMembers,
-        fetchConversationMedia,
-        fetchConversationFiles,
-        fetchConversationLinks,
         handleTabChange,
         handleToggleBlock,
         handleToggleMute,
