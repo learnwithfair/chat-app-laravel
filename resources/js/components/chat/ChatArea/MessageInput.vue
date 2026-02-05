@@ -368,23 +368,23 @@ watch(
         </h4>
         <button
           @click="clearAllFiles"
-          class="text-xs text-red-600 hover:text-red-700 font-medium"
+          class="text-xs text-red-600 hover:text-red-700 font-medium cursor-pointer transition-colors"
         >
           Clear all
         </button>
       </div>
 
       <div
-        class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-64 overflow-y-auto"
+        class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3 max-h-64 overflow-y-auto"
       >
         <div
           v-for="file in selectedFiles"
           :key="file.id"
-          class="relative group bg-white rounded-lg border border-gray-200 p-3 hover:shadow-md transition-shadow"
+          class="relative group bg-white rounded-lg border border-gray-200 p-1 hover:shadow-md transition-shadow"
         >
           <button
             @click="removeFile(file.id)"
-            class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10"
+            class="absolute -top-0 -right-0 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg hover:bg-red-600 z-10 cursor-pointer"
           >
             <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
               <path
@@ -400,12 +400,12 @@ watch(
             v-if="file.preview"
             :src="file.preview"
             :alt="file.name"
-            class="w-full h-24 object-cover rounded mb-2"
+            class="w-full h-24 object-fit rounded mb-2"
           />
           <!-- File Icon -->
           <div
             v-else
-            class="w-full h-24 bg-gray-100 rounded mb-2 flex items-center justify-center"
+            class="w-auto h-24 bg-gray-100 rounded mb-2 flex items-center justify-center"
           >
             <svg
               class="w-10 h-10 text-gray-400"
@@ -736,7 +736,7 @@ watch(
           :class="[
             'p-2 rounded-full transition-colors',
             canInteract
-              ? 'text-gray-500 hover:bg-gray-100'
+              ? 'text-gray-500 hover:bg-gray-100 cursor-pointer'
               : 'text-gray-300 cursor-not-allowed',
           ]"
           title="Record voice message"
@@ -772,3 +772,9 @@ watch(
     </div>
   </div>
 </template>
+
+<style scoped>
+button{
+  cursor: pointer;
+}
+</style>

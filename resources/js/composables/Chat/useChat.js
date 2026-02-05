@@ -484,7 +484,7 @@ export function useChat() {
                 .map(msg => ({
                     id: msg.id,
                     text: msg.message,
-                    isMine: msg.sender.id === getCurrentUserId(),
+                    isMine: msg.is_mine,
                     time: formatTime(msg.created_at),
                     status: getMessageStatus(msg.statuses),
                     senderName: msg.sender.name || 'Unknown',
@@ -1277,7 +1277,7 @@ export function useChat() {
         return 'sent';
     };
 
-    const getCurrentUserId = () => {
+    const getCurrentUserId = () => {   
         return window.authUser?.id || 1;
     };
 

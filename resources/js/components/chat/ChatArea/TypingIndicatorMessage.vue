@@ -2,12 +2,8 @@
   <div class="flex justify-start">
     <div class="flex items-end space-x-2 max-w-xs lg:max-w-md xl:max-w-lg">
       <!-- Avatar (for first typing user) -->
-      <img
-        v-if="firstUser"
-        :src="firstUser.avatar"
-        :alt="firstUser.name"
-        class="w-8 h-8 rounded-full object-cover flex-shrink-0"
-      />
+      <img v-if="firstUser" :src="firstUser.avatar" :alt="firstUser.name"
+        class="w-8 h-8 rounded-full object-cover flex-shrink-0" />
 
       <div class="flex-1">
         <!-- Sender Name (for group chats) -->
@@ -29,7 +25,7 @@
 </template>
 
 <script setup>
-import { computed } from "vue";
+import { computed, watch, onMounted, onUnmounted } from "vue";
 
 const props = defineProps({
   typingUsers: {
@@ -39,6 +35,10 @@ const props = defineProps({
   isGroup: {
     type: Boolean,
     default: false,
+  },
+  enableSound: {
+    type: Boolean,
+    default: true,
   },
 });
 
@@ -57,6 +57,81 @@ const typingText = computed(() => {
     return `${props.typingUsers[0].name} and ${props.typingUsers.length - 1} others`;
   }
 });
+
+// Audio handling - using Web Audio API instead
+let audioContext = null;
+let soundInterval = null;
+
+onMounted(() => {
+  if (props.enableSound) {
+    initializeTypingSound();
+  }
+});
+
+onUnmounted(() => {
+  stopTypingSound();
+  if (audioContext) {
+    audioContext.close();
+  }
+});
+
+// Watch for typing users changes
+watch(() => props.typingUsers.length, (newCount, oldCount) => {
+  if (props.enableSound) {
+    if (newCount > 0 && oldCount === 0) {
+      playTypingSound();
+    } else if (newCount === 0) {
+      stopTypingSound();
+    }
+  }
+});
+
+function initializeTypingSound() {
+  // Initialize Web Audio API context
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playBeep() {
+  if (!audioContext) return;
+
+  // Create oscillator for beep sound
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  // Configure the beep
+  oscillator.frequency.value = 800; // Frequency in Hz (higher = higher pitch)
+  oscillator.type = 'sine'; // Sine wave for a clean beep
+
+  // Volume envelope for a click-like sound
+  gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
+
+  // Play the beep
+  oscillator.start(audioContext.currentTime);
+  oscillator.stop(audioContext.currentTime + 0.05); // Very short duration
+}
+
+function playTypingSound() {
+  if (!audioContext) return;
+
+  // Play beep immediately
+  playBeep();
+
+  // Continue playing at intervals
+  soundInterval = setInterval(() => {
+    playBeep();
+  }, 150); // Play every 150ms
+}
+
+function stopTypingSound() {
+  if (soundInterval) {
+    clearInterval(soundInterval);
+    soundInterval = null;
+  }
+}
 </script>
 
 <style scoped>
@@ -69,12 +144,14 @@ const typingText = computed(() => {
 }
 
 @keyframes typing-bounce {
+
   0%,
   60%,
   100% {
     transform: translateY(0);
     opacity: 0.5;
   }
+
   30% {
     transform: translateY(-10px);
     opacity: 1;

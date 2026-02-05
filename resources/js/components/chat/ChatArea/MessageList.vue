@@ -1,28 +1,12 @@
 <template>
   <!-- Messages container -->
-  <div
-    class="relative flex-1 overflow-y-auto p-4 space-y-4"
-    ref="messageContainer"
-    @scroll="onScroll"
-  >
+  <div class="relative flex-1 overflow-y-auto p-4 space-y-4" ref="messageContainer" @scroll="onScroll">
     <!-- NO MESSAGES FOUND -->
-    <div
-      v-if="!messages.length && !isLoadingMore"
-      class="flex h-full items-center justify-center"
-    >
+    <div v-if="!messages.length && !isLoadingMore" class="flex h-full items-center justify-center">
       <div class="text-center text-gray-500">
-        <svg
-          class="w-24 h-24 mx-auto mb-4 text-gray-300"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-          />
+        <svg class="w-24 h-24 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
         </svg>
 
         <h3 class="text-xl font-semibold mb-2">No messages found</h3>
@@ -32,47 +16,29 @@
 
     <!-- Spinner shown when loading older messages -->
     <div v-if="isLoadingMore" class="flex justify-center mb-2">
-      <div
-        class="spinner w-8 h-8 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"
-      ></div>
+      <div class="spinner w-8 h-8 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
     </div>
 
     <!-- Messages -->
-    <MessageItem
-      v-for="message in messages"
-      :key="message.id"
-      :ref="(el) => setMessageRef(message.id, el)"
-      :message="message"
-      :is-group="isGroup"
-      :search-query="searchQuery"
-      :is-highlighted="highlightedMessageId === message.id"
-      @reply="emit('reply', message)"
-      @edit="emit('edit', message)"
-      @forward="emit('forward', message)"
-      @delete="emit('delete', message)"
-      @show-details="emit('show-details', message)"
-      @show-seen-by="emit('show-seen-by', message)"
-      @add-reaction="emit('add-reaction', $event)"
-      @scroll-to-message="scrollToMessage"
-    />
+    <MessageItem v-for="message in messages" :key="message.id" :ref="(el) => setMessageRef(message.id, el)"
+      :message="message" :is-group="isGroup" :search-query="searchQuery"
+      :is-highlighted="highlightedMessageId === message.id" @reply="emit('reply', message)"
+      @edit="emit('edit', message)" @forward="emit('forward', message)" @delete="emit('delete', message)"
+      @show-details="emit('show-details', message)" @show-seen-by="emit('show-seen-by', message)"
+      @add-reaction="emit('add-reaction', $event)" @scroll-to-message="scrollToMessage" />
 
     <!-- Typing Indicator -->
-    <TypingIndicatorMessage
-      v-if="typingUsers?.length"
-      :typing-users="typingUsers"
-      :is-group="isGroup"
-    />
+
+    <TypingIndicatorMessage v-if="typingUsers.length > 0" :typing-users="typingUsers" :is-group="isGroupChat"
+      :enable-sound="soundEnabled" />
 
     <!-- Floating scroll spinner -->
-    <div
-      v-if="isLoadingForScroll"
-      class="fixed bottom-40 z-50"
-      :style="{ left: `${messageContainerLeft}px`, width: `${messageContainerWidth}px` }"
-    >
+    <div v-if="isLoadingForScroll" class="fixed bottom-40 z-50"
+      :style="{ left: `${messageContainerLeft}px`, width: `${messageContainerWidth}px` }">
       <div class="flex justify-center">
         <div
-          class="spinner w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin shadow-lg"
-        ></div>
+          class="spinner w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin shadow-lg">
+        </div>
       </div>
     </div>
   </div>
@@ -104,6 +70,7 @@ const emit = defineEmits([
   "loadMore",
 ]);
 
+const soundEnabled = ref(true);
 const messageContainer = ref(null);
 const messageRefs = ref({});
 const isLoadingMore = ref(false);
@@ -276,6 +243,7 @@ defineExpose({ scrollToBottom });
   0% {
     transform: rotate(0deg);
   }
+
   100% {
     transform: rotate(360deg);
   }

@@ -70,6 +70,7 @@ class MessageResource extends JsonResource
                 'message' => $this->replyTo->message,
                 'type'    => $this->replyTo->message_type,
             ] : null,
+            'is_mine'              => $this->sender_id === auth()->id(),
 
             'created_at'          => $this->created_at->toDateTimeString(),
             'updated_at'          => $this->updated_at->toDateTimeString(),
