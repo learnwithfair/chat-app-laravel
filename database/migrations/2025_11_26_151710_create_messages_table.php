@@ -18,6 +18,7 @@ return new class extends Migration
             $table->foreignId('conversation_id')->constrained('conversations')->cascadeOnDelete();
 
             $table->foreignId('reply_to_message_id')->nullable()->constrained('messages')->cascadeOnDelete();
+            $table->foreignId('forward_to_message_id')->nullable()->constrained('messages')->cascadeOnDelete();
 
             $table->text('message')->nullable();
 

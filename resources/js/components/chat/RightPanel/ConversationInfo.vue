@@ -142,21 +142,15 @@ const toggleBlock = () => {
 };
 
 const leaveGroup = () => {
-  if (confirm("Are you sure you want to leave this group?")) {
-    emit("leave-group");
-  }
+  emit("leave-group");
 };
 
 const deleteConversation = () => {
-  if (confirm("Are you sure you want to delete this conversation?")) {
-    emit("delete-conversation", props.conversation.id);
-  }
+  emit("delete-conversation", props.conversation.id);
 };
 
 const deleteGroup = () => {
-  if (confirm("Are you sure you want to delete this group?")) {
-    emit("delete-group", props.conversation.id);
-  }
+  emit("delete-group", props.conversation.id);
 };
 
 /* ===== Group Name Edit ===== */

@@ -1,5 +1,9 @@
 <template>
-  <div class="flex flex-col h-full">
+  <div
+    class="flex flex-col h-full overflow-y-auto"
+    ref="messageContainer"
+    @scroll="onScroll"
+  >
     <!-- ================= Header ================= -->
     <div class="flex flex-col items-center text-center py-4 shrink-0">
       <!-- Avatar -->
@@ -33,11 +37,7 @@
     </div>
 
     <!-- ================= Scrollable Messages ================= -->
-    <div
-      class="relative flex-1 overflow-y-auto p-4 space-y-4"
-      ref="messageContainer"
-      @scroll="onScroll"
-    >
+    <div class="relative flex-1 p-4 space-y-4">
       <!-- Empty State -->
       <div
         v-if="!messages.length && !isLoadingMore"
@@ -72,11 +72,13 @@
       <MessageItem
         v-for="message in messages"
         :key="message.id"
+        :id="`message-${message.id}`"
         :ref="(el) => setMessageRef(message.id, el)"
         :message="message"
         :is-group="isGroup"
         :search-query="searchQuery"
         :is-highlighted="highlightedMessageId === message.id"
+        :users-who-last-seen-here="getUsersForMessage(message)"
         @reply="emit('reply', message)"
         @edit="emit('edit', message)"
         @forward="emit('forward', message)"
@@ -113,7 +115,7 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted, onUnmounted, h, computed } from "vue";
+import { ref, watch, nextTick, onMounted, onUnmounted, computed } from "vue";
 import MessageItem from "./MessageItem.vue";
 import TypingIndicatorMessage from "./TypingIndicatorMessage.vue";
 
@@ -142,6 +144,7 @@ const emit = defineEmits([
 /* ================= COMPUTED ================= */
 
 const isGroup = computed(() => props.conversation.type === "group");
+const isGroupChat = computed(() => props.isGroup);
 const avatar = computed(() => props.conversation.avatar);
 
 const soundEnabled = ref(true);
@@ -161,12 +164,45 @@ const updateContainerPosition = () => {
   }
 };
 
+// get last seen message for each user
+const getLastSeenMessageForEachUser = computed(() => {
+  const lastSeenMap = new Map();
+
+  // Reverse loop 
+  for (let i = props.messages.length - 1; i >= 0; i--) {
+    const msg = props.messages[i];
+
+    // check for logged in user
+    if (msg.isMine && msg.seenBy && msg.seenBy.length > 0) {
+      msg.seenBy.forEach((user) => {
+        if (!lastSeenMap.has(user.id)) {
+          lastSeenMap.set(user.id, msg.id);
+        }
+      });
+    }
+  }
+
+  return lastSeenMap;
+});
+
+// get users who last seen this message
+const getUsersForMessage = (message) => {
+  if (!message.isMine || !message.seenBy || message.seenBy.length === 0) {
+    return [];
+  }
+  const lastSeenMap = getLastSeenMessageForEachUser.value;
+
+  return message.seenBy.filter((user) => {
+    return lastSeenMap.get(user.id) === message.id;
+  });
+};
+
 onMounted(() => {
   updateContainerPosition();
   window.addEventListener("resize", updateContainerPosition);
+  scrollToBottom();
 });
 
-// Optional: Clean up on unmount
 onUnmounted(() => {
   window.removeEventListener("resize", updateContainerPosition);
 });
@@ -174,7 +210,6 @@ onUnmounted(() => {
 const onScroll = (e) => {
   const { scrollTop, scrollHeight } = e.target;
 
-  // console.log(props.messagePagination);
   if (
     scrollTop < 100 &&
     props.messagePagination?.hasMore &&
@@ -198,15 +233,11 @@ const MAX_LOADS = 20;
 
 const scrollToMessage = async (messageId) => {
   pendingScrollTo.value = { id: messageId, tries: 0 };
-
-  // Show the floating spinner at bottom of container (not top)
   isLoadingForScroll.value = true;
 
-  // Wait for Vue to render spinner
   await nextTick();
   await new Promise((r) => setTimeout(r, 500));
 
-  // Start recursive scroll
   tryScroll();
 };
 
@@ -214,7 +245,6 @@ const tryScroll = async () => {
   if (!pendingScrollTo.value) return;
   const { id, tries } = pendingScrollTo.value;
 
-  // 1️ Check if message exists in DATA
   const exists = props.messages.some((m) => m.id === id);
 
   if (exists) {
@@ -228,7 +258,6 @@ const tryScroll = async () => {
     }
   }
 
-  // 2️ Stop if too many attempts or no more pages
   if (
     tries >= MAX_LOADS ||
     !props.messagePagination?.hasMore ||
@@ -239,23 +268,20 @@ const tryScroll = async () => {
     return;
   }
 
-  // 3️ Load next page and wait for messages to arrive
   pendingScrollTo.value.tries++;
   isLoadingForScroll.value = true;
 
-  // Emit loadMore and wait until messages length changes
   await new Promise((resolve) => {
     const stop = watch(
       () => props.messages.length,
       () => {
-        stop(); // stop watching
+        stop();
         resolve();
       }
     );
     emit("loadMore");
   });
 
-  // 4️ Try scroll again after new messages rendered
   await nextTick();
   tryScroll();
 };
@@ -263,13 +289,11 @@ const tryScroll = async () => {
 watch(
   () => props.messages.length,
   async (newLen, oldLen) => {
-    // 1️ If a pending scroll is active, try again
     if (pendingScrollTo.value) {
       await tryScroll();
-      return; // skip auto scroll to bottom
+      return;
     }
 
-    // 2️ Otherwise, auto-scroll to bottom if new messages arrive
     if (newLen > oldLen && !isLoadingMore.value) {
       nextTick(scrollToBottom);
     }
@@ -292,12 +316,14 @@ watch(
   }
 );
 
-onMounted(scrollToBottom);
-
 function scrollToBottom() {
-  if (messageContainer.value) {
-    messageContainer.value.scrollTop = messageContainer.value.scrollHeight;
-  }
+  if (!messageContainer.value) return;
+
+  requestAnimationFrame(() => {
+    if (messageContainer.value) {
+      messageContainer.value.scrollTop = messageContainer.value.scrollHeight;
+    }
+  });
 }
 
 defineExpose({ scrollToBottom });

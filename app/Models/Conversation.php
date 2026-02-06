@@ -8,32 +8,23 @@ class Conversation extends Model
     protected $guarded = [];
 
     public function participants()
-    {
-        return $this->hasMany(ConversationParticipant::class);
-    }
+    {return $this->hasMany(ConversationParticipant::class);}
 
     public function messages()
-    {
-        return $this->hasMany(Message::class)->latest();
-    }
+    {return $this->hasMany(Message::class)->latest();}
 
     public function creator()
     {return $this->belongsTo(User::class, 'created_by');}
 
     public function lastMessage()
-    {
-        return $this->hasOne(Message::class)->latestOfMany();
-    }
+    {return $this->hasOne(Message::class)->latestOfMany();}
 
     public function groupSetting()
-    {
-        return $this->hasOne(GroupSettings::class);
-    }
+    {return $this->hasOne(GroupSettings::class);}
 
     public function unreadMessages()
-    {
-        return $this->hasMany(Message::class);
-    }
+    {return $this->hasMany(Message::class);}
+    
     public function otherParticipant(User $currentUser)
     {
         // if ($this->type !== 'private') {

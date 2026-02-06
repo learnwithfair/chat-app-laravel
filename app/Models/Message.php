@@ -12,46 +12,36 @@ class Message extends Model
     ];
 
     public function conversation()
-    {
-        return $this->belongsTo(Conversation::class);
-    }
+    {return $this->belongsTo(Conversation::class);}
+
     public function sender()
-    {
-        return $this->belongsTo(User::class, 'sender_id');
-    }
+    {return $this->belongsTo(User::class, 'sender_id');}
+
     public function receiver()
-    {
-        return $this->belongsTo(User::class, 'receiver_id');
-    }
+    {return $this->belongsTo(User::class, 'receiver_id');}
 
     public function attachments()
-    {
-        return $this->hasMany(MessageAttachment::class);
-    }
+    {return $this->hasMany(MessageAttachment::class);}
 
     public function reactions()
-    {
-        return $this->hasMany(MessageReaction::class);
-    }
+    {return $this->hasMany(MessageReaction::class);}
 
     public function replyTo()
-    {
-        return $this->belongsTo(Message::class, 'reply_to_message_id');
-    }
+    {return $this->belongsTo(Message::class, 'reply_to_message_id');}
 
     public function replies()
-    {
-        return $this->hasMany(Message::class, 'reply_to_message_id');
-    }
+    {return $this->hasMany(Message::class, 'reply_to_message_id');}
+
+    public function forwardTo()
+    {return $this->belongsTo(Message::class, 'forward_to_message_id');}
+
+    public function forwards()
+    {return $this->hasMany(Message::class, 'forward_to_message_id');}
 
     public function statuses()
-    {
-        return $this->hasMany(MessageStatus::class);
-    }
+    {return $this->hasMany(MessageStatus::class);}
 
     public function deletions()
-    {
-        return $this->hasMany(MessageDeletion::class);
-    }
+    {return $this->hasMany(MessageDeletion::class);}
 
 }

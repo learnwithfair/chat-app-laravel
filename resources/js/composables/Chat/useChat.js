@@ -487,8 +487,8 @@ export function useChat() {
                     isMine: msg.is_mine,
                     time: formatTime(msg.created_at),
                     status: getMessageStatus(msg.statuses),
-                    senderName: msg.sender.name || 'Unknown',
-                    senderAvatar: msg.sender.avatar_path || generateAvatar(msg.sender.name),
+                    senderName: msg.sender?.name || 'Unknown',
+                    senderAvatar: msg.sender?.avatar_path || generateAvatar(msg.sender?.name),
                     reactions: formatReactions(msg.reactions),
                     isDeleted: msg.is_deleted_for_everyone || false,
                     isEdited: false,
@@ -500,12 +500,15 @@ export function useChat() {
                     } : null,
                     //  FIX: Format ALL attachments, not just first one
                     attachments: formatAttachments(msg.attachments),
-                    seenBy: msg.statuses?.filter(s => s.status === 'seen').map(s => ({
-                        id: s.user_id,
-                        name: s.user?.name || 'Unknown',
-                        avatar: s.user?.avatar_path || generateAvatar(s.user?.name || 'User'),
-                        seenAt: formatTime(s.created_at || msg.created_at)
-                    })) || []
+                    seenBy: msg.statuses
+                        ?.filter(s => s.status === 'seen')
+                        .map(s => ({
+                            id: s.user_id,
+                            name: s.name || 'Unknown',
+                            avatar: s.avatar_path || generateAvatar(s.name || 'User'),
+                            seenAt: formatTime(s.created_at || msg.created_at)
+                        })) || []
+
                 }))
                 .reverse();
 
@@ -751,7 +754,11 @@ export function useChat() {
             const response = await axios.post(`${API_BASE}/messages/${messageId}/reaction`, {
                 reaction: emoji
             });
-            return response.data;
+
+            console.log("Reactopm");
+            console.log(response.data.data);
+
+            return response.data.data;
         } catch (error) {
             console.error('Failed to toggle reaction:', error);
             throw error;
@@ -1277,7 +1284,7 @@ export function useChat() {
         return 'sent';
     };
 
-    const getCurrentUserId = () => {   
+    const getCurrentUserId = () => {
         return window.authUser?.id || 1;
     };
 
@@ -1742,6 +1749,9 @@ export function useChat() {
     const openReactionModal = async ({ message, reaction }) => {
         try {
             const reactions = await getReactionsAPI(message.id);
+
+            console.log("reactions Rahatul");
+            console.log(reactions);
             selectedReactionUsers.value = reactions.filter(r => r.reaction === reaction.emoji);
             modals.value.reaction = true;
         } catch (error) {
@@ -1954,6 +1964,7 @@ export function useChat() {
     // };
 
     const makeAdmin = async (member) => {
+        if (!confirm('Are you sure you want to make this admin?')) return;
         try {
             await addAdminAPI(activeConversation.value.id, [member.id]);
 
@@ -1980,6 +1991,7 @@ export function useChat() {
     };
 
     const removeAdmin = async (member) => {
+        if (!confirm('Are you sure you want to remove this admin?')) return;
         try {
             const res = await removeAdminAPI(activeConversation.value.id, [member.id]);
 
@@ -2083,31 +2095,68 @@ export function useChat() {
     };
 
     // Add reaction handler
+    // const handleAddReaction = async ({ messageId, emoji }) => {
+    //     try {
+    //         await toggleReactionAPI(messageId, emoji);
+
+    //         const message = messages.value.find(m => m.id === messageId);
+    //         if (!message) return;
+
+    //         if (!message.reactions) {
+    //             message.reactions = [];
+    //         }
+
+    //         const existingReaction = message.reactions.find(r => r.emoji === emoji);
+
+    //         if (existingReaction) {
+    //             existingReaction.count++;
+    //         } else {
+    //             message.reactions.push({
+    //                 emoji: emoji,
+    //                 count: 1
+    //             });
+    //         }
+    //     } catch (error) {
+    //         console.error('Failed to add reaction:', error);
+    //     }
+    // };
+
     const handleAddReaction = async ({ messageId, emoji }) => {
         try {
-            await toggleReactionAPI(messageId, emoji);
+            const reactions = await toggleReactionAPI(messageId, emoji);
 
             const message = messages.value.find(m => m.id === messageId);
             if (!message) return;
 
-            if (!message.reactions) {
-                message.reactions = [];
-            }
+            //  overwrite raw list from backend
+            message.reactionList = reactions;
 
-            const existingReaction = message.reactions.find(r => r.emoji === emoji);
+            //  rebuild grouped UI reactions
+            message.reactions = buildGroupedReactions(reactions);
 
-            if (existingReaction) {
-                existingReaction.count++;
-            } else {
-                message.reactions.push({
-                    emoji: emoji,
-                    count: 1
-                });
-            }
         } catch (error) {
-            console.error('Failed to add reaction:', error);
+            console.error("Failed to toggle reaction:", error);
         }
     };
+
+
+    const buildGroupedReactions = (list) => {
+        const map = {};
+
+        list.forEach(item => {
+            if (!map[item.reaction]) {
+                map[item.reaction] = {
+                    emoji: item.reaction,
+                    count: 0
+                };
+            }
+            map[item.reaction].count++;
+        });
+
+        return Object.values(map);
+    };
+
+
 
     const handleRemoveReaction = async ({ messageId, emoji }) => {
         try {
@@ -2241,6 +2290,7 @@ export function useChat() {
 
     // Handle delete conversation
     const handleDeleteConversation = async (conversationId) => {
+        if (!confirm('Are you sure you want to delete this conversation?')) return;
         try {
             await deleteConversationAPI(conversationId);
 
@@ -2259,6 +2309,7 @@ export function useChat() {
     };
     // Handle delete conversation
     const handleDeleteGroup = async (conversationId) => {
+        if (!confirm('Are you sure you want to delete this group?')) return;
         try {
             await deleteGroupAPI(conversationId);
 

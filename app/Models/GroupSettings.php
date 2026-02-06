@@ -15,15 +15,11 @@ class GroupSettings extends Model
         'allow_members_to_change_group_info'       => 'boolean',
         'admins_must_approve_new_members'          => 'boolean',
     ];
-    protected $hidden = ['created_at', 'updated_at','type'];
+    protected $hidden = ['created_at', 'updated_at', 'type'];
 
     public function conversation()
-    {
-        return $this->belongsTo(Conversation::class);
-    }
+    {return $this->belongsTo(Conversation::class);}
 
     public function participants()
-    {
-        return $this->conversation->participants();
-    }
+    {return $this->conversation->participants();}
 }

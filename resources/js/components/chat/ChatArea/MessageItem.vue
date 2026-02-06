@@ -1,13 +1,11 @@
 <template>
   <!-- SYSTEM MESSAGE -->
   <div
-    v-if="message.messageType === 'system'"
+    v-if="message.messageType === 'system' && !message.isDeleted"
     class="w-full flex flex-col items-center my-4"
     :id="`message-${message.id}`"
   >
-    <div
-      class="px-4 text-sm text-gray-700  max-w-md text-center"
-    >
+    <div class="px-4 text-sm text-gray-700 max-w-md text-center">
       {{ message.text }}
     </div>
 
@@ -350,9 +348,10 @@
           @add-reaction="emit('add-reaction', $event)"
         />
 
-        <!-- Seen By -->
+        <!-- Seen By - who last seen this message -->
+
         <div
-          v-if="message.isMine && message.seenBy && message.seenBy.length > 0"
+          v-if="message.isMine && usersWhoLastSeenHere && usersWhoLastSeenHere.length > 0"
           class="flex justify-end mt-0 mb-0"
           style="margin-top: -25px"
         >
@@ -361,15 +360,18 @@
             class="flex -space-x-2 hover:opacity-80 transition-opacity cursor-pointer"
           >
             <img
-              v-for="user in message.seenBy.slice(0, 3)"
+              v-for="user in usersWhoLastSeenHere.slice(0, 3)"
               :key="user.id"
               :src="user.avatar"
               :alt="user.name"
               class="w-5 h-5 rounded-full border-2 border-white object-cover"
               :title="user.name"
             />
-            <span v-if="message.seenBy.length > 3" class="text-xs text-gray-500 ml-1">
-              +{{ message.seenBy.length - 3 }}
+            <span
+              v-if="usersWhoLastSeenHere.length > 3"
+              class="text-xs text-gray-500 ml-1"
+            >
+              +{{ usersWhoLastSeenHere.length - 3 }}
             </span>
           </button>
         </div>
@@ -390,6 +392,7 @@ const props = defineProps({
   isGroup: { type: Boolean, default: false },
   searchQuery: { type: String, default: "" },
   isHighlighted: { type: Boolean, default: false },
+  usersWhoLastSeenHere: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits([

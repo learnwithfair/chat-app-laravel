@@ -209,6 +209,9 @@ const filteredReactionUsers = computed(() => {
   const allUsers = [];
 
   props.reactions.forEach((reaction) => {
+
+    console.log("react");
+    console.log(reaction);
     // Mock: Generate users for each reaction
     for (let i = 0; i < reaction.count; i++) {
       allUsers.push({

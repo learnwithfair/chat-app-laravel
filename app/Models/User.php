@@ -34,7 +34,7 @@ class User extends Authenticatable
             'last_seen'         => 'datetime',
             'password'          => 'hashed',
         ];
-    }    
+    }
 
     // Scopes
     public function scopeVerified($q)
@@ -76,10 +76,8 @@ class User extends Authenticatable
     // }
 
     public function isOnline(): bool
-    {
-        return $this->last_seen_at &&
-        $this->last_seen_at->greaterThan(now()->subMinutes(2));
-    }
+    {return $this->last_seen_at && $this->last_seen_at->greaterThan(now()->subMinutes(2));}
+    
     // public function tokens()
     // {return $this->hasMany(DeviceToken::class);}
 }

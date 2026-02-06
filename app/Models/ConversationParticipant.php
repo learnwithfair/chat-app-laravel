@@ -15,17 +15,11 @@ class ConversationParticipant extends Model
         'deleted_at'  => 'datetime',
     ];
     public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
+    {return $query->where('is_active', true);}
 
     public function conversation()
-    {
-        return $this->belongsTo(Conversation::class);
-    }
+    {return $this->belongsTo(Conversation::class);}
 
     public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
+    {return $this->belongsTo(User::class);}
 }
