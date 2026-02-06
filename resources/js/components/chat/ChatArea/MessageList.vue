@@ -1,43 +1,111 @@
 <template>
-  <!-- Messages container -->
-  <div class="relative flex-1 overflow-y-auto p-4 space-y-4" ref="messageContainer" @scroll="onScroll">
-    <!-- NO MESSAGES FOUND -->
-    <div v-if="!messages.length && !isLoadingMore" class="flex h-full items-center justify-center">
-      <div class="text-center text-gray-500">
-        <svg class="w-24 h-24 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-
-        <h3 class="text-xl font-semibold mb-2">No messages found</h3>
-        <p>Start the conversation by sending a message</p>
+  <div class="flex flex-col h-full">
+    <!-- ================= Header ================= -->
+    <div class="flex flex-col items-center text-center py-4 shrink-0">
+      <!-- Avatar -->
+      <div class="relative mb-2">
+        <img
+          :src="avatar"
+          :alt="conversation.name"
+          class="w-28 h-28 rounded-full object-cover ring-2 ring-gray-100"
+        />
       </div>
+
+      <!-- Name -->
+      <h3 class="text-lg font-semibold text-gray-900 truncate max-w-[260px]">
+        {{ conversation.name }}
+      </h3>
+
+      <!-- Status -->
+      <p class="text-sm">
+        <template v-if="isGroup">
+          <span class="text-gray-500">
+            {{ conversation.members?.length || 0 }} members
+          </span>
+        </template>
+        <template v-else>
+          <span :class="conversation.isOnline ? 'text-green-600' : 'text-gray-400'">
+            {{ conversation.isOnline ? "Online" : "Offline" }}
+          </span>
+        </template>
+      </p>
+      <div class="border-b bg-gray-400 mt-2 w-75 justify-center"></div>
     </div>
 
-    <!-- Spinner shown when loading older messages -->
-    <div v-if="isLoadingMore" class="flex justify-center mb-2">
-      <div class="spinner w-8 h-8 border-4 border-blue-400 border-t-transparent rounded-full animate-spin"></div>
-    </div>
+    <!-- ================= Scrollable Messages ================= -->
+    <div
+      class="relative flex-1 overflow-y-auto p-4 space-y-4"
+      ref="messageContainer"
+      @scroll="onScroll"
+    >
+      <!-- Empty State -->
+      <div
+        v-if="!messages.length && !isLoadingMore"
+        class="h-full flex items-center justify-center"
+      >
+        <div class="text-center text-gray-500">
+          <svg
+            class="w-24 h-24 mx-auto mb-4 text-gray-300"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+            />
+          </svg>
 
-    <!-- Messages -->
-    <MessageItem v-for="message in messages" :key="message.id" :ref="(el) => setMessageRef(message.id, el)"
-      :message="message" :is-group="isGroup" :search-query="searchQuery"
-      :is-highlighted="highlightedMessageId === message.id" @reply="emit('reply', message)"
-      @edit="emit('edit', message)" @forward="emit('forward', message)" @delete="emit('delete', message)"
-      @show-details="emit('show-details', message)" @show-seen-by="emit('show-seen-by', message)"
-      @add-reaction="emit('add-reaction', $event)" @scroll-to-message="scrollToMessage" />
+          <h3 class="text-xl font-semibold mb-1">No messages found</h3>
+          <p class="text-sm">Start the conversation by sending a message</p>
+        </div>
+      </div>
 
-    <!-- Typing Indicator -->
+      <!-- Load Older Spinner -->
+      <div v-if="isLoadingMore" class="flex justify-center my-3">
+        <div class="spinner"></div>
+      </div>
 
-    <TypingIndicatorMessage v-if="typingUsers.length > 0" :typing-users="typingUsers" :is-group="isGroupChat"
-      :enable-sound="soundEnabled" />
+      <!-- Messages -->
+      <MessageItem
+        v-for="message in messages"
+        :key="message.id"
+        :ref="(el) => setMessageRef(message.id, el)"
+        :message="message"
+        :is-group="isGroup"
+        :search-query="searchQuery"
+        :is-highlighted="highlightedMessageId === message.id"
+        @reply="emit('reply', message)"
+        @edit="emit('edit', message)"
+        @forward="emit('forward', message)"
+        @delete="emit('delete', message)"
+        @show-details="emit('show-details', message)"
+        @show-seen-by="emit('show-seen-by', message)"
+        @add-reaction="emit('add-reaction', $event)"
+        @scroll-to-message="scrollToMessage"
+      />
 
-    <!-- Floating scroll spinner -->
-    <div v-if="isLoadingForScroll" class="fixed bottom-40 z-50"
-      :style="{ left: `${messageContainerLeft}px`, width: `${messageContainerWidth}px` }">
-      <div class="flex justify-center">
-        <div
-          class="spinner w-10 h-10 border-4 border-blue-400 border-t-transparent rounded-full animate-spin shadow-lg">
+      <!-- Typing Indicator -->
+      <TypingIndicatorMessage
+        v-if="typingUsers.length > 0"
+        :typing-users="typingUsers"
+        :is-group="isGroupChat"
+        :enable-sound="soundEnabled"
+      />
+
+      <!-- Floating Scroll Spinner -->
+      <div
+        v-if="isLoadingForScroll"
+        class="fixed bottom-36 z-50"
+        :style="{
+          left: `${messageContainerLeft}px`,
+          width: `${messageContainerWidth}px`,
+        }"
+      >
+        <div class="flex justify-center">
+          <div class="spinner w-10 h-10"></div>
         </div>
       </div>
     </div>
@@ -45,11 +113,12 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted, onUnmounted } from "vue";
+import { ref, watch, nextTick, onMounted, onUnmounted, h, computed } from "vue";
 import MessageItem from "./MessageItem.vue";
 import TypingIndicatorMessage from "./TypingIndicatorMessage.vue";
 
 const props = defineProps({
+  conversation: { type: Object, required: true },
   messages: { type: Array, required: true },
   messagePagination: Object,
   isGroup: { type: Boolean, default: false },
@@ -69,6 +138,11 @@ const emit = defineEmits([
   "add-reaction",
   "loadMore",
 ]);
+
+/* ================= COMPUTED ================= */
+
+const isGroup = computed(() => props.conversation.type === "group");
+const avatar = computed(() => props.conversation.avatar);
 
 const soundEnabled = ref(true);
 const messageContainer = ref(null);

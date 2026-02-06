@@ -58,6 +58,7 @@
         :highlighted-message-id="highlightedMessageId"
         :typing-users="getTypingUsers"
         :message-pagination="messagePagination"
+        :conversation="activeConversation"
         @reply="replyToMessage"
         @edit="editMessage"
         @forward="forwardMessage"
@@ -148,7 +149,7 @@
       :group-members="groupMembers"
       :load-more-group-members="loadMoreGroupMembers || (() => {})"
       :group-members-pagination="groupMembersPagination"
-      :active-tab="activeRightTab"   
+      :active-tab="activeRightTab"
       @update-tab="handleTabChange"
       @add-member="openAddMemberModal"
       @make-admin="makeAdmin"
@@ -322,7 +323,7 @@ const {
   groupMembersPagination,
   fetchGroupMembers,
   loadMoreGroupMembers,
-  
+
   // Media Library
   mediaLibrary,
   mediaLibraryLoading,
