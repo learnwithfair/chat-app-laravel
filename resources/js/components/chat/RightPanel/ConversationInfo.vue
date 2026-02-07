@@ -322,7 +322,11 @@ watch(
             v-else
             :class="conversation.isOnline ? 'text-green-600' : 'text-gray-400'"
           >
-            {{ conversation.isOnline ? "Online" : "Offline" }}
+            {{
+              conversation.isOnline
+                ? "Online"
+                : "Offline • " + conversation.receiver.last_seen
+            }}
           </span>
         </template>
       </p>

@@ -29,7 +29,9 @@
         </template>
         <template v-else>
           <span :class="conversation.isOnline ? 'text-green-600' : 'text-gray-400'">
-            {{ conversation.isOnline ? "Online" : "Offline" }}
+            {{
+              conversation.isOnline ? "Online" : "Offline • " + conversation.receiver.last_seen
+            }}
           </span>
         </template>
       </p>
@@ -83,6 +85,7 @@
         @edit="emit('edit', message)"
         @forward="emit('forward', message)"
         @delete="emit('delete', message)"
+        @show-reactions="emit('show-reactions', $event)"
         @show-details="emit('show-details', message)"
         @show-seen-by="emit('show-seen-by', message)"
         @add-reaction="emit('add-reaction', $event)"
@@ -168,7 +171,7 @@ const updateContainerPosition = () => {
 const getLastSeenMessageForEachUser = computed(() => {
   const lastSeenMap = new Map();
 
-  // Reverse loop 
+  // Reverse loop
   for (let i = props.messages.length - 1; i >= 0; i--) {
     const msg = props.messages[i];
 

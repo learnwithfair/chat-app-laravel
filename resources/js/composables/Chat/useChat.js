@@ -117,6 +117,13 @@ export function useChat() {
         loading: false,
     });
 
+    const reactionModalData = ref({
+        visible: false,
+        messageId: null,
+        reactions: [],
+        users: []
+    });
+
 
 
     // API Base URL
@@ -1318,7 +1325,7 @@ export function useChat() {
             return `${activeConversation.value.members?.length || 0} members`;
         }
 
-        return activeConversation.value.isOnline ? 'Online' : 'Offline';
+        return activeConversation.value.isOnline ? 'Online' : 'Offline • ' + activeConversation.value.receiver.last_seen;
     });
 
     const getConversationAvatar = computed(() => {
@@ -1746,17 +1753,56 @@ export function useChat() {
         }
     };
 
-    const openReactionModal = async ({ message, reaction }) => {
-        try {
-            const reactions = await getReactionsAPI(message.id);
+    // ==================== REACTIONS ====================
 
-            console.log("reactions Rahatul");
-            console.log(reactions);
-            selectedReactionUsers.value = reactions.filter(r => r.reaction === reaction.emoji);
-            modals.value.reaction = true;
+    const openReactionModal = async ({ message, reactions }) => {
+        reactionModalData.value = {
+            visible: true,
+            messageId: message.id,
+            reactions: reactions || [],
+            users: []
+        };
+        modals.value.reaction = true;
+    };
+
+    // Fetch reaction users
+    const handleReactionFetch = async ({ messageId, callback, errorCallback }) => {
+        try {
+            const response = await getReactionsAPI(messageId);
+
+            const allUsers = [];
+
+            if (response.grouped) {
+                Object.keys(response.grouped).forEach(emoji => {
+                    const emojiData = response.grouped[emoji];
+
+                    emojiData.users.forEach(user => {
+                        allUsers.push({
+                            id: user.user_id,
+                            name: user.name || 'Unknown',
+                            avatar: user.avatar_path || generateAvatar(user.name || 'User'),
+                            reaction: emoji
+                        });
+                    });
+                });
+            }
+
+            callback(allUsers);
         } catch (error) {
             console.error('Failed to fetch reactions:', error);
+            errorCallback(error);
         }
+    };
+
+    // ==================== CLOSE REACTION MODAL ====================
+    const closeReactionModal = () => {
+        modals.value.reaction = false;
+        reactionModalData.value = {
+            visible: false,
+            messageId: null,
+            reactions: [],
+            users: []
+        };
     };
 
     const openMessageDetails = (message) => {
@@ -2553,7 +2599,11 @@ export function useChat() {
         mediaLibraryLoading,
         handleOpenMediaLibrary,
 
-
+        // Reaction
+        reactionModalData,
+        openReactionModal,
+        closeReactionModal,
+        handleReactionFetch,
 
         // Group Management
         openCreateGroupModal,

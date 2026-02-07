@@ -48,7 +48,12 @@ defineEmits(["select"]);
         v-else
         :src="conversation.avatar || conversation.members?.[0]?.avatar"
         :alt="conversation.name"
-        class="w-12 h-12 rounded-full object-cover"
+        class="w-12 h-12 rounded-full object-cover border-2"
+        :class="
+          conversation.isOnline && conversation.type === 'private'
+            ? 'border-green-500'
+            : 'border-transparent'
+        "
       />
 
       <!-- Online Indicator -->

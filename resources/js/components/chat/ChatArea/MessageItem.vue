@@ -346,6 +346,7 @@
           :align-right="message.isMine"
           :message-id="message.id"
           @add-reaction="emit('add-reaction', $event)"
+          @show-reaction-modal="handleShowReactionModal"
         />
 
         <!-- Seen By - who last seen this message -->
@@ -404,7 +405,16 @@ const emit = defineEmits([
   "show-seen-by",
   "add-reaction",
   "scroll-to-message",
+  "show-reactions",
 ]);
+
+// Handle reaction modal opening
+const handleShowReactionModal = (data) => {
+  emit("show-reactions", {
+    message: props.message,
+    reactions: data.reactions,
+  });
+};
 
 // Reply navigation
 const goToRepliedMessage = () => {

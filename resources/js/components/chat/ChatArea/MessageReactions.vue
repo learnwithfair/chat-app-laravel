@@ -37,8 +37,8 @@
             d="M14.828 14.828a4 4 0 01-5.656 0M15 11h.01M9 11h.01M12 2a10 10 0 100 20 10 10 0 000-20z"
           />
         </svg>
-      </button>    
-      
+      </button>
+
       <!-- Reaction Picker Dropdown -->
       <div
         v-if="showPicker"
@@ -58,83 +58,6 @@
           >
             {{ emoji }}
           </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Reaction Details Modal -->
-  <div
-    v-if="showDetails"
-    @click.stop="closeDetails"
-    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-  >
-    <div
-      @click.stop
-      class="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[70vh] overflow-hidden"
-    >
-      <!-- Header -->
-      <div class="p-4 border-b border-gray-200 flex items-center justify-between">
-        <h3 class="text-lg font-semibold">Reactions</h3>
-        <button @click.stop="closeDetails" class="text-gray-500 hover:text-gray-700">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
-      </div>
-
-      <!-- Reaction Filter Tabs -->
-      <div
-        class="flex items-center space-x-1 p-2 border-b border-gray-200 overflow-x-auto"
-      >
-        <button
-          @click="selectedReactionFilter = 'all'"
-          :class="[
-            'px-4 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap',
-            selectedReactionFilter === 'all'
-              ? 'bg-blue-100 text-blue-600'
-              : 'text-gray-600 hover:bg-gray-100',
-          ]"
-        >
-          All {{ totalReactionCount }}
-        </button>
-        <button
-          v-for="reaction in uniqueReactionTypes"
-          :key="reaction.emoji"
-          @click="selectedReactionFilter = reaction.emoji"
-          :class="[
-            'px-3 py-2 rounded-full text-sm font-medium transition-colors whitespace-nowrap flex items-center space-x-1',
-            selectedReactionFilter === reaction.emoji
-              ? 'bg-blue-100 text-blue-600'
-              : 'text-gray-600 hover:bg-gray-100',
-          ]"
-        >
-          <span class="text-lg">{{ reaction.emoji }}</span>
-          <span>{{ reaction.count }}</span>
-        </button>
-      </div>
-
-      <!-- Users List -->
-      <div class="overflow-y-auto max-h-96">
-        <div
-          v-for="user in filteredReactionUsers"
-          :key="user.id"
-          class="flex items-center justify-between p-4 hover:bg-gray-50"
-        >
-          <div class="flex items-center">
-            <img
-              :src="user.avatar"
-              :alt="user.name"
-              class="w-10 h-10 rounded-full object-cover"
-            />
-            <span class="ml-3 font-medium text-gray-900">{{ user.name }}</span>
-          </div>
-          <span class="text-2xl">{{ user.reaction }}</span>
         </div>
       </div>
     </div>
@@ -159,7 +82,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["add-reaction", "show-details"]);
+const emit = defineEmits(["add-reaction", "show-reaction-modal"]);
 
 // Available reactions (like Messenger)
 const availableReactions = ["❤️", "😂", "😮", "😢", "😡", "👍", "👎"];
@@ -175,8 +98,6 @@ const emojiNames = {
 };
 
 const showPicker = ref(false);
-const showDetails = ref(false);
-const selectedReactionFilter = ref("all");
 
 // Computed
 const hasReactions = computed(() => {
@@ -189,45 +110,6 @@ const uniqueEmojis = computed(() => {
 
 const totalReactionCount = computed(() => {
   return props.reactions.reduce((sum, r) => sum + r.count, 0);
-});
-
-const uniqueReactionTypes = computed(() => {
-  const grouped = {};
-  props.reactions.forEach((r) => {
-    if (grouped[r.emoji]) {
-      grouped[r.emoji].count += r.count;
-    } else {
-      grouped[r.emoji] = { emoji: r.emoji, count: r.count };
-    }
-  });
-  return Object.values(grouped);
-});
-
-const filteredReactionUsers = computed(() => {
-  // This would come from your backend/store
-  // For now, returning mock data based on reactions
-  const allUsers = [];
-
-  props.reactions.forEach((reaction) => {
-
-    console.log("react");
-    console.log(reaction);
-    // Mock: Generate users for each reaction
-    for (let i = 0; i < reaction.count; i++) {
-      allUsers.push({
-        id: `${reaction.emoji}-${i}`,
-        name: `User ${i + 1}`,
-        avatar: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 50)}`,
-        reaction: reaction.emoji,
-      });
-    }
-  });
-
-  if (selectedReactionFilter.value === "all") {
-    return allUsers;
-  }
-
-  return allUsers.filter((user) => user.reaction === selectedReactionFilter.value);
 });
 
 // Methods
@@ -248,12 +130,11 @@ const addReaction = (emoji) => {
 };
 
 const showReactionDetails = () => {
-  showDetails.value = true;
-  selectedReactionFilter.value = "all";
-};
-
-const closeDetails = () => {
-  showDetails.value = false;
+  // Emit to parent (MessageItem) to open the modal
+  emit("show-reaction-modal", {
+    messageId: props.messageId,
+    reactions: props.reactions,
+  });
 };
 
 const getEmojiName = (emoji) => {
@@ -283,5 +164,6 @@ const vClickOutside = clickOutside;
 /* Smooth animations */
 button {
   transition: all 0.2s ease-in-out;
+  cursor: pointer;
 }
 </style>

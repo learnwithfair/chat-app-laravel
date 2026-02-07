@@ -20,7 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
             Route::middleware('web')
                 ->group(base_path('routes/chat.php'));
             Route::middleware('web') //api
-            // Route::middleware('api') //api
+                                     // Route::middleware('api') //api
                 ->prefix('api')
                 ->group(base_path('routes/chat_api.php'));
         }

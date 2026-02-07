@@ -16,11 +16,29 @@
             />
           </svg>
         </button>
+        <div class="relative inline-block">
+          <img
+            :src="avatar"
+            :alt="name"
+            class="w-10 h-10 rounded-full object-cover border-2"
+            :class="subtitle === 'Online' ? 'border-green-500' : 'border-transparent'"
+          />
 
-        <img :src="avatar" :alt="name" class="w-10 h-10 rounded-full object-cover" />
+          <!-- Active indicator -->
+          <span
+            v-if="subtitle === 'Online'"
+            class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"
+          ></span>
+        </div>
+
         <div class="ml-3">
           <h2 class="text-lg font-semibold text-gray-900">{{ name }}</h2>
-          <p class="text-xs text-gray-500">{{ subtitle }}</p>
+          <p
+            class="text-xs"
+            :class="subtitle == 'Online' ? 'text-green-500' : 'text-gray-500'"
+          >
+            {{ subtitle }}
+          </p>
         </div>
       </div>
 
@@ -305,7 +323,7 @@ defineExpose({
 .transition-all {
   transition: all 0.3s ease-in-out;
 }
-button{
+button {
   cursor: pointer;
 }
 </style>

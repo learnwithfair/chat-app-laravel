@@ -198,8 +198,10 @@
 
     <ReactionModal
       v-if="modals.reaction"
-      :users="selectedReactionUsers"
-      @close="closeModal('reaction')"
+      :message-id="reactionModalData.messageId"
+      :reactions="reactionModalData.reactions"
+      @close="closeReactionModal"
+      @fetch-reactions="handleReactionFetch"
     />
 
     <SeenByModal
@@ -299,7 +301,6 @@ const {
   showDeleteMenu,
   deleteMessageForMe,
   deleteMessageForEveryone,
-  openReactionModal,
   openMessageDetails,
   showSeenByModal,
   handleAudioCall,
@@ -328,6 +329,12 @@ const {
   mediaLibrary,
   mediaLibraryLoading,
   handleOpenMediaLibrary,
+
+  // Reaction
+  reactionModalData,
+  openReactionModal,
+  closeReactionModal,
+  handleReactionFetch,
 
   // Group Management
   openCreateGroupModal,
