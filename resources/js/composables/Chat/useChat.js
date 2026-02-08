@@ -95,7 +95,8 @@ export function useChat() {
         deleteMessage: false,
         forwardMessage: false,
         startChat: false,
-        mediaLibrary: false
+        mediaLibrary: false,
+        mute: false
     });
 
 
@@ -923,7 +924,7 @@ export function useChat() {
 
 
 
-    // Mute/Unmute group
+    //  Update the muteGroupAPI function to accept minutes parameter:
     const muteGroupAPI = async (conversationId, minutes = 0) => {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/mute`, {
@@ -2314,22 +2315,47 @@ export function useChat() {
         }
     };
 
-    // Handle toggle mute
-    const handleToggleMute = async (isMuted) => {
+    // handleToggleMute to open modal instead of direct toggle
+    const handleToggleMute = () => {
+        modals.value.mute = true;
+    };
+
+    // 4. Add new handleMuteAction function:
+    const handleMuteAction = async (minutes) => {
         try {
             if (!activeConversation.value) return;
 
-            await toggleMuteAPI(activeConversation.value.id, isMuted);
+            await muteGroupAPI(activeConversation.value.id, minutes);
 
             // Update local state
-            activeConversation.value.isMuted = isMuted;
+            if (minutes === 0) {
+                // Unmute
+                activeConversation.value.isMuted = false;
+                activeConversation.value.mutedUntil = null;
+            } else {
+                // Mute
+                activeConversation.value.isMuted = true;
+                if (minutes === -1) {
+                    activeConversation.value.mutedUntil = 'forever';
+                } else {
+                    const mutedUntil = new Date();
+                    mutedUntil.setMinutes(mutedUntil.getMinutes() + minutes);
+                    activeConversation.value.mutedUntil = mutedUntil.toISOString();
+                }
+            }
 
+            // Update conversation list
             const conv = conversations.value.find(c => c.id === activeConversation.value.id);
             if (conv) {
-                conv.isMuted = isMuted;
+                conv.isMuted = activeConversation.value.isMuted;
+                conv.mutedUntil = activeConversation.value.mutedUntil;
             }
+
+            // Close modal
+            modals.value.mute = false;
+
         } catch (error) {
-            console.error('Failed to toggle mute:', error);
+            console.error('Failed to mute/unmute:', error);
             alert('Failed to update notification settings');
         }
     };
@@ -2623,6 +2649,7 @@ export function useChat() {
         handleTabChange,
         handleToggleBlock,
         handleToggleMute,
+        handleMuteAction,
         handleDeleteConversation,
         handleDeleteGroup,
         handleUpdateAvatar,

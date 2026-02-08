@@ -509,16 +509,17 @@ class ConversationRepository
         $conversation = $this->find($conversationId);
 
         $participant = $conversation->participants()->where('user_id', $userId)->firstOrFail();
-        if ($minutes === 1) {
+        if ($minutes === -1) {
             $participant->update(['is_muted' => true, 'muted_until' => null]); // Unlimited mute
+            return true;
         } elseif ($minutes > 0) {
             $participant->update(['is_muted' => true, 'muted_until' => now()->addMinutes($minutes)]);
+            return true;
         } else {
             // Unmute
             $participant->update(['is_muted' => false, 'muted_until' => null]);
+            return false;
         }
-
-        return $participant;
     }
 
     public function updateGroupInfo(int $userId, int $conversationId, array $data)
