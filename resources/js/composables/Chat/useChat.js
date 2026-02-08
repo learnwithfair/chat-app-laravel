@@ -1089,6 +1089,24 @@ export function useChat() {
         }
     };
 
+    const forwardMessageAPI = async (messageId, conversationIds) => {
+        try {
+            const response = await axios.post(
+                `${API_BASE}/messages/${messageId}/forward`,
+                {
+                    conversation_ids: conversationIds,
+                }
+            );
+
+            return response.data.data;
+
+        } catch (error) {
+            console.error('Failed to forward message:', error);
+            throw error;
+        }
+    };
+
+
     // ==================== REAL-TIME UPDATE HANDLER  (For websocket to get real-time updates)====================
 
     const handleNewMessage = (incomingMsg) => {
@@ -1326,7 +1344,11 @@ export function useChat() {
             return `${activeConversation.value.members?.length || 0} members`;
         }
 
-        return activeConversation.value.isOnline ? 'Online' : 'Offline • ' + activeConversation.value.receiver.last_seen;
+        return activeConversation.value.isOnline
+            ? 'Online'
+            : activeConversation.value.receiver.last_seen
+                ? 'Offline • ' + activeConversation.value.receiver.last_seen
+                : 'Offline';
     });
 
     const getConversationAvatar = computed(() => {
@@ -1704,7 +1726,15 @@ export function useChat() {
     };
 
     const handleForwardMessage = async ({ message, conversationIds }) => {
-        console.log('Forwarding message to:', conversationIds);
+        // forwarding.value = true;
+        try {
+            await forwardMessageAPI(message.id, conversationIds);
+            modals.value.forwardMessage = false;
+        } catch (error) {
+            console.error(error);
+        } finally {
+            // forwarding.value = false;
+        }
     };
 
     const showDeleteMenu = (message) => {

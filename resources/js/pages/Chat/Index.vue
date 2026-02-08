@@ -18,8 +18,8 @@
     ]">
       <!-- Chat Header with Search -->
       <ChatHeader ref="chatHeaderRef" :name="activeConversation.name" :subtitle="getConversationSubtitle"
-        :avatar="getConversationAvatar" @back="closeChatOnMobile" @search="handleSearchToggle"
-        @search-query-change="handleSearchQueryChange" @search-next="handleSearchNext"
+        :avatar="getConversationAvatar" :isInfoOpen="showRightPanel" @back="closeChatOnMobile"
+        @search="handleSearchToggle" @search-query-change="handleSearchQueryChange" @search-next="handleSearchNext"
         @search-previous="handleSearchPrevious" @audio-call="handleAudioCall" @video-call="handleVideoCall"
         @toggle-info="showRightPanel = !showRightPanel" />
 
@@ -121,7 +121,9 @@
       @delete-for-me="deleteMessageForMe" @delete-for-everyone="deleteMessageForEveryone" />
 
     <ForwardMessageModal v-if="modals.forwardMessage" :conversations="conversations" :message="messageToForward"
-      @close="closeModal('forwardMessage')" @forward="handleForwardMessage" />
+      :currentConversationId="activeConversation?.id" @close="closeModal('forwardMessage')"
+      @forward="handleForwardMessage" />
+
 
     <MuteModal v-if="modals.mute" :conversation-name="activeConversation.name" :is-muted="activeConversation.isMuted"
       @close="closeModal('mute')" @mute="handleMuteAction" />

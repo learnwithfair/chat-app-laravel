@@ -8,24 +8,12 @@ use Illuminate\Support\Facades\DB;
 
 class AutoUnmuteConversationsQueue extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
+
     protected $signature = 'conversations:auto-unmute
                             {--chunk=500 : Number of records to fetch per batch}';
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
     protected $description = 'Queue auto-unmute jobs for very large datasets';
 
-    /**
-     * Execute the console command.
-     */
     public function handle()
     {
         $this->info(' Queuing auto-unmute jobs...');

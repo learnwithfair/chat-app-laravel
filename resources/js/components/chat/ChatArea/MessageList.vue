@@ -1,18 +1,10 @@
 <template>
-  <div
-    class="flex flex-col h-full overflow-y-auto"
-    ref="messageContainer"
-    @scroll="onScroll"
-  >
+  <div class="flex flex-col h-full overflow-y-auto" ref="messageContainer" @scroll="onScroll">
     <!-- ================= Header ================= -->
     <div class="flex flex-col items-center text-center py-4 shrink-0">
       <!-- Avatar -->
       <div class="relative mb-2">
-        <img
-          :src="avatar"
-          :alt="conversation.name"
-          class="w-28 h-28 rounded-full object-cover ring-2 ring-gray-100"
-        />
+        <img :src="avatar" :alt="conversation.name" class="w-28 h-28 rounded-full object-cover ring-2 ring-gray-100" />
       </div>
 
       <!-- Name -->
@@ -30,7 +22,9 @@
         <template v-else>
           <span :class="conversation.isOnline ? 'text-green-600' : 'text-gray-400'">
             {{
-              conversation.isOnline ? "Online" : "Offline • " + conversation.receiver.last_seen
+              conversation.isOnline ? "Online" :  conversation.receiver.last_seen
+                ? 'Offline • ' + conversation.receiver.last_seen
+                : 'Offline'
             }}
           </span>
         </template>
@@ -41,23 +35,11 @@
     <!-- ================= Scrollable Messages ================= -->
     <div class="relative flex-1 p-4 space-y-4">
       <!-- Empty State -->
-      <div
-        v-if="!messages.length && !isLoadingMore"
-        class="h-full flex items-center justify-center"
-      >
+      <div v-if="!messages.length && !isLoadingMore" class="h-full flex items-center justify-center">
         <div class="text-center text-gray-500">
-          <svg
-            class="w-24 h-24 mx-auto mb-4 text-gray-300"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-            />
+          <svg class="w-24 h-24 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
 
           <h3 class="text-xl font-semibold mb-1">No messages found</h3>
@@ -71,44 +53,23 @@
       </div>
 
       <!-- Messages -->
-      <MessageItem
-        v-for="message in messages"
-        :key="message.id"
-        :id="`message-${message.id}`"
-        :ref="(el) => setMessageRef(message.id, el)"
-        :message="message"
-        :is-group="isGroup"
-        :search-query="searchQuery"
-        :is-highlighted="highlightedMessageId === message.id"
-        :users-who-last-seen-here="getUsersForMessage(message)"
-        @reply="emit('reply', message)"
-        @edit="emit('edit', message)"
-        @forward="emit('forward', message)"
-        @delete="emit('delete', message)"
-        @show-reactions="emit('show-reactions', $event)"
-        @show-details="emit('show-details', message)"
-        @show-seen-by="emit('show-seen-by', message)"
-        @add-reaction="emit('add-reaction', $event)"
-        @scroll-to-message="scrollToMessage"
-      />
+      <MessageItem v-for="message in messages" :key="message.id" :id="`message-${message.id}`"
+        :ref="(el) => setMessageRef(message.id, el)" :message="message" :is-group="isGroup" :search-query="searchQuery"
+        :is-highlighted="highlightedMessageId === message.id" :users-who-last-seen-here="getUsersForMessage(message)"
+        @reply="emit('reply', message)" @edit="emit('edit', message)" @forward="emit('forward', message)"
+        @delete="emit('delete', message)" @show-reactions="emit('show-reactions', $event)"
+        @show-details="emit('show-details', message)" @show-seen-by="emit('show-seen-by', message)"
+        @add-reaction="emit('add-reaction', $event)" @scroll-to-message="scrollToMessage" />
 
       <!-- Typing Indicator -->
-      <TypingIndicatorMessage
-        v-if="typingUsers.length > 0"
-        :typing-users="typingUsers"
-        :is-group="isGroupChat"
-        :enable-sound="soundEnabled"
-      />
+      <TypingIndicatorMessage v-if="typingUsers.length > 0" :typing-users="typingUsers" :is-group="isGroupChat"
+        :enable-sound="soundEnabled" />
 
       <!-- Floating Scroll Spinner -->
-      <div
-        v-if="isLoadingForScroll"
-        class="fixed bottom-36 z-50"
-        :style="{
-          left: `${messageContainerLeft}px`,
-          width: `${messageContainerWidth}px`,
-        }"
-      >
+      <div v-if="isLoadingForScroll" class="fixed bottom-36 z-50" :style="{
+        left: `${messageContainerLeft}px`,
+        width: `${messageContainerWidth}px`,
+      }">
         <div class="flex justify-center">
           <div class="spinner w-10 h-10"></div>
         </div>

@@ -32,8 +32,10 @@ class Message extends Model
     public function replies()
     {return $this->hasMany(Message::class, 'reply_to_message_id');}
 
-    public function forwardTo()
-    {return $this->belongsTo(Message::class, 'forward_to_message_id');}
+    public function forwardedFrom()
+{
+    return $this->belongsTo(Message::class, 'forward_to_message_id');
+}
 
     public function forwards()
     {return $this->hasMany(Message::class, 'forward_to_message_id');}

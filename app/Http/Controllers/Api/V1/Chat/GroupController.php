@@ -51,6 +51,7 @@ class GroupController extends Controller
 
     public function muteToggleGroup(Request $request, $conversationId)
     {
+        $request->validate(['minutes' => 'nullable|integer']); // = -1 means mute forever
         $result = $this->chatService->muteGroup(Auth::user(), $conversationId, $request->minutes ?? 0);
         return $this->success(null, $result == true ? 'Group muted successfully' : 'Group unmuted successfully');
     }

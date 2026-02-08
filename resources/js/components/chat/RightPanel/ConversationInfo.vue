@@ -277,8 +277,11 @@ watch(
             {{
               conversation.isOnline
                 ? "Online"
-                : "Offline • " + conversation.receiver.last_seen
+                : conversation.receiver.last_seen
+                  ? 'Offline • ' + conversation.receiver.last_seen
+                  : 'Offline'
             }}
+
           </span>
         </template>
       </p>

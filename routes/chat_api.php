@@ -24,6 +24,7 @@ Route::prefix('v1')->middleware(['auth', 'last_seen'])->group(function () {
         Route::delete('delete-for-everyone', 'deleteForEveryone')->name('messages.deleteForEveryone');
         Route::get('seen/{conversation}', 'markAsSeen');
         Route::get('delivered/{conversation}', 'markAsDelivered');
+        Route::post('{message}/forward', 'forward');
     });
 
     // -------------------- Reactions --------------------

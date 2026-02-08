@@ -25,6 +25,7 @@ class MessageResource extends JsonResource
                 'message'                 => $this->message,
                 'message_type'            => 'system',
                 'reply_to_message_id'     => null,
+                'forward_to_message_id'   => null,
                 'attachments'             => [],
                 'reactions'               => [
                     'reactions' => [],
@@ -85,6 +86,16 @@ class MessageResource extends JsonResource
                 ],
                 'message' => $this->replyTo->message,
                 'type'    => $this->replyTo->message_type,
+            ] : null,
+
+            'forward'                 => $this->forwardedFrom ? [
+                'id'      => $this->forwardedFrom->id,
+                'sender'  => [
+                    'id'   => $this->forwardedFrom->sender->id,
+                    'name' => $this->forwardedFrom->sender->name,
+                ],
+                'message' => $this->forwardedFrom->message,
+                'type'    => $this->forwardedFrom->message_type,
             ] : null,
             'is_mine'                 => $this->sender_id === $authId,
 

@@ -5,6 +5,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Chat\DeleteMessageRequest;
 use App\Http\Requests\Chat\SendMessageRequest;
 use App\Models\Message;
+use App\Models\MessageAttachment;
 use App\Services\Chat\ChatService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
@@ -67,6 +68,61 @@ class MessageController extends Controller
     {
         $this->chatService->markDelivered(Auth::user(), $conversationId);
         return response()->json(['status' => 'success']);
+    }
+
+    public function forward(Request $request, Message $message)
+    {
+        $data = $request->validate([
+            'conversation_ids'   => ['required', 'array', 'min:1'],
+            'conversation_ids.*' => ['integer', 'exists:conversations,id'],
+        ]);
+
+        $user = $request->user();
+
+        $results = [];
+
+        foreach ($data['conversation_ids'] as $conversationId) {
+
+            // 1️⃣ Prepare payload (same structure as storeMessage)
+            $payload = [
+                'conversation_id'       => $conversationId,
+                'message'               => $message->message,
+                'message_type'          => $message->message_type,
+                'forward_to_message_id' => $message->id,
+            ];
+            
+             $sent = $this->chatService->sendMessage($user, $payload);
+
+            /** @var \App\Models\Message $newMessage */
+            $newMessage = $sent->resource;
+
+            // 2️⃣ Clone attachments using bulk insert (optimized)
+            if ($message->attachments->count()) {
+
+                $attachments = $message->attachments->map(fn($file) => [
+                    'message_id' => $newMessage->id,
+                    'path'       => $file->path,
+                    'type'       => $file->type,
+                    'name'       => $file->name,
+                    'size'       => $file->size,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])->toArray();
+
+                MessageAttachment::insert($attachments);
+            }
+
+            // Reload attachments so frontend gets them
+            $newMessage->load(['attachments', 'sender:id,name', 'statuses', 'reactions']);
+
+            $results[] = new ($newMessage);
+        }
+
+        return response()->json([
+            'message' => 'Message forwarded successfully',
+            'data'    => $results,
+        ], 201);
+
     }
 
 }

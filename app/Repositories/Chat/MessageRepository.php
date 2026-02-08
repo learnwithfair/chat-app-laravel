@@ -185,13 +185,14 @@ class MessageRepository
 
         // 4. Create message
         $message = Message::create([
-            'conversation_id'     => $data['conversation_id'],
-            'sender_id'           => $user->id,
-            'receiver_id'         => $data['receiver_id'] ?? null,
-            'message'             => $data['message'] ?? null,
-            'message_type'        => $data['message_type'] ?? 'text',
-            'reply_to_message_id' => $data['reply_to_message_id'] ?? null,
-            'is_restricted'       => ! empty($data['receiver_id']) &&
+            'conversation_id'       => $data['conversation_id'],
+            'sender_id'             => $user->id,
+            'receiver_id'           => $data['receiver_id'] ?? null,
+            'message'               => $data['message'] ?? null,
+            'message_type'          => $data['message_type'] ?? 'text',
+            'reply_to_message_id'   => $data['reply_to_message_id'] ?? null,
+            'forward_to_message_id' => $data['forward_to_message_id'] ?? null,
+            'is_restricted'         => ! empty($data['receiver_id']) &&
             $user->restrictedByUsers()->where('users.id', $data['receiver_id'])->exists(),
         ]);
 
@@ -249,6 +250,7 @@ class MessageRepository
             'attachments',
             'statuses',
             'replyTo.sender:id,name',
+            'forwardedFrom.sender:id,name',
         ]);
 
         return new MessageResource($message);
