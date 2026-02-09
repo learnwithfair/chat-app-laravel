@@ -40,6 +40,34 @@
           {{ message.senderName }}
         </p>
 
+        <!-- Forward Preview Badge -->
+        <div
+          v-if="message.forwardFrom"
+          :class="[
+            'flex items-center space-x-1.5 text-xs mb-1.5 px-1',
+            message.isMine
+              ? 'text-blue-500 justify-start flex-row-reverse space-x-reverse'
+              : 'text-gray-500',
+          ]"
+        >
+          <svg
+            class="w-3.5 h-3.5 flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M13 7l5 5m0 0l-5 5m5-5H6"
+            />
+          </svg>
+          <span class="font-medium">
+            Forwarded from {{ message.forwardFrom.senderName }}
+          </span>
+        </div>
+
         <!-- Reply Preview -->
         <div
           v-if="message.replyTo"

@@ -92,7 +92,7 @@ class MessageResource extends JsonResource
                 'id'      => $this->forwardedFrom->id,
                 'sender'  => [
                     'id'   => $this->forwardedFrom->sender->id,
-                    'name' => $this->forwardedFrom->sender->name,
+                    'name' => $this->forwardedFrom->conversation->type === 'group' ? $this->forwardedFrom->conversation->name : $this->forwardedFrom->sender->name,
                 ],
                 'message' => $this->forwardedFrom->message,
                 'type'    => $this->forwardedFrom->message_type,

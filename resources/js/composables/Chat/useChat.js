@@ -507,6 +507,13 @@ export function useChat() {
                         senderName: msg.reply.sender.name,
                         text: msg.reply.message
                     } : null,
+
+                    forwardFrom: msg.forward ? {
+                        id: msg.forward.id,
+                        senderName: msg.forward.sender.name,
+                        text: msg.forward.message
+                    } : null,
+
                     //  FIX: Format ALL attachments, not just first one
                     attachments: formatAttachments(msg.attachments),
                     seenBy: msg.statuses
@@ -1599,6 +1606,11 @@ export function useChat() {
                         senderName: replyingTo.value.senderName,
                         text: replyingTo.value.text
                     } : null,
+                    forwardFrom: sentMsg.forward ? {
+                        id: sentMsg.forward.id,
+                        senderName: sentMsg.forward.sender.name,
+                        text: sentMsg.forward.message
+                    } : null,
                     attachments: formatAttachments(sentMsg.attachments),
                     seenBy: []
                 };
@@ -1727,16 +1739,77 @@ export function useChat() {
     };
 
     const handleForwardMessage = async ({ message, conversationIds }) => {
-        // forwarding.value = true;
         try {
-            await forwardMessageAPI(message.id, conversationIds);
+            const response = await forwardMessageAPI(message.id, conversationIds);
+
+            response.forEach((sentMsg) => {
+                const newMsg = {
+                    id: sentMsg.id,
+                    text: sentMsg.message,
+                    isMine: true,
+                    time: formatTime(sentMsg.created_at),
+                    status: 'sent',
+                    senderName: 'You',
+                    senderAvatar: '',
+                    reactions: [],
+                    isDeleted: false,
+                    isEdited: false,
+                    messageType: sentMsg.message_type || 'text',
+                    replyTo: null,
+
+                    forwardFrom: sentMsg.forward?.id
+                        ? {
+                            id: sentMsg.forward.id,
+                            senderName: sentMsg.forward.sender?.name || '',
+                            text: sentMsg.forward.message || '',
+                        }
+                        : null,
+
+                    attachments: formatAttachments(sentMsg.attachments),
+                    seenBy: [],
+                };
+
+                //If currently opened conversation 
+                if (sentMsg.conversation_id === activeConversation.value?.id) {
+                    if (!messages.value.some((m) => m.id === newMsg.id)) {
+                        messages.value.push(newMsg);
+                    }
+
+                    nextTick(() => {
+                        scrollToBottom();
+                    });
+                }
+
+                // Smart Message Cache Handling 
+                let cached = messageCache.get(sentMsg.conversation_id);
+
+                if (!cached) {
+                    cached = {
+                        messages: [],
+                        currentPage: 1,
+                        lastPage: 1,
+                        hasMore: true,
+                        loading: false,
+                    };
+                    messageCache.set(sentMsg.conversation_id, cached);
+                }
+
+                if (!cached.messages.some((m) => m.id === newMsg.id)) {
+                    cached.messages.push(newMsg);
+                }
+
+                // Sidebar Conversation Preview Update 
+                updateConversationPreview(sentMsg.conversation_id, sentMsg);
+            });
+
+            // Close modal
             modals.value.forwardMessage = false;
         } catch (error) {
-            console.error(error);
-        } finally {
-            // forwarding.value = false;
+            console.error('Forward failed:', error);
         }
     };
+
+
 
     const showDeleteMenu = (message) => {
         messageToDelete.value = message;

@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Repositories\Chat;
 
 use App\Events\MessageEvent;
@@ -43,6 +42,8 @@ class MessageRepository
                 'attachments',
                 'statuses',
                 'replyTo.sender:id,name',
+                'forwardedFrom.sender:id,name',
+                'forwardedFrom.conversation:id,name,type',
             ])
             ->orderBy('created_at', 'desc')
             ->paginate($perPage);
@@ -72,12 +73,12 @@ class MessageRepository
 
             $q->where('conversation_id', $conversationId)
 
-                //  deleted conversation logic
+            //  deleted conversation logic
                 ->when($participant->last_deleted_message_id, function ($q) use ($participant) {
                     $q->where('id', '>', $participant->last_deleted_message_id);
                 })
 
-                //  individual message delete (same as messages list)
+            //  individual message delete (same as messages list)
                 ->whereDoesntHave('deletions', function ($q) use ($user) {
                     $q->where('user_id', $user->id);
                 });
@@ -128,12 +129,12 @@ class MessageRepository
             ->whereNotNull('message')
             ->whereIn('message_type', ['text', 'multiple'])
 
-            //  conversation delete
+        //  conversation delete
             ->when($lastDeletedMessageId, function ($q) use ($lastDeletedMessageId) {
                 $q->where('id', '>', $lastDeletedMessageId);
             })
 
-            // per-user deleted messages
+        // per-user deleted messages
             ->whereDoesntHave('deletions', function ($q) use ($userId) {
                 $q->where('user_id', $userId);
             })
@@ -195,7 +196,7 @@ class MessageRepository
             'reply_to_message_id'   => $data['reply_to_message_id'] ?? null,
             'forward_to_message_id' => $data['forward_to_message_id'] ?? null,
             'is_restricted'         => ! empty($data['receiver_id']) &&
-                $user->restrictedByUsers()->where('users.id', $data['receiver_id'])->exists(),
+            $user->restrictedByUsers()->where('users.id', $data['receiver_id'])->exists(),
         ]);
 
         // 5. Attachments (forwarded messages & new messages)
@@ -258,8 +259,8 @@ class MessageRepository
             'statuses',
             'replyTo.sender:id,name',
             'forwardedFrom.sender:id,name',
+            'forwardedFrom.conversation:id,name,type',
         ]);
-
         return new MessageResource($message);
     }
 
@@ -287,7 +288,6 @@ class MessageRepository
         }
         MessageAttachment::insert($rows);
     }
-
 
     public function updateMessage(User $user, array $data, Message $message)
     {
@@ -376,7 +376,7 @@ class MessageRepository
             }
 
             $title = $sender->name ?? 'New Message';
-            $body  = $message->message_type === 'text' ? ($message->message ?: 'New message received') : 'Sent you an attachment';
+            $body  = $message->message_type === 'text' ? ($message->message ?: 'New message received'): 'Sent you an attachment';
 
             $payload = [
                 'type'            => 'chat_message',
