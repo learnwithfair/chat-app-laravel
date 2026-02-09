@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Api\V1\Chat;
 
 use App\Http\Controllers\Controller;
@@ -14,8 +15,7 @@ use Illuminate\Support\Facades\Auth;
 class MessageController extends Controller
 {
     use ApiResponse;
-    public function __construct(protected ChatService $chatService)
-    {}
+    public function __construct(protected ChatService $chatService) {}
 
     public function show(Request $request, int $message)
     {
@@ -83,46 +83,18 @@ class MessageController extends Controller
 
         foreach ($data['conversation_ids'] as $conversationId) {
 
-            // 1️⃣ Prepare payload (same structure as storeMessage)
             $payload = [
                 'conversation_id'       => $conversationId,
                 'message'               => $message->message,
                 'message_type'          => $message->message_type,
                 'forward_to_message_id' => $message->id,
             ];
-            
-             $sent = $this->chatService->sendMessage($user, $payload);
 
-            /** @var \App\Models\Message $newMessage */
-            $newMessage = $sent->resource;
+            $sent = $this->chatService->sendMessage($user, $payload);
 
-            // 2️⃣ Clone attachments using bulk insert (optimized)
-            if ($message->attachments->count()) {
-
-                $attachments = $message->attachments->map(fn($file) => [
-                    'message_id' => $newMessage->id,
-                    'path'       => $file->path,
-                    'type'       => $file->type,
-                    'name'       => $file->name,
-                    'size'       => $file->size,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ])->toArray();
-
-                MessageAttachment::insert($attachments);
-            }
-
-            // Reload attachments so frontend gets them
-            $newMessage->load(['attachments', 'sender:id,name', 'statuses', 'reactions']);
-
-            $results[] = new ($newMessage);
+            $results[] = $sent; // MessageResource already
         }
 
-        return response()->json([
-            'message' => 'Message forwarded successfully',
-            'data'    => $results,
-        ], 201);
-
+        return $this->success($results, 'Message forwarded successfully', 201);
     }
-
 }

@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Repositories\Chat;
 
 use App\Events\MessageEvent;
@@ -71,12 +72,12 @@ class MessageRepository
 
             $q->where('conversation_id', $conversationId)
 
-            //  deleted conversation logic
+                //  deleted conversation logic
                 ->when($participant->last_deleted_message_id, function ($q) use ($participant) {
                     $q->where('id', '>', $participant->last_deleted_message_id);
                 })
 
-            //  individual message delete (same as messages list)
+                //  individual message delete (same as messages list)
                 ->whereDoesntHave('deletions', function ($q) use ($user) {
                     $q->where('user_id', $user->id);
                 });
@@ -127,12 +128,12 @@ class MessageRepository
             ->whereNotNull('message')
             ->whereIn('message_type', ['text', 'multiple'])
 
-        //  conversation delete
+            //  conversation delete
             ->when($lastDeletedMessageId, function ($q) use ($lastDeletedMessageId) {
                 $q->where('id', '>', $lastDeletedMessageId);
             })
 
-        // per-user deleted messages
+            // per-user deleted messages
             ->whereDoesntHave('deletions', function ($q) use ($userId) {
                 $q->where('user_id', $userId);
             })
@@ -172,7 +173,8 @@ class MessageRepository
         $conversation = Conversation::findOrFail($data['conversation_id']);
 
         // 3. Block check (receiver blocked sender)
-        if ($conversation->type === 'private' &&
+        if (
+            $conversation->type === 'private' &&
             $conversation->otherParticipant($user)?->hasBlocked($user)
         ) {
             throw new HttpResponseException($this->error(null, 'You cannot send message to this user.', 403));
@@ -193,11 +195,16 @@ class MessageRepository
             'reply_to_message_id'   => $data['reply_to_message_id'] ?? null,
             'forward_to_message_id' => $data['forward_to_message_id'] ?? null,
             'is_restricted'         => ! empty($data['receiver_id']) &&
-            $user->restrictedByUsers()->where('users.id', $data['receiver_id'])->exists(),
+                $user->restrictedByUsers()->where('users.id', $data['receiver_id'])->exists(),
         ]);
 
-        // 5. Attachments
-        if (! empty($data['attachments'])) {
+        // 5. Attachments (forwarded messages & new messages)
+        if (! empty($data['forward_to_message_id'])) {
+
+            $original = Message::findOrFail($data['forward_to_message_id']);
+            $this->cloneAttachments($original, $message);
+        } elseif (! empty($data['attachments'])) {
+
             foreach ($data['attachments'] as $file) {
                 /** @var \Illuminate\Http\UploadedFile $uploadedFile */
                 $uploadedFile = $file['path'];
@@ -255,6 +262,32 @@ class MessageRepository
 
         return new MessageResource($message);
     }
+
+    private function cloneAttachments(Message $from, Message $to, bool $duplicateFile = false): void
+    {
+        if (! $from->relationLoaded('attachments')) {
+            $from->load('attachments');
+        }
+
+        if ($from->attachments->isEmpty()) {
+            return;
+        }
+
+        $rows = [];
+        foreach ($from->attachments as $file) {
+            $rows[] = [
+                'message_id' => $to->id,
+                'path'       => $file->path,
+                'type'       => $file->type,
+                'name'       => $file->name,
+                'size'       => $file->size,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+        MessageAttachment::insert($rows);
+    }
+
 
     public function updateMessage(User $user, array $data, Message $message)
     {
@@ -333,13 +366,17 @@ class MessageRepository
         $participants = ConversationParticipant::where('conversation_id', $conversation->id)->active()->with('user.tokens')->get();
 
         foreach ($participants as $participant) {
-            if ($participant->user_id === $sender->id || ($participant->is_muted)) {continue;} // Skip sender & muted users
+            if ($participant->user_id === $sender->id || ($participant->is_muted)) {
+                continue;
+            } // Skip sender & muted users
 
             $tokens = $participant->user?->tokens->pluck('token')->filter()->toArray();
-            if (empty($tokens)) {continue;}
+            if (empty($tokens)) {
+                continue;
+            }
 
             $title = $sender->name ?? 'New Message';
-            $body  = $message->message_type === 'text' ? ($message->message ?: 'New message received'): 'Sent you an attachment';
+            $body  = $message->message_type === 'text' ? ($message->message ?: 'New message received') : 'Sent you an attachment';
 
             $payload = [
                 'type'            => 'chat_message',
@@ -350,7 +387,6 @@ class MessageRepository
 
             // app(PushNotificationService::class)->sendToTokens($tokens, $title, $body, $payload);
             SendPushNotificationJob::dispatch($tokens, $participant->user_id, $title, $body, $payload, null, false)->afterCommit();
-
         }
     }
 }
