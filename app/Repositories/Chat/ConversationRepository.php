@@ -5,12 +5,14 @@ use App\Events\ConversationEvent;
 use App\Events\MessageEvent;
 use App\Http\Resources\Chat\ConversationResource;
 use App\Models\Conversation;
+use App\Models\ConversationInvite;
 use App\Models\ConversationParticipant;
 use App\Models\GroupSettings;
 use App\Models\User;
 use App\Services\Chat\ChatService;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Facades\Auth;
 
 class ConversationRepository
 {
@@ -67,6 +69,7 @@ class ConversationRepository
                 },
                 'lastMessage.sender',
                 'groupSetting',
+                'activeInvites',
             ])
             ->withCount([
                 'unreadMessages as unread_count' => function ($q) use ($user) {
@@ -157,6 +160,9 @@ class ConversationRepository
             'type'        => $data['group']['type'] ?? 'private',
         ]);
 
+        // create invite link
+        $this->createInviteLink(Auth::user(), $data, $conversation);
+
         $conversation->load([
             'participants' => function ($q) {
                 $q->where('is_active', true)->with('user');
@@ -207,48 +213,10 @@ class ConversationRepository
         return $conversation->participants()->active()->with('user')->get();
     }
 
-    // public function addMembers(User $adder, int $conversationId, array $memberIds)
-    // {
-
-    //     if (! $this->canUserManageMembers($conversationId, $adder->id)) {
-    //         throw new HttpResponseException($this->error(null, 'Only admins can add members.', 403));
-    //     }
-
-    //     $conversation = $this->find($conversationId);
-    //     $lastMessage  = null;
-
-    //     foreach ($memberIds as $id) {
-
-    //         $conversation->participants()->firstOrCreate([
-    //             'user_id'    => $id,
-    //             'is_active'  => true, // for remove user
-    //             'removed_at' => null,
-    //             'left_at'    => null,
-    //         ]);
-    //         $addedUser = $this->findUser($id);
-
-    //         $lastMessage = $conversation->messages()->create([
-    //             'sender_id'    => $adder->id,
-    //             'message'      => $adder->name . ' added ' . $addedUser->name . ' to the conversation',
-    //             'message_type' => 'system',
-    //         ]);
-
-    //         //  Message broadcast
-    //         event(new MessageEvent('sent', $lastMessage->conversation_id, ['message' => $lastMessage]));
-
-    //         //  Send conversation to NEW user
-    //         event(new ConversationEvent($conversation, 'added', $id));
-    //     }
-
-    //     return $lastMessage;
-    // }
-
     public function addMembers(User $adder, int $conversationId, array $memberIds)
     {
         if (! $this->canUserManageMembers($conversationId, $adder->id)) {
-            throw new HttpResponseException(
-                $this->error(null, 'Only admins can add members.', 403)
-            );
+            throw new HttpResponseException($this->error(null, 'Only admins can add members.', 403));
         }
 
         $conversation = $this->find($conversationId);
@@ -261,9 +229,7 @@ class ConversationRepository
             // Skip self-add (optional safety)
             if ($id === $adder->id) {continue;}
 
-            $participant = $conversation->participants()
-                ->where('user_id', $id)
-                ->first();
+            $participant = $conversation->participants()->where('user_id', $id)->first();
 
             $user = $this->findUser($id);
 
@@ -320,7 +286,53 @@ class ConversationRepository
             event(new ConversationEvent($conversation, 'added', $id));
         }
 
-        return $this->success(['members' => $addedMembers, 'message' => $lastMessage], 'Members added successfully');
+        return ['members' => $addedMembers, 'message' => $lastMessage, 'conversation_id' => $conversationId];
+    }
+
+    public function acceptInvite(User $user, string $token)
+    {
+
+        // $invite = ConversationInvite::where('token', $token)->where('is_active', true)->firstOrFail();
+        $invite = ConversationInvite::where('token', $token)->firstOrFail();
+
+        if ($invite->expires_at && now()->gt($invite->expires_at)) {
+            throw new HttpResponseException($this->error(null, 'Invite expired', 403));
+        }
+
+        if ($invite->max_uses && $invite->used_count >= $invite->max_uses) {
+            throw new HttpResponseException($this->error(null, 'Invite limit reached', 403));
+        }
+        if (! $this->canUserInviteViaLink($invite->conversation_id)) {
+            throw new HttpResponseException($this->error(null, 'You are not allowed to invite users to this conversation.', 403));
+        }
+        $invite->increment('used_count');
+        return $this->addMembers($this->findUser($invite->created_by), $invite->conversation_id, [$user->id]);
+
+    }
+
+    public function regenerateInvite(User $user, array $data, int $conversationId)
+    {
+        $conversation = $this->find($conversationId);
+
+        if (! $this->canUserInviteViaLink($conversationId)) {
+            throw new HttpResponseException($this->error(null, 'You are not allowed to invite users to this conversation. Please allow in conversation settings', 403));
+        }
+
+        $conversation->invites()->update(['is_active' => false]);
+
+        return $this->createInviteLink($user, $data, $conversation);
+    }
+
+    public function createInviteLink(User $user, array $data, Conversation $conversation)
+    {
+        $invite = $conversation->invites()->create([
+            'token'      => bin2hex(random_bytes(12)),
+            'created_by' => $user->id,
+            'expires_at' => $data['expires_at'] ?? null,
+            'max_uses'   => $data['max_uses'] ?? null,
+        ]);
+
+        return ['invite_link' => config("services.invite_url") . "/{$invite->token}"];
     }
 
     // public function removeMember(int $userId, int $conversationId, array $memberIds)
@@ -681,5 +693,20 @@ class ConversationRepository
             throw new HttpResponseException($this->error(null, 'Only super admins can delete the group.', 403));
         }
         return true;
+    }
+
+    public function canUserInviteViaLink(int $conversationId): bool
+    {
+        $setting = GroupSettings::where('conversation_id', $conversationId)->first();
+
+        if (! $setting) {
+            return true;
+        }
+
+        if ($setting->allow_invite_users_via_link) {
+            return true;
+        }
+
+        return false;
     }
 }

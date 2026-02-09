@@ -225,6 +225,14 @@ class ChatService
     {
         return $this->conversationRepo->addMembers($user, $groupId, $memberIds);
     }
+    public function acceptInvite(User $user, string $token)
+    {
+        return $this->conversationRepo->acceptInvite($user, $token);
+    }
+    public function regenerateInvite(User $user, array $data, int $groupId)
+    {
+        return $this->conversationRepo->regenerateInvite($user, $data, $groupId);
+    }
 
     public function removeMember(User $user, int $groupId, array $memberIds)
     {

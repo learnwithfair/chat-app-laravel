@@ -7,6 +7,11 @@ class Conversation extends Model
 {
     protected $guarded = [];
 
+    public function getInviteLinkAttribute()
+    {
+        return $this->activeInvites->sortByDesc('created_at')->first();
+    }
+
     public function participants()
     {return $this->hasMany(ConversationParticipant::class);}
 
@@ -24,7 +29,15 @@ class Conversation extends Model
 
     public function unreadMessages()
     {return $this->hasMany(Message::class);}
-    
+
+    public function invites()
+    {return $this->hasMany(ConversationInvite::class);}
+
+    public function activeInvites()
+    {
+        return $this->hasMany(ConversationInvite::class)->where('is_active', true);
+    }
+
     public function otherParticipant(User $currentUser)
     {
         // if ($this->type !== 'private') {

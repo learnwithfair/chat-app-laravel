@@ -1,9 +1,9 @@
 <?php
 namespace App\Http\Requests\Chat;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\BaseRequest;
 
-class SendMessageRequest extends FormRequest
+class SendMessageRequest extends BaseRequest
 {
     public function authorize(): bool
     {return true;}

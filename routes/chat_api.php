@@ -45,7 +45,11 @@ Route::prefix('v1')->middleware(['auth', 'last_seen'])->group(function () {
         Route::post('mute', 'muteToggleGroup')->name('group.mute'); // 0 = unmute, -1 = Unlimited mute, otherwise specify miniutes
         Route::post('leave', 'leaveGroup')->name('group.leave');
         Route::delete('delete-group', 'deleteGroup')->name('group.delete');
+
+        Route::post('regenerate-invite', 'regenerateInvite');
     });
+
+    Route::get('/accept-invite/{token}', [GroupController::class, 'acceptInvite']);
 
     // -------------------- User Block / Restrict --------------------
     Route::controller(UserBlockController::class)->group(function () {

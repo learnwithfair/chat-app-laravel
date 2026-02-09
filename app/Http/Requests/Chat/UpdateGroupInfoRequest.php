@@ -1,9 +1,9 @@
 <?php
 namespace App\Http\Requests\Chat;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\BaseRequest;
 
-class UpdateGroupInfoRequest extends FormRequest
+class UpdateGroupInfoRequest extends BaseRequest
 {
 
     public function authorize(): bool
@@ -23,6 +23,7 @@ class UpdateGroupInfoRequest extends FormRequest
             'group.allow_members_to_add_remove_participants' => 'sometimes|boolean',
             'group.allow_members_to_change_group_info'       => 'sometimes|boolean',
             'group.admins_must_approve_new_members'          => 'sometimes|boolean',
+            'group.allow_invite_users_via_link'              => 'sometimes|boolean',
         ];
     }
 

@@ -402,6 +402,7 @@ export function useChat() {
                     is_admin: conv.is_admin,
                     role: conv.role,
                     canSendMessage: conv.can_send_message,
+                    inviteLink: conv.invite_link
                 };
             });
 

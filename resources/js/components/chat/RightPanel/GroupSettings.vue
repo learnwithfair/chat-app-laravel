@@ -24,6 +24,13 @@
         @change="updateSettings"
       />
 
+      <SettingSwitch
+        v-model="localSettings.allow_invite_users_via_link"
+        label="Allow members to invite users"
+        description="Members can invite users to this group"
+        @change="updateSettings"
+      />
+
       <!-- <SettingSwitch
         v-model="localSettings.admins_must_approve_new_members"
         label="Admins must approve new members"

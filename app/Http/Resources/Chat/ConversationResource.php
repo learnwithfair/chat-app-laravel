@@ -25,6 +25,7 @@ class ConversationResource extends JsonResource
                 $isOnline  = $receiver->isOnline();
             }
         }
+        $inviteLink = null;
 
         return [
             'id'               => $this->id,
@@ -75,9 +76,10 @@ class ConversationResource extends JsonResource
             'is_muted'         => $participant?->is_muted,
             'group_setting'    => $this->groupSetting,
             'can_send_message' => $this->canUserSendMessage($participant),
-            'updated_at'       => $this->updated_at->toDateTimeString(),
-            'created_by'       => $this->creator->name ?? null,
-            'created_at'       => $this->created_at->format('Y/m/d h:i:s A'),
+            'invite_link'      => $this->inviteLink ? config("services.invite_url") . "/{$this->inviteLink->token}" : null,
+            'updated_at' => $this->updated_at->toDateTimeString(),
+            'created_by' => $this->creator->name ?? null,
+            'created_at' => $this->created_at->format('Y/m/d h:i:s A'),
         ];
     }
 }

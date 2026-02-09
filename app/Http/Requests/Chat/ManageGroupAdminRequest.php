@@ -1,9 +1,9 @@
 <?php
 namespace App\Http\Requests\Chat;
 
-use Illuminate\Foundation\Http\FormRequest;
+use App\Http\Requests\BaseRequest;
 
-class ManageGroupAdminRequest extends FormRequest
+class ManageGroupAdminRequest extends BaseRequest
 {
     public function authorize(): bool
     {

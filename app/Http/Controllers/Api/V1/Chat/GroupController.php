@@ -2,6 +2,7 @@
 namespace App\Http\Controllers\Api\V1\Chat;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Chat\CreateInviteRequest;
 use App\Http\Requests\Chat\ManageGroupAdminRequest;
 use App\Http\Requests\Chat\UpdateGroupInfoRequest;
 use App\Services\Chat\ChatService;
@@ -21,10 +22,21 @@ class GroupController extends Controller
         $result = $this->chatService->addMembers(Auth::user(), $conversationId, $request->member_ids);
         return $this->success($result, 'Members added successfully');
     }
+    public function acceptInvite(Request $request, string $token)
+    {
+        $result = $this->chatService->acceptInvite($request->user(), $token);
+        return $this->success($result, 'Successfully Joined the group');
+    }
+
+    public function regenerateInvite(CreateInviteRequest $request, int $conversationId)
+    {
+        $result = $this->chatService->regenerateInvite($request->user(), $request->validated(), $conversationId);
+        return $this->success($result, 'Invite regenerated successfully');
+    }
 
     public function getMembers(Request $request, $conversationId)
     {
-        $result = $this->chatService->getMembers(Auth::user(), $conversationId);
+        $result = $this->chatService->getMembers($request->user(), $conversationId);
         return $this->success($result, 'Members fetched successfully');
     }
 

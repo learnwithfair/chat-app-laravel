@@ -14,6 +14,7 @@ class GroupSettings extends Model
         'allow_members_to_add_remove_participants' => 'boolean',
         'allow_members_to_change_group_info'       => 'boolean',
         'admins_must_approve_new_members'          => 'boolean',
+        'allow_invite_users_via_link'              => 'boolean',
     ];
     protected $hidden = ['created_at', 'updated_at', 'type'];
 
