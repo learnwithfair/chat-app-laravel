@@ -1429,97 +1429,7 @@ export function useChat() {
         } catch (error) {
             console.error('Failed to start chat:', error);
         }
-    };
-
-    // const handleSendMessage = async () => {
-    //     if (!newMessage.value.trim() || !activeConversation.value) return;
-
-    //     const messageText = newMessage.value;
-    //     const replyToId = replyingTo.value?.id || null;
-
-    //     try {
-    //         let sentMsg;
-
-    //         if (editingMessage.value) {
-    //             // Update existing message
-    //             await updateMessageAPI(editingMessage.value.id, messageText);
-
-    //             const msg = messages.value.find(m => m.id === editingMessage.value.id);
-    //             if (msg) {
-    //                 msg.text = messageText;
-    //                 msg.isEdited = true;
-    //             }
-
-    //             // Update cache
-    //             const cached = messageCache.get(activeConversation.value.id);
-    //             if (cached) {
-    //                 const cachedMsg = cached.messages.find(m => m.id === editingMessage.value.id);
-    //                 if (cachedMsg) {
-    //                     cachedMsg.text = messageText;
-    //                     cachedMsg.isEdited = true;
-    //                 }
-    //             }
-
-    //             editingMessage.value = null;
-    //         } else {
-    //             // Send new message
-    //             sentMsg = await sendMessageAPI(activeConversation.value.id, {
-    //                 text: messageText,
-    //                 replyToId
-    //             });
-
-    //             const newMsg = {
-    //                 id: sentMsg.id,
-    //                 text: sentMsg.message,
-    //                 isMine: true,
-    //                 time: formatTime(sentMsg.created_at),
-    //                 status: 'sent',
-    //                 senderName: 'You',
-    //                 senderAvatar: '',
-    //                 reactions: [],
-    //                 isDeleted: false,
-    //                 isEdited: false,
-    //                 replyTo: replyingTo.value ? {
-    //                     senderName: replyingTo.value.senderName,
-    //                     text: replyingTo.value.text
-    //                 } : null,
-    //                 file: null,
-    //                 seenBy: []
-    //             };
-
-    //             // Add message to UI
-    //             messages.value.push(newMsg);
-
-    //             const cached = messageCache.get(activeConversation.value.id);
-
-    //             if (!cached) {
-    //                 messageCache.set(activeConversation.value.id, { messages: [newMsg], currentPage: 1, lastPage: 1, hasMore: false, loading: false });
-    //             } else {
-    //                 // Only push if the message ID doesn't exist yet
-    //                 if (!cached.messages.some(m => m.id === newMsg.id)) {
-    //                     cached.messages.push(newMsg);
-    //                 }
-    //                 messageCache.set(activeConversation.value.id, cached);
-    //             }
-
-
-    //             replyingTo.value = null;
-
-    //             // --- NEW: Move conversation to top in sidebar ---
-    //             moveConversationToTop(activeConversation.value.id, sentMsg);
-    //         }
-
-    //         newMessage.value = '';
-    //         nextTick(() => {
-    //             scrollToBottom();
-    //         });
-
-    //     } catch (error) {
-    //         console.error('Failed to send message:', error);
-    //     }
-    // };
-
-    // In your useChat.js composable
+    };    
 
 
     // Updated handleStartChatUserSelect to check for existing conversation
@@ -1842,39 +1752,7 @@ export function useChat() {
         }
     };
 
-    // const handleTogglePin = async (message) => {
-    //     try {
-    //         await togglePinMessageAPI(message.id);
-
-    //         // Update message in UI
-    //         const msg = messages.value.find(m => m.id === message.id);
-
-    //         if (msg) {
-    //             msg.isPinned = !msg.isPinned;
-    //         }
-
-    //         // Update cache
-    //         const cached = messageCache.get(activeConversation.value.id);
-    //         if (cached) {
-    //             const cachedMsg = cached.messages.find(m => m.id === message.id);
-    //             if (cachedMsg) {
-    //                 cachedMsg.isPinned = !cachedMsg.isPinned;
-    //             }
-    //         }
-
-    //         // Refresh pinned messages list
-    //         if (activeConversation.value) {
-    //             await fetchPinnedMessages(activeConversation.value.id);
-    //         }
-
-    //     } catch (error) {
-    //         console.error('Failed to toggle pin:', error);
-    //         alert('Failed to pin/unpin message');
-    //     }
-    // };
-
-    // 🔥 EXACT FIX - এই code টা copy করে আপনার handleTogglePin replace করে দিন
-
+   
     const handleTogglePin = async (message) => {
         const previousState = message.isPinned;
 
@@ -2142,45 +2020,7 @@ export function useChat() {
             console.error('Failed to create group:', error);
         }
     };
-
-    // const openAddMemberModal = async () => {
-    //     modals.value.addMember = true;
-
-    //     availableUsers.value = [];
-    //     availableUsersPagination.value.currentPage = 1;
-
-    //     await fetchAvailableUsers();
-    // };
-    // const openAddMember = async () => {
-    //     openAddMemberModal();
-
-    //     await fetchAvailableUsers(null, 1, false);
-    // };
-
-
-    // const addMembersToGroup = async (userIds) => {
-    //     if (!activeConversation.value || activeConversation.value.type !== 'group') return;
-
-    //     try {
-    //         await addMembersToGroupAPI(activeConversation.value.id, userIds);
-
-    //         // Refresh conversation or add members locally
-    //         userIds.forEach((userId) => {
-    //             const user = availableUsers.value.find(u => u.id === userId);
-    //             console.log(user);
-    //             if (user) {
-    //                 activeConversation.value.members.push({
-    //                     ...user,
-    //                     role: 'Member'
-    //                 });
-    //             }
-    //         });
-
-    //         closeModal('addMember');
-    //     } catch (error) {
-    //         console.error('Failed to add members:', error);
-    //     }
-    // };
+   
 
     const addMembersToGroup = async (memberIds) => {
         if (!activeConversation.value) return;
@@ -2210,36 +2050,6 @@ export function useChat() {
         }
     };
 
-
-
-
-    // const makeAdmin = async (member) => {
-    //     try {
-    //         await addAdminAPI(activeConversation.value.id, [member.id]);
-    //         const m = activeConversation.value.members.find(mem => mem.id === member.id);
-    //         console.log("makeAdmin");
-    //         console.log(m);
-    //         if (m) m.role = 'admin';
-    //         console.log("later");
-    //         console.log(m);
-    //     } catch (error) {
-    //         console.error('Failed to make admin:', error);
-    //     }
-    // };
-
-    // const removeAdmin = async (member) => {
-    //     try {
-    //         await removeAdminAPI(activeConversation.value.id, [member.id]);
-    //         const m = activeConversation.value.members.find(mem => mem.id === member.id);
-    //         console.log("removeAdmin");
-    //         console.log(m);
-    //         if (m) m.role = 'member';
-    //         console.log("later");
-    //         console.log(m);
-    //     } catch (error) {
-    //         console.error('Failed to remove admin:', error);
-    //     }
-    // };
 
     const makeAdmin = async (member) => {
         if (!confirm('Are you sure you want to make this admin?')) return;
@@ -2296,17 +2106,6 @@ export function useChat() {
         }
     };
 
-
-    // const removeMember = async (member) => {
-    //     if (!confirm(`Remove ${member.name} from the group?`)) return;
-
-    //     try {
-    //         await removeMemberAPI(activeConversation.value.id, [member.id]);
-    //         activeConversation.value.members = activeConversation.value.members.filter(m => m.id !== member.id);
-    //     } catch (error) {
-    //         console.error('Failed to remove member:', error);
-    //     }
-    // };
 
     const removeMember = async (member) => {
         if (!confirm(`Remove ${member.name} from the group?`)) return;
@@ -2371,33 +2170,7 @@ export function useChat() {
         if (modalName === 'forwardMessage') messageToForward.value = null;
         if (modalName === 'messageDetails') selectedMessageDetails.value = null;
     };
-
-    // Add reaction handler
-    // const handleAddReaction = async ({ messageId, emoji }) => {
-    //     try {
-    //         await toggleReactionAPI(messageId, emoji);
-
-    //         const message = messages.value.find(m => m.id === messageId);
-    //         if (!message) return;
-
-    //         if (!message.reactions) {
-    //             message.reactions = [];
-    //         }
-
-    //         const existingReaction = message.reactions.find(r => r.emoji === emoji);
-
-    //         if (existingReaction) {
-    //             existingReaction.count++;
-    //         } else {
-    //             message.reactions.push({
-    //                 emoji: emoji,
-    //                 count: 1
-    //             });
-    //         }
-    //     } catch (error) {
-    //         console.error('Failed to add reaction:', error);
-    //     }
-    // };
+   
 
     const handleAddReaction = async ({ messageId, emoji }) => {
         try {

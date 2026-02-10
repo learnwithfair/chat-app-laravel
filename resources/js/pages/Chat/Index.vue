@@ -1,278 +1,3 @@
-<template>
-  <div class="flex h-screen bg-gray-100 overflow-hidden">
-    <!-- Sidebar - Conversation List -->
-    <ConversationList
-      :conversations="filteredConversations"
-      :active-conversation="activeConversation"
-      :active-tab="activeTab"
-      :search-query="searchQuery"
-      :online-users="onlineUsers"
-      :conversation-pagination="conversationPagination"
-      @select="selectConversation"
-      @update-tab="activeTab = $event"
-      @update-search="searchQuery = $event"
-      @create-group="openCreateGroupModal"
-      @start-chat="startPrivateChat"
-      @load-more="loadMoreConversations"
-      :show-start-chat-modal="modals.startChat"
-      :start-chat-users="startChatUsers"
-      :start-chat-loading="startChatLoading"
-      :start-chat-pagination="startChatPagination"
-      @open-start-chat-modal="openStartChatModal"
-      @close-start-chat-modal="modals.startChat = false"
-      @search-start-chat-users="searchStartChatUsers"
-      @load-more-start-chat-users="loadMoreStartChatUsers"
-      @select-start-chat-user="handleStartChatUserSelect"
-    />
-
-    <!-- Main Chat Area -->
-    <div
-      v-if="activeConversation"
-      :class="[
-        'flex-1 flex flex-col bg-gray-50 transition-all duration-300',
-        !activeConversation ? 'hidden md:flex' : 'flex',
-      ]"
-    >
-      <!-- Chat Header with Search -->
-      <ChatHeader
-        ref="chatHeaderRef"
-        :name="activeConversation.name"
-        :subtitle="getConversationSubtitle"
-        :avatar="getConversationAvatar"
-        :isInfoOpen="showRightPanel"
-        @back="closeChatOnMobile"
-        @search="handleSearchToggle"
-        @search-query-change="handleSearchQueryChange"
-        @search-next="handleSearchNext"
-        @search-previous="handleSearchPrevious"
-        @audio-call="handleAudioCall"
-        @video-call="handleVideoCall"
-        @toggle-info="showRightPanel = !showRightPanel"
-      />
-
-      <!-- Pinned Messages Bar -->
-      <PinnedMessagesBar
-        v-if="showPinnedBar && pinnedMessages.length > 0"
-        :pinned-messages="pinnedMessages"
-        @close="closePinnedBar"
-        @scroll-to-message="handleScrollToPinnedMessage"
-      />
-
-      <!-- Message List with Highlighted Search Results -->
-      <!-- <MessageList
-        ref="messageListRef"
-        :messages="messages"
-        :is-group="activeConversation.type === 'group'"
-        :search-query="messageSearchQuery"
-        :highlighted-message-id="highlightedMessageId"
-        :typing-users="getTypingUsers"
-        :message-pagination="messagePagination"
-        :conversation="activeConversation"
-        @reply="replyToMessage"
-        @edit="editMessage"
-        @forward="forwardMessage"
-        @delete="showDeleteMenu"
-        @show-reactions="openReactionModal"
-        @show-details="openMessageDetails"
-        @show-seen-by="showSeenByModal"
-        @add-reaction="handleAddReaction"
-        @load-more="loadMoreMessages(activeConversation.id)"
-      /> -->
-
-      <MessageList
-        ref="messageListRef"
-        :messages="messages"
-        :is-group="activeConversation.type === 'group'"
-        :search-query="messageSearchQuery"
-        :highlighted-message-id="highlightedMessageId"
-        :typing-users="getTypingUsers"
-        :message-pagination="messagePagination"
-        :conversation="activeConversation"
-        @reply="replyToMessage"
-        @edit="editMessage"
-        @forward="forwardMessage"
-        @delete="showDeleteMenu"
-        @show-reactions="openReactionModal"
-        @show-details="openMessageDetails"
-        @show-seen-by="showSeenByModal"
-        @add-reaction="handleAddReaction"
-        @load-more="loadMoreMessages(activeConversation.id)"
-        @toggle-pin="handleTogglePin"
-      />
-
-      <!-- Reply Preview -->
-      <ReplyPreview v-if="replyingTo" :message="replyingTo" @cancel="cancelReply" />
-
-      <!-- Edit Preview -->
-      <EditPreview v-if="editingMessage" :message="editingMessage" @cancel="cancelEdit" />
-
-      <!-- Message Input - UPDATED WITH BLOCK PROPS -->
-      <MessageInput
-        v-model="newMessage"
-        :is-blocked="activeConversation.isBlocked"
-        :blocked-by-me="activeConversation.blockedByMe"
-        :blocked-by-them="activeConversation.blockedByThem"
-        :can-send-message="activeConversation.canSendMessage"
-        :conversation-type="activeConversation.type"
-        :is-editing="!!editingMessage"
-        :conversation-id="activeConversation.id"
-        @send="handleSendMessage()"
-        @send-voice="handleSendVoice"
-        @send-files="handleSendMessage"
-        @typing-change="(isTyping) => listenForTyping(activeConversation.id, isTyping)"
-        @unblock-user="handleUnblockUser"
-      />
-    </div>
-
-    <!-- Empty State -->
-    <div v-else class="flex-1 flex items-center justify-center">
-      <div class="text-center text-gray-500">
-        <svg
-          class="w-24 h-24 mx-auto mb-4 text-gray-300"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-          />
-        </svg>
-        <h3 class="text-xl font-semibold mb-2">Select a conversation</h3>
-        <p>Choose a conversation from the list to start messaging</p>
-      </div>
-    </div>
-
-    <!-- Right Panel - Conversation Info -->
-    <!-- <ConversationInfo
-      v-if="showRightPanel && activeConversation"
-      :conversation="activeConversation"
-      :group-members="groupMembers"
-      :load-more-group-members="loadMoreGroupMembers || (() => {})"
-      :group-members-pagination="groupMembersPagination"
-      :active-tab="activeRightTab"
-      :conversation-media="conversationMedia"
-      :conversation-files="conversationFiles"
-      :conversation-links="conversationLinks"
-      @update-tab="handleTabChange"
-      @add-member="openAddMemberModal"
-      @make-admin="makeAdmin"
-      @remove-admin="removeAdmin"
-      @remove-member="removeMember"
-      @leave-group="leaveGroup"
-      @update-settings="updateGroupSettings"
-      @trigger-search="triggerSearchFromRightPanel"
-      @toggle-block="handleToggleBlock"
-      @toggle-mute="handleToggleMute"
-      @delete-conversation="handleDeleteConversation"
-      @delete-group="handleDeleteGroup"
-      @update-avatar="handleUpdateAvatar"
-      @update-description="handleUpdateDescription"
-      @update-name="handleUpdateName"
-    /> -->
-
-    <ConversationInfo
-      v-if="showRightPanel && activeConversation"
-      :conversation="activeConversation"
-      :group-members="groupMembers"
-      :load-more-group-members="loadMoreGroupMembers || (() => {})"
-      :group-members-pagination="groupMembersPagination"
-      :active-tab="activeRightTab"
-      @update-tab="handleTabChange"
-      @add-member="openAddMemberModal"
-      @make-admin="makeAdmin"
-      @remove-admin="removeAdmin"
-      @remove-member="removeMember"
-      @leave-group="leaveGroup"
-      @update-settings="updateGroupSettings"
-      @trigger-search="triggerSearchFromRightPanel"
-      @toggle-block="handleToggleBlock"
-      @toggle-mute="handleToggleMute"
-      @delete-conversation="handleDeleteConversation"
-      @delete-group="handleDeleteGroup"
-      @update-avatar="handleUpdateAvatar"
-      @update-description="handleUpdateDescription"
-      @update-name="handleUpdateName"
-      @open-media-library="handleOpenMediaLibrary"
-    />
-
-    <!-- Modals -->
-    <CreateGroupModal
-      v-if="modals.createGroup"
-      :available-users="availableUsers"
-      :pagination="availableUsersPagination"
-      @load-more="loadMoreAvailableUsers"
-      @close="closeModal('createGroup')"
-      @create="createGroup"
-    />
-
-    <MediaLibraryModal
-      v-if="modals.mediaLibrary"
-      :media="mediaLibrary.media"
-      :audio="mediaLibrary.audio"
-      :files="mediaLibrary.files"
-      :links="mediaLibrary.links"
-      :loading="mediaLibraryLoading"
-      @close="closeModal('mediaLibrary')"
-    />
-
-    <AddMemberModal
-      v-if="modals.addMember"
-      :availableUsers="availableUsers"
-      :currentGroupMembers="activeConversation.members"
-      @close="closeModal('addMember')"
-      @add-multiple="addMembersToGroup"
-    />
-
-    <ReactionModal
-      v-if="modals.reaction"
-      :message-id="reactionModalData.messageId"
-      :reactions="reactionModalData.reactions"
-      @close="closeReactionModal"
-      @fetch-reactions="handleReactionFetch"
-    />
-
-    <SeenByModal
-      v-if="modals.seenBy"
-      :users="currentSeenBy"
-      @close="closeModal('seenBy')"
-    />
-
-    <MessageDetailsModal
-      v-if="modals.messageDetails"
-      :message="selectedMessageDetails"
-      @close="closeModal('messageDetails')"
-    />
-
-    <DeleteMessageModal
-      v-if="modals.deleteMessage"
-      :message="messageToDelete"
-      @close="closeModal('deleteMessage')"
-      @delete-for-me="deleteMessageForMe"
-      @delete-for-everyone="deleteMessageForEveryone"
-    />
-
-    <ForwardMessageModal
-      v-if="modals.forwardMessage"
-      :conversations="conversations"
-      :message="messageToForward"
-      :currentConversationId="activeConversation?.id"
-      @close="closeModal('forwardMessage')"
-      @forward="handleForwardMessage"
-    />
-
-    <MuteModal
-      v-if="modals.mute"
-      :conversation-name="activeConversation.name"
-      :is-muted="activeConversation.isMuted"
-      @close="closeModal('mute')"
-      @mute="handleMuteAction"
-    />
-  </div>
-</template>
-
 <script setup>
 import { ref, computed, watch } from "vue";
 import ConversationList from "@/Components/Chat/Sidebar/ConversationList.vue";
@@ -292,9 +17,9 @@ import ForwardMessageModal from "@/Components/Chat/Modals/ForwardMessageModal.vu
 
 import { useChat } from "@/Composables/Chat/useChat";
 import { generateAvatar } from "../../Utils/Chat/avatarHelper";
-import MediaLibraryModal from "../../components/chat/Modals/MediaLibraryModal.vue";
-import MuteModal from "../../components/chat/Modals/MuteModal.vue";
-import PinnedMessagesBar from "../../components/chat/ChatArea/PinnedMessagesBar.vue";
+import MediaLibraryModal from "@/Components/Chat/Modals/MediaLibraryModal.vue";
+import MuteModal from "@/Components/Chat/Modals/MuteModal.vue";
+import PinnedMessagesBar from "@/Components/Chat/ChatArea/PinnedMessagesBar.vue";
 
 const {
   // State
@@ -472,7 +197,7 @@ const handleSearchPrevious = (index) => {
 };
 
 const scrollToMessage = (messageId) => {
-  console.log("Scrolling to message:", messageId);
+  messageListRef.value?.scrollToMessage(messageId);
 };
 
 const triggerSearchFromRightPanel = () => {
@@ -493,9 +218,13 @@ const getTypingUsers = computed(() => {
 });
 
 const handleScrollToPinnedMessage = (messageId) => {
-  scrollToMessage(messageId);
-  // Highlight the message temporarily
+  // Highlight
   highlightedMessageId.value = messageId;
+
+  // Scroll
+  messageListRef.value?.scrollToMessage(messageId);
+
+  // remove highlight
   setTimeout(() => {
     highlightedMessageId.value = null;
   }, 2000);
@@ -518,3 +247,231 @@ watch(
   { immediate: true }
 );
 </script>
+
+<template>
+  <div class="flex h-screen bg-gray-100 overflow-hidden">
+    <!-- Sidebar - Conversation List -->
+    <ConversationList
+      :conversations="filteredConversations"
+      :active-conversation="activeConversation"
+      :active-tab="activeTab"
+      :search-query="searchQuery"
+      :online-users="onlineUsers"
+      :conversation-pagination="conversationPagination"
+      @select="selectConversation"
+      @update-tab="activeTab = $event"
+      @update-search="searchQuery = $event"
+      @create-group="openCreateGroupModal"
+      @start-chat="startPrivateChat"
+      @load-more="loadMoreConversations"
+      :show-start-chat-modal="modals.startChat"
+      :start-chat-users="startChatUsers"
+      :start-chat-loading="startChatLoading"
+      :start-chat-pagination="startChatPagination"
+      @open-start-chat-modal="openStartChatModal"
+      @close-start-chat-modal="modals.startChat = false"
+      @search-start-chat-users="searchStartChatUsers"
+      @load-more-start-chat-users="loadMoreStartChatUsers"
+      @select-start-chat-user="handleStartChatUserSelect"
+    />
+
+    <!-- Main Chat Area -->
+    <div
+      v-if="activeConversation"
+      :class="[
+        'flex-1 flex flex-col bg-gray-50 transition-all duration-300',
+        !activeConversation ? 'hidden md:flex' : 'flex',
+      ]"
+    >
+      <!-- Chat Header with Search -->
+      <ChatHeader
+        ref="chatHeaderRef"
+        :name="activeConversation.name"
+        :subtitle="getConversationSubtitle"
+        :avatar="getConversationAvatar"
+        :isInfoOpen="showRightPanel"
+        @back="closeChatOnMobile"
+        @search="handleSearchToggle"
+        @search-query-change="handleSearchQueryChange"
+        @search-next="handleSearchNext"
+        @search-previous="handleSearchPrevious"
+        @audio-call="handleAudioCall"
+        @video-call="handleVideoCall"
+        @toggle-info="showRightPanel = !showRightPanel"
+      />
+
+      <!-- Pinned Messages Bar -->
+      <PinnedMessagesBar
+        v-if="showPinnedBar && pinnedMessages.length > 0"
+        :pinned-messages="pinnedMessages"
+        @close="closePinnedBar"
+        @scroll-to-message="handleScrollToPinnedMessage"
+      />
+
+      <!-- Message List with Highlighted Search Results -->
+      <MessageList
+        ref="messageListRef"
+        :messages="messages"
+        :is-group="activeConversation.type === 'group'"
+        :search-query="messageSearchQuery"
+        :highlighted-message-id="highlightedMessageId"
+        :typing-users="getTypingUsers"
+        :message-pagination="messagePagination"
+        :conversation="activeConversation"
+        @reply="replyToMessage"
+        @edit="editMessage"
+        @forward="forwardMessage"
+        @delete="showDeleteMenu"
+        @show-reactions="openReactionModal"
+        @show-details="openMessageDetails"
+        @show-seen-by="showSeenByModal"
+        @add-reaction="handleAddReaction"
+        @load-more="loadMoreMessages(activeConversation.id)"
+        @toggle-pin="handleTogglePin"
+      />
+
+      <!-- Reply Preview -->
+      <ReplyPreview v-if="replyingTo" :message="replyingTo" @cancel="cancelReply" />
+
+      <!-- Edit Preview -->
+      <EditPreview v-if="editingMessage" :message="editingMessage" @cancel="cancelEdit" />
+
+      <!-- Message Input - UPDATED WITH BLOCK PROPS -->
+      <MessageInput
+        v-model="newMessage"
+        :is-blocked="activeConversation.isBlocked"
+        :blocked-by-me="activeConversation.blockedByMe"
+        :blocked-by-them="activeConversation.blockedByThem"
+        :can-send-message="activeConversation.canSendMessage"
+        :conversation-type="activeConversation.type"
+        :is-editing="!!editingMessage"
+        :conversation-id="activeConversation.id"
+        @send="handleSendMessage()"
+        @send-voice="handleSendVoice"
+        @send-files="handleSendMessage"
+        @typing-change="(isTyping) => listenForTyping(activeConversation.id, isTyping)"
+        @unblock-user="handleUnblockUser"
+      />
+    </div>
+
+    <!-- Empty State -->
+    <div v-else class="flex-1 flex items-center justify-center">
+      <div class="text-center text-gray-500">
+        <svg
+          class="w-24 h-24 mx-auto mb-4 text-gray-300"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+          />
+        </svg>
+        <h3 class="text-xl font-semibold mb-2">Select a conversation</h3>
+        <p>Choose a conversation from the list to start messaging</p>
+      </div>
+    </div>
+
+    <!-- Right Panel - Conversation Info -->
+    <ConversationInfo
+      v-if="showRightPanel && activeConversation"
+      :conversation="activeConversation"
+      :group-members="groupMembers"
+      :load-more-group-members="loadMoreGroupMembers || (() => {})"
+      :group-members-pagination="groupMembersPagination"
+      :active-tab="activeRightTab"
+      @update-tab="handleTabChange"
+      @add-member="openAddMemberModal"
+      @make-admin="makeAdmin"
+      @remove-admin="removeAdmin"
+      @remove-member="removeMember"
+      @leave-group="leaveGroup"
+      @update-settings="updateGroupSettings"
+      @trigger-search="triggerSearchFromRightPanel"
+      @toggle-block="handleToggleBlock"
+      @toggle-mute="handleToggleMute"
+      @delete-conversation="handleDeleteConversation"
+      @delete-group="handleDeleteGroup"
+      @update-avatar="handleUpdateAvatar"
+      @update-description="handleUpdateDescription"
+      @update-name="handleUpdateName"
+      @open-media-library="handleOpenMediaLibrary"
+    />
+
+    <!-- Modals -->
+    <CreateGroupModal
+      v-if="modals.createGroup"
+      :available-users="availableUsers"
+      :pagination="availableUsersPagination"
+      @load-more="loadMoreAvailableUsers"
+      @close="closeModal('createGroup')"
+      @create="createGroup"
+    />
+
+    <MediaLibraryModal
+      v-if="modals.mediaLibrary"
+      :media="mediaLibrary.media"
+      :audio="mediaLibrary.audio"
+      :files="mediaLibrary.files"
+      :links="mediaLibrary.links"
+      :loading="mediaLibraryLoading"
+      @close="closeModal('mediaLibrary')"
+    />
+
+    <AddMemberModal
+      v-if="modals.addMember"
+      :availableUsers="availableUsers"
+      :currentGroupMembers="activeConversation.members"
+      @close="closeModal('addMember')"
+      @add-multiple="addMembersToGroup"
+    />
+
+    <ReactionModal
+      v-if="modals.reaction"
+      :message-id="reactionModalData.messageId"
+      :reactions="reactionModalData.reactions"
+      @close="closeReactionModal"
+      @fetch-reactions="handleReactionFetch"
+    />
+
+    <SeenByModal
+      v-if="modals.seenBy"
+      :users="currentSeenBy"
+      @close="closeModal('seenBy')"
+    />
+
+    <MessageDetailsModal
+      v-if="modals.messageDetails"
+      :message="selectedMessageDetails"
+      @close="closeModal('messageDetails')"
+    />
+
+    <DeleteMessageModal
+      v-if="modals.deleteMessage"
+      :message="messageToDelete"
+      @close="closeModal('deleteMessage')"
+      @delete-for-me="deleteMessageForMe"
+      @delete-for-everyone="deleteMessageForEveryone"
+    />
+
+    <ForwardMessageModal
+      v-if="modals.forwardMessage"
+      :conversations="conversations"
+      :message="messageToForward"
+      :currentConversationId="activeConversation?.id"
+      @close="closeModal('forwardMessage')"
+      @forward="handleForwardMessage"
+    />
+
+    <MuteModal
+      v-if="modals.mute"
+      :conversation-name="activeConversation.name"
+      :is-muted="activeConversation.isMuted"
+      @close="closeModal('mute')"
+      @mute="handleMuteAction"
+    />
+  </div>
+</template>
