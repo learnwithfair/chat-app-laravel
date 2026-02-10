@@ -33,6 +33,7 @@ class MessageResource extends JsonResource
                 ],
                 'statuses'                => [],
                 'reply'                   => null,
+                'is_pinned'               => false,
                 'is_mine'                 => $this->sender_id === $authId,
 
                 'created_at'              => $this->created_at->toDateTimeString(),
@@ -97,6 +98,7 @@ class MessageResource extends JsonResource
                 'message' => $this->forwardedFrom->message,
                 'type'    => $this->forwardedFrom->message_type,
             ] : null,
+            'is_pinned'               => $this->is_pinned,
             'is_mine'                 => $this->sender_id === $authId,
 
             'created_at'              => $this->created_at->toDateTimeString(),

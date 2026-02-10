@@ -1,8 +1,10 @@
 <?php
-
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
 use Kreait\Firebase\Contract\Messaging;
+use Kreait\Firebase\Messaging\AndroidConfig;
+use Kreait\Firebase\Messaging\ApnsConfig;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Notification as FcmNotification;
 
@@ -10,6 +12,7 @@ class PushNotificationService
 {
     protected Messaging $messaging;
 
+    // Dependency injection with config/firebase.php
     public function __construct(Messaging $messaging)
     {
         $this->messaging = $messaging;
@@ -24,24 +27,37 @@ class PushNotificationService
             return ['success' => false, 'message' => 'No tokens'];
         }
 
-        $notification = FcmNotification::create($title, $body);
-
-        $message = CloudMessage::new()
-            ->withNotification($notification)
-            ->withData($data);
+        $message = CloudMessage::new ()
+            ->withNotification(FcmNotification::create($title, $body))
+            ->withData(array_merge($data, [
+                'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
+            ]))
+            ->withAndroidConfig(
+                AndroidConfig::fromArray(['priority' => 'high'])
+            )
+            ->withApnsConfig(
+                ApnsConfig::fromArray([
+                    'headers' => ['apns-priority' => '10'],
+                    'payload' => ['aps' => ['sound' => 'default']],
+                ])
+            );
 
         $report = $this->messaging->sendMulticast($message, $tokens);
 
         $successCount = $report->successes()->count();
         $failureCount = $report->failures()->count();
 
+        foreach ($report->failures()->getItems() as $failure) {
+            Log::error('FCM failure: ' . $failure->error()->getMessage());
+        }
+
         return [
-            'success'       => $successCount > 0,
-            'successCount'  => $successCount,
-            'failureCount'  => $failureCount,
-            'failures'      => $report->failures(),
+            'success'      => $successCount > 0,
+            'successCount' => $successCount,
+            'failureCount' => $failureCount,
+            'failures'     => $report->failures(),
         ];
-    }    
+    }
 
     /**
      * Send to a topic broadcast push (e.g. send to all Rank A users, or a "new drop live" notification)
@@ -50,7 +66,7 @@ class PushNotificationService
     {
         $notification = FcmNotification::create($title, $body);
 
-        $message = CloudMessage::new()
+        $message = CloudMessage::new ()
             ->withNotification($notification)
             ->withData($data)
             ->withChangedTarget('topic', $topic);

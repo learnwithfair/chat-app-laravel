@@ -5,7 +5,6 @@ use Illuminate\Database\Eloquent\Model;
 
 class DeviceToken extends Model
 {
-    public $timestamps = false;
 
     protected $table = 'device_tokens';
 
@@ -19,6 +18,7 @@ class DeviceToken extends Model
     protected $casts = [
         'meta'       => 'array',
         'created_at' => 'datetime',
+        'deleted_at' => 'datetime',
     ];
     protected $hidden = ['user_id', 'meta', 'created_at'];
 

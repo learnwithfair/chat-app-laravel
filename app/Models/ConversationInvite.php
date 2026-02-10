@@ -16,6 +16,8 @@ class ConversationInvite extends Model
     ];
 
     protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
         'expires_at' => 'datetime',
         'is_active'  => 'boolean',
     ];

@@ -30,7 +30,7 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
-            'last_seen_at'         => 'datetime',
+            'last_seen_at'      => 'datetime',
             'password'          => 'hashed',
         ];
     }
@@ -76,7 +76,8 @@ class User extends Authenticatable
 
     public function isOnline(): bool
     {return $this->last_seen_at && $this->last_seen_at->greaterThan(now()->subMinutes(2));}
-    
-    // public function tokens()
-    // {return $this->hasMany(DeviceToken::class);}
+
+    public function deviceTokens()
+    {return $this->hasMany(DeviceToken::class);}
+
 }

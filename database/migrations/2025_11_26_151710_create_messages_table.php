@@ -26,6 +26,7 @@ return new class extends Migration
 
             $table->boolean('is_deleted_for_everyone')->default(false);
             $table->boolean('is_restricted')->default(false);
+            $table->boolean('is_pinned')->default(false);
             $table->timestamp('edited_at')->nullable();
             $table->timestamps();
             $table->softDeletes();

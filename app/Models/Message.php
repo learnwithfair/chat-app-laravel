@@ -7,9 +7,17 @@ class Message extends Model
 {
     protected $guarded = [];
     protected $casts   = [
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'created_at'              => 'datetime',
+        'updated_at'              => 'datetime',
+        'deleted_at'              => 'datetime',
+        'edited_at'               => 'datetime',
+        'is_deleted_for_everyone' => 'boolean',
+        'is_restricted'           => 'boolean',
+        'is_pinned'               => 'boolean',
     ];
+
+    public function scopePinned($query)
+    {return $query->where('is_pinned', true);}
 
     public function conversation()
     {return $this->belongsTo(Conversation::class);}
@@ -33,9 +41,7 @@ class Message extends Model
     {return $this->hasMany(Message::class, 'reply_to_message_id');}
 
     public function forwardedFrom()
-{
-    return $this->belongsTo(Message::class, 'forward_to_message_id');
-}
+    {return $this->belongsTo(Message::class, 'forward_to_message_id');}
 
     public function forwards()
     {return $this->hasMany(Message::class, 'forward_to_message_id');}

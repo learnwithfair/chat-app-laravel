@@ -8,6 +8,7 @@ use App\Models\Conversation;
 use App\Models\ConversationInvite;
 use App\Models\ConversationParticipant;
 use App\Models\GroupSettings;
+use App\Models\Message;
 use App\Models\User;
 use App\Services\Chat\ChatService;
 use App\Traits\ApiResponse;
@@ -514,6 +515,26 @@ class ConversationRepository
         event(new ConversationEvent($conversation, 'left', $user->id));
 
         return true;
+    }
+    public function pinToggleMessage(User $user, Message $message)
+    {
+        $message->update(['is_pinned' => ! $message->is_pinned]);
+
+        $conversation  = $message->conversation;
+        $systemMessage = $conversation->messages()->create([
+            'sender_id'    => $user->id,
+            'message'      => $user->name . ' pinned a message',
+            'message_type' => 'system',
+        ]);
+
+        //  Broadcast system message to remaining users
+        event(new MessageEvent('sent', $systemMessage->conversation_id, ['message' => $systemMessage]));
+
+        $data = [
+            'message'      => $message->refresh(),
+            'last_message' => $systemMessage,
+        ];
+        return $data;
     }
 
     public function muteGroup(int $userId, int $conversationId, int $minutes = 0)

@@ -56,6 +56,10 @@ class ChatService
     {
         return $this->messageRepo->getByConversation($user, $conversationId, $query, $perPage);
     }
+    public function pinedMessages(User $user, int $conversationId, ?string $query = null, int $perPage = 20)
+    {
+        return $this->messageRepo->getPinedMessagesByConversation($user, $conversationId, $query, $perPage);
+    }
 
     public function mediaLibrary(User $user, $conversationId, int $perPage = 30)
     {
@@ -81,13 +85,15 @@ class ChatService
 
         return $updatemessage;
     }
+    public function pinToggleMessage(User $user, Message $message)
+    {
+        $pinmessage = $this->conversationRepo->pinToggleMessage($user, $message);
+        return $pinmessage;
+    }
 
     public function typing(User $user, int $conversationId, bool $isTyping)
     {
-        broadcast(new UserStatusEvent('typing', [
-            'user_id'         => $user->id,
-            'conversation_id' => $conversationId,
-        ]))->toOthers();
+        broadcast(new UserStatusEvent('typing', ['user_id' => $user->id, 'conversation_id' => $conversationId]))->toOthers();
 
         return $isTyping;
     }

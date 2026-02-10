@@ -55,6 +55,11 @@ export function useChat() {
     });
     const mediaLibraryLoading = ref(false);
 
+    // Pinned Messages
+    const pinnedMessages = ref([]);
+    const pinnedMessagesLoading = ref(false);
+    const showPinnedBar = ref(false);
+
     // ==================== PAGINATION STATE ====================
     const conversationPagination = ref({
         currentPage: 1,
@@ -494,6 +499,7 @@ export function useChat() {
                     id: msg.id,
                     text: msg.message,
                     isMine: msg.is_mine,
+                    isPinned: msg.is_pinned,
                     time: formatTime(msg.created_at),
                     status: getMessageStatus(msg.statuses),
                     senderName: msg.sender?.name || 'Unknown',
@@ -557,6 +563,65 @@ export function useChat() {
         } finally {
             messagesLoading.value = false;
             messagePagination.value.loading = false;
+        }
+    };
+
+    // Fetch pinned messages for a conversation
+    const fetchPinnedMessages = async (conversationId) => {
+        pinnedMessagesLoading.value = true;
+
+        try {
+            const response = await axios.get(`${API_BASE}/messages/${conversationId}/pined-messages`);
+
+
+            const data = response.data.data;
+            console.log("Pinned Messages");
+            console.log(data);
+
+            pinnedMessages.value = data.map(msg => ({
+                id: msg.id,
+                text: msg.message,
+                isMine: msg.is_mine,
+                isPinned: msg.is_pinned,
+                time: formatTime(msg.created_at),
+                status: getMessageStatus(msg.statuses),
+                senderName: msg.sender?.name || 'Unknown',
+                senderAvatar: msg.sender?.avatar_path || generateAvatar(msg.sender?.name),
+                reactions: formatReactions(msg.reactions),
+                isDeleted: msg.is_deleted_for_everyone || false,
+                messageType: msg.message_type || 'text',
+                attachments: formatAttachments(msg.attachments),
+                replyTo: msg.reply ? {
+                    id: msg.reply.id,
+                    senderName: msg.reply.sender.name,
+                    text: msg.reply.message
+                } : null,
+                forwardFrom: msg.forward ? {
+                    id: msg.forward.id,
+                    senderName: msg.forward.sender.name,
+                    text: msg.forward.message
+                } : null,
+            }));
+
+            // Auto-show pinned bar if there are pinned messages
+            showPinnedBar.value = pinnedMessages.value.length > 0;
+
+        } catch (error) {
+            console.error('Failed to fetch pinned messages:', error);
+            pinnedMessages.value = [];
+        } finally {
+            pinnedMessagesLoading.value = false;
+        }
+    };
+
+    // Toggle pin/unpin a message
+    const togglePinMessageAPI = async (messageId) => {
+        try {
+            const response = await axios.post(`${API_BASE}/messages/${messageId}/toggle-pin`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to toggle pin:', error);
+            throw error;
         }
     };
 
@@ -1132,6 +1197,7 @@ export function useChat() {
             id: incomingMsg.id,
             text: incomingMsg.message,
             isMine: incomingMsg.sender.id === getCurrentUserId(),
+            isPinned: incomingMsg.is_pinned,
             time: formatTime(incomingMsg.created_at),
             status: 'delivered',
             senderName: incomingMsg.sender.id === getCurrentUserId() ? 'You' : incomingMsg.sender.name,
@@ -1594,6 +1660,7 @@ export function useChat() {
                     id: sentMsg.id,
                     text: sentMsg.message,
                     isMine: true,
+                    isPinned: sentMsg.is_pinned,
                     time: formatTime(sentMsg.created_at),
                     status: 'sent',
                     senderName: 'You',
@@ -1747,6 +1814,7 @@ export function useChat() {
                     id: sentMsg.id,
                     text: sentMsg.message,
                     isMine: true,
+                    isPinned: false,
                     time: formatTime(sentMsg.created_at),
                     status: 'sent',
                     senderName: 'You',
@@ -1806,6 +1874,46 @@ export function useChat() {
             modals.value.forwardMessage = false;
         } catch (error) {
             console.error('Forward failed:', error);
+        }
+    };
+
+    const handleTogglePin = async (message) => {
+        try {
+            await togglePinMessageAPI(message.id);
+
+            // Update message in UI
+            const msg = messages.value.find(m => m.id === message.id);
+            if (msg) {
+                msg.isPinned = !msg.isPinned;
+            }
+
+            // Update cache
+            const cached = messageCache.get(activeConversation.value.id);
+            if (cached) {
+                const cachedMsg = cached.messages.find(m => m.id === message.id);
+                if (cachedMsg) {
+                    cachedMsg.isPinned = !cachedMsg.isPinned;
+                }
+            }
+
+            // Refresh pinned messages list
+            if (activeConversation.value) {
+                await fetchPinnedMessages(activeConversation.value.id);
+            }
+
+        } catch (error) {
+            console.error('Failed to toggle pin:', error);
+            alert('Failed to pin/unpin message');
+        }
+    };
+
+    const closePinnedBar = () => {
+        showPinnedBar.value = false;
+    };
+
+    const openPinnedBar = () => {
+        if (pinnedMessages.value.length > 0) {
+            showPinnedBar.value = true;
         }
     };
 
@@ -2341,6 +2449,7 @@ export function useChat() {
             id: Date.now(),
             text: 'Voice message',
             isMine: true,
+            isPinned: false,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             status: 'sent',
             senderName: 'You',
@@ -2762,6 +2871,15 @@ export function useChat() {
         fetchPendingMembers,
         approveMember,
         rejectMember,
+
+        // Pinned Messages
+        pinnedMessages,
+        pinnedMessagesLoading,
+        showPinnedBar,
+        fetchPinnedMessages,
+        handleTogglePin,
+        closePinnedBar,
+        openPinnedBar,
 
         // Modal Management
         closeModal,

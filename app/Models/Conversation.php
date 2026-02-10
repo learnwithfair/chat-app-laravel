@@ -7,6 +7,11 @@ class Conversation extends Model
 {
     protected $guarded = [];
 
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
     public function getInviteLinkAttribute()
     {
         return $this->activeInvites->sortByDesc('created_at')->first();

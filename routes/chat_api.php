@@ -17,14 +17,16 @@ Route::prefix('v1')->middleware(['auth', 'last_seen'])->group(function () {
     Route::post('conversations/private', [ConversationController::class, 'startPrivateConversation']);
 
     // ----------------------- Messages ------------------------------
+    Route::get('messages/{conversation}/pined-messages', [MessageController::class, 'getAllPinedMessages']);
     Route::apiResource('messages', MessageController::class)->only(['store', 'show', 'update']);
 
     Route::prefix('messages')->controller(MessageController::class)->group(function () {
-        Route::delete('delete-for-me', 'deleteForMe')->name('messages.deleteForMe');
-        Route::delete('delete-for-everyone', 'deleteForEveryone')->name('messages.deleteForEveryone');
+        Route::delete('delete-for-me', 'deleteForMe');
+        Route::delete('delete-for-everyone', 'deleteForEveryone'); // message unsent with message type system
         Route::get('seen/{conversation}', 'markAsSeen');
         Route::get('delivered/{conversation}', 'markAsDelivered');
         Route::post('{message}/forward', 'forward');
+        Route::post('{message}/toggle-pin', 'pinToggleMessage');
     });
 
     // -------------------- Reactions --------------------

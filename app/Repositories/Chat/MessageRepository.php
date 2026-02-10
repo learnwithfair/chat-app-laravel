@@ -50,6 +50,39 @@ class MessageRepository
 
         return MessageResource::collection($messages);
     }
+    // pined messages
+    public function getPinedMessagesByConversation(User $user, int $conversationId, ?string $query = null, int $perPage = 20)
+    {
+        $participant = ConversationParticipant::where('conversation_id', $conversationId)
+            ->where('user_id', $user->id)
+            ->active()
+            ->firstOrFail();
+
+        $messages = Message::where('conversation_id', $conversationId)
+            ->pinned()
+            ->when($participant->last_deleted_message_id, function ($q) use ($participant) {
+                $q->where('id', '>', $participant->last_deleted_message_id);
+            })
+            ->whereDoesntHave('deletions', function ($q) use ($user) {
+                $q->where('user_id', $user->id);
+            })
+            ->when($query, function ($q) use ($query) {
+                $q->where('message', 'like', "%{$query}%");
+            })
+            ->with([
+                'sender:id,name',
+                'reactions',
+                'attachments',
+                'statuses',
+                'replyTo.sender:id,name',
+                'forwardedFrom.sender:id,name',
+                'forwardedFrom.conversation:id,name,type',
+            ])
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
+
+        return MessageResource::collection($messages);
+    }
 
     public function find(int $messageId): ?Message
     {
@@ -363,14 +396,14 @@ class MessageRepository
 
     private function sendMessagePushNotification(Conversation $conversation, Message $message, User $sender): void
     {
-        $participants = ConversationParticipant::where('conversation_id', $conversation->id)->active()->with('user.tokens')->get();
+        $participants = ConversationParticipant::where('conversation_id', $conversation->id)->active()->unmuted()->with('user.deviceTokens')->get();
 
         foreach ($participants as $participant) {
             if ($participant->user_id === $sender->id || ($participant->is_muted)) {
                 continue;
             } // Skip sender & muted users
 
-            $tokens = $participant->user?->tokens->pluck('token')->filter()->toArray();
+            $tokens = $participant->user?->deviceTokens->pluck('token')->filter()->toArray();
             if (empty($tokens)) {
                 continue;
             }
