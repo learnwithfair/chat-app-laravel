@@ -1,3 +1,41 @@
+<script setup>
+import { ref, watch } from "vue";
+
+const props = defineProps({
+  description: { type: String, default: "" },
+  canEdit: { type: Boolean, default: false },
+  createdBy: { type: String, default: "" },
+  createdAt: { type: String, default: "" },
+});
+
+const emit = defineEmits(["update-description"]);
+
+const isEditing = ref(false);
+const editedDescription = ref(props.description);
+
+watch(
+  () => props.description,
+  (newVal) => {
+    editedDescription.value = newVal;
+  }
+);
+
+const startEditing = () => {
+  isEditing.value = true;
+  editedDescription.value = props.description;
+};
+
+const cancelEditing = () => {
+  isEditing.value = false;
+  editedDescription.value = props.description;
+};
+
+const saveDescription = () => {
+  emit("update-description", editedDescription.value);
+  isEditing.value = false;
+};
+</script>
+
 <template>
   <div class="space-y-4">
     <div class="bg-gray-50 rounded-lg p-4">
@@ -56,41 +94,8 @@
     </div>
   </div>
 </template>
-
-<script setup>
-import { ref, watch } from "vue";
-
-const props = defineProps({
-  description: { type: String, default: "" },
-  canEdit: { type: Boolean, default: false },
-  createdBy: { type: String, default: "" },
-  createdAt: { type: String, default: "" },
-});
-
-const emit = defineEmits(["update-description"]);
-
-const isEditing = ref(false);
-const editedDescription = ref(props.description);
-
-watch(
-  () => props.description,
-  (newVal) => {
-    editedDescription.value = newVal;
-  }
-);
-
-const startEditing = () => {
-  isEditing.value = true;
-  editedDescription.value = props.description;
-};
-
-const cancelEditing = () => {
-  isEditing.value = false;
-  editedDescription.value = props.description;
-};
-
-const saveDescription = () => {
-  emit("update-description", editedDescription.value);
-  isEditing.value = false;
-};
-</script>
+<style scoped>
+button {
+  cursor: pointer;
+}
+</style>

@@ -1,3 +1,83 @@
+<script setup>
+import { ref, computed, watch } from "vue";
+
+const props = defineProps({
+  messageId: {
+    type: [String, Number],
+    required: true,
+  },
+  reactions: {
+    type: Array,
+    default: () => [],
+  },
+});
+
+const emit = defineEmits(["close", "fetch-reactions"]);
+
+// State
+const selectedFilter = ref("all");
+const reactionUsers = ref([]);
+const loading = ref(true);
+const error = ref(null);
+
+// Computed
+const uniqueReactions = computed(() => {
+  const grouped = {};
+  props.reactions.forEach((r) => {
+    if (grouped[r.emoji]) {
+      grouped[r.emoji].count += r.count;
+    } else {
+      grouped[r.emoji] = { emoji: r.emoji, count: r.count };
+    }
+  });
+  return Object.values(grouped);
+});
+
+const totalCount = computed(() => {
+  return props.reactions.reduce((sum, r) => sum + r.count, 0);
+});
+
+const filteredUsers = computed(() => {
+  if (selectedFilter.value === "all") {
+    return reactionUsers.value;
+  }
+  return reactionUsers.value.filter((user) => user.reaction === selectedFilter.value);
+});
+
+// Fetch reaction users from API
+const fetchReactionUsers = async () => {
+  loading.value = true;
+  error.value = null;
+
+  try {
+    emit("fetch-reactions", {
+      messageId: props.messageId,
+      callback: (users) => {
+        reactionUsers.value = users;
+        loading.value = false;
+      },
+      errorCallback: (err) => {
+        error.value = "Failed to load reactions";
+        loading.value = false;
+      },
+    });
+  } catch (err) {
+    error.value = "Failed to load reactions";
+    loading.value = false;
+  }
+};
+
+// Watch for modal open
+watch(
+  () => props.messageId,
+  (newId) => {
+    if (newId) {
+      fetchReactionUsers();
+    }
+  },
+  { immediate: true }
+);
+</script>
 <template>
   <div
     @click="$emit('close')"
@@ -107,87 +187,6 @@
     </div>
   </div>
 </template>
-
-<script setup>
-import { ref, computed, watch } from "vue";
-
-const props = defineProps({
-  messageId: {
-    type: [String, Number],
-    required: true,
-  },
-  reactions: {
-    type: Array,
-    default: () => [],
-  },
-});
-
-const emit = defineEmits(["close", "fetch-reactions"]);
-
-// State
-const selectedFilter = ref("all");
-const reactionUsers = ref([]);
-const loading = ref(true);
-const error = ref(null);
-
-// Computed
-const uniqueReactions = computed(() => {
-  const grouped = {};
-  props.reactions.forEach((r) => {
-    if (grouped[r.emoji]) {
-      grouped[r.emoji].count += r.count;
-    } else {
-      grouped[r.emoji] = { emoji: r.emoji, count: r.count };
-    }
-  });
-  return Object.values(grouped);
-});
-
-const totalCount = computed(() => {
-  return props.reactions.reduce((sum, r) => sum + r.count, 0);
-});
-
-const filteredUsers = computed(() => {
-  if (selectedFilter.value === "all") {
-    return reactionUsers.value;
-  }
-  return reactionUsers.value.filter((user) => user.reaction === selectedFilter.value);
-});
-
-// Fetch reaction users from API
-const fetchReactionUsers = async () => {
-  loading.value = true;
-  error.value = null;
-
-  try {
-    emit("fetch-reactions", {
-      messageId: props.messageId,
-      callback: (users) => {
-        reactionUsers.value = users;
-        loading.value = false;
-      },
-      errorCallback: (err) => {
-        error.value = "Failed to load reactions";
-        loading.value = false;
-      },
-    });
-  } catch (err) {
-    error.value = "Failed to load reactions";
-    loading.value = false;
-  }
-};
-
-// Watch for modal open
-watch(
-  () => props.messageId,
-  (newId) => {
-    if (newId) {
-      fetchReactionUsers();
-    }
-  },
-  { immediate: true }
-);
-</script>
 
 <style scoped>
 /* Smooth transitions */

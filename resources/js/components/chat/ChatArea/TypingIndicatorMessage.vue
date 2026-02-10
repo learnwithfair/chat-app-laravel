@@ -1,29 +1,3 @@
-<template>
-  <div class="flex justify-start">
-    <div class="flex items-end space-x-2 max-w-xs lg:max-w-md xl:max-w-lg">
-      <!-- Avatar (for first typing user) -->
-      <img v-if="firstUser" :src="firstUser.avatar" :alt="firstUser.name"
-        class="w-8 h-8 rounded-full object-cover flex-shrink-0" />
-
-      <div class="flex-1">
-        <!-- Sender Name (for group chats) -->
-        <p v-if="isGroup && firstUser" class="text-xs text-gray-500 mb-1 ml-1">
-          {{ typingText }}
-        </p>
-
-        <!-- Typing Bubble -->
-        <div class="rounded-xl px-2 py-3 bg-white text-gray-800 shadow-sm">
-          <div class="flex items-center space-x-1">
-            <div class="typing-dot"></div>
-            <div class="typing-dot" style="animation-delay: 0.2s"></div>
-            <div class="typing-dot" style="animation-delay: 0.4s"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup>
 import { computed, watch, onMounted, onUnmounted } from "vue";
 
@@ -76,15 +50,18 @@ onUnmounted(() => {
 });
 
 // Watch for typing users changes
-watch(() => props.typingUsers.length, (newCount, oldCount) => {
-  if (props.enableSound) {
-    if (newCount > 0 && oldCount === 0) {
-      playTypingSound();
-    } else if (newCount === 0) {
-      stopTypingSound();
+watch(
+  () => props.typingUsers.length,
+  (newCount, oldCount) => {
+    if (props.enableSound) {
+      if (newCount > 0 && oldCount === 0) {
+        playTypingSound();
+      } else if (newCount === 0) {
+        stopTypingSound();
+      }
     }
   }
-});
+);
 
 function initializeTypingSound() {
   // Initialize Web Audio API context
@@ -103,7 +80,7 @@ function playBeep() {
 
   // Configure the beep
   oscillator.frequency.value = 800; // Frequency in Hz (higher = higher pitch)
-  oscillator.type = 'sine'; // Sine wave for a clean beep
+  oscillator.type = "sine"; // Sine wave for a clean beep
 
   // Volume envelope for a click-like sound
   gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
@@ -134,6 +111,36 @@ function stopTypingSound() {
 }
 </script>
 
+<template>
+  <div class="flex justify-start">
+    <div class="flex items-end space-x-2 max-w-xs lg:max-w-md xl:max-w-lg">
+      <!-- Avatar (for first typing user) -->
+      <img
+        v-if="firstUser"
+        :src="firstUser.avatar"
+        :alt="firstUser.name"
+        class="w-8 h-8 rounded-full object-cover flex-shrink-0"
+      />
+
+      <div class="flex-1">
+        <!-- Sender Name (for group chats) -->
+        <p v-if="isGroup && firstUser" class="text-xs text-gray-500 mb-1 ml-1">
+          {{ typingText }}
+        </p>
+
+        <!-- Typing Bubble -->
+        <div class="rounded-xl px-2 py-3 bg-white text-gray-800 shadow-sm">
+          <div class="flex items-center space-x-1">
+            <div class="typing-dot"></div>
+            <div class="typing-dot" style="animation-delay: 0.2s"></div>
+            <div class="typing-dot" style="animation-delay: 0.4s"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
 <style scoped>
 .typing-dot {
   width: 8px;
@@ -144,7 +151,6 @@ function stopTypingSound() {
 }
 
 @keyframes typing-bounce {
-
   0%,
   60%,
   100% {

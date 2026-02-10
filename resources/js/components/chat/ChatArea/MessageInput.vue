@@ -774,7 +774,7 @@ watch(
 </template>
 
 <style scoped>
-button{
+button {
   cursor: pointer;
 }
 </style>

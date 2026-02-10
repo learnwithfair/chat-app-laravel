@@ -1,3 +1,27 @@
+<script setup>
+defineProps({
+  members: { type: Array, default: () => [] },
+});
+
+defineEmits(["approve", "reject"]);
+
+const formatTime = (datetime) => {
+  const date = new Date(datetime);
+  const now = new Date();
+  const diff = now - date;
+
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+
+  if (diff < minute) return "Just now";
+  if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
+  if (diff < day) return `${Math.floor(diff / hour)}h ago`;
+
+  return date.toLocaleDateString();
+};
+</script>
+
 <template>
   <div v-if="members.length > 0" class="mb-6 border-t border-gray-200 pt-4">
     <h4 class="text-sm font-semibold text-gray-700 mb-3">
@@ -57,27 +81,3 @@
     </div>
   </div>
 </template>
-
-<script setup>
-defineProps({
-  members: { type: Array, default: () => [] },
-});
-
-defineEmits(["approve", "reject"]);
-
-const formatTime = (datetime) => {
-  const date = new Date(datetime);
-  const now = new Date();
-  const diff = now - date;
-
-  const minute = 60 * 1000;
-  const hour = 60 * minute;
-  const day = 24 * hour;
-
-  if (diff < minute) return "Just now";
-  if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
-  if (diff < day) return `${Math.floor(diff / hour)}h ago`;
-
-  return date.toLocaleDateString();
-};
-</script>

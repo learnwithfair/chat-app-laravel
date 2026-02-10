@@ -1,3 +1,119 @@
+<script setup>
+import { computed, ref, onBeforeUnmount } from "vue";
+
+import MessageActions from "./MessageActions.vue";
+import MessageStatus from "./MessageStatus.vue";
+import MessageReactions from "./MessageReactions.vue";
+
+const props = defineProps({
+  message: { type: Object, required: true },
+  isGroup: { type: Boolean, default: false },
+  searchQuery: { type: String, default: "" },
+  isHighlighted: { type: Boolean, default: false },
+  usersWhoLastSeenHere: { type: Array, default: () => [] },
+});
+
+const emit = defineEmits([
+  "show-details",
+  "reply",
+  "edit",
+  "forward",
+  "delete",
+  "show-seen-by",
+  "add-reaction",
+  "scroll-to-message",
+  "show-reactions",
+  "toggle-pin",
+]);
+
+// Handle reaction modal opening
+const handleShowReactionModal = (data) => {
+  emit("show-reactions", {
+    message: props.message,
+    reactions: data.reactions,
+  });
+};
+
+// Reply navigation
+const goToRepliedMessage = () => {
+  if (!props.message.replyTo?.id) return;
+  emit("scroll-to-message", props.message.replyTo.id);
+};
+
+// Audio
+const audioPlayer = ref(null);
+const isPlaying = ref(false);
+const currentAudioTime = ref(0);
+const audioProgress = ref(0);
+
+const toggleAudioPlayback = () => {
+  if (!audioPlayer.value) return;
+  if (isPlaying.value) {
+    audioPlayer.value.pause();
+    isPlaying.value = false;
+  } else {
+    audioPlayer.value.play();
+    isPlaying.value = true;
+  }
+};
+
+const updateAudioProgress = () => {
+  if (!audioPlayer.value) return;
+  currentAudioTime.value = audioPlayer.value.currentTime;
+  const duration = audioPlayer.value.duration || 1;
+  audioProgress.value = (currentAudioTime.value / duration) * 100;
+};
+
+const audioEnded = () => {
+  isPlaying.value = false;
+  audioProgress.value = 0;
+  currentAudioTime.value = 0;
+};
+
+const audioLoaded = () => {
+  if (audioPlayer.value && props.message.attachments?.[0]) {
+    props.message.attachments[0].duration = Math.floor(audioPlayer.value.duration);
+  }
+};
+
+const formatAudioTime = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
+
+// File size formatter
+const formatFileSize = (bytes) => {
+  if (!bytes || bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+};
+
+// Image viewer (you can implement a modal for this)
+const openImageViewer = (attachment) => {
+  // For now, just open in new tab
+  window.open(attachment.url, "_blank");
+};
+
+onBeforeUnmount(() => {
+  if (audioPlayer.value) audioPlayer.value.pause();
+});
+
+// Search highlight
+const escapeRegex = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const highlightedText = computed(() => {
+  if (!props.searchQuery || props.message.isDeleted) return props.message.text;
+  const regex = new RegExp(`(${escapeRegex(props.searchQuery)})`, "gi");
+  return props.message.text.replace(
+    regex,
+    '<mark class="bg-yellow-300 text-gray-900 rounded px-1">$1</mark>'
+  );
+});
+</script>
+
 <template>
   <!-- SYSTEM MESSAGE -->
   <div
@@ -417,122 +533,6 @@
     </div>
   </div>
 </template>
-
-<script setup>
-import { computed, ref, onBeforeUnmount } from "vue";
-
-import MessageActions from "./MessageActions.vue";
-import MessageStatus from "./MessageStatus.vue";
-import MessageReactions from "./MessageReactions.vue";
-
-const props = defineProps({
-  message: { type: Object, required: true },
-  isGroup: { type: Boolean, default: false },
-  searchQuery: { type: String, default: "" },
-  isHighlighted: { type: Boolean, default: false },
-  usersWhoLastSeenHere: { type: Array, default: () => [] },
-});
-
-const emit = defineEmits([
-  "show-details",
-  "reply",
-  "edit",
-  "forward",
-  "delete",
-  "show-seen-by",
-  "add-reaction",
-  "scroll-to-message",
-  "show-reactions",
-  "toggle-pin",
-]);
-
-// Handle reaction modal opening
-const handleShowReactionModal = (data) => {
-  emit("show-reactions", {
-    message: props.message,
-    reactions: data.reactions,
-  });
-};
-
-// Reply navigation
-const goToRepliedMessage = () => {
-  if (!props.message.replyTo?.id) return;
-  emit("scroll-to-message", props.message.replyTo.id);
-};
-
-// Audio
-const audioPlayer = ref(null);
-const isPlaying = ref(false);
-const currentAudioTime = ref(0);
-const audioProgress = ref(0);
-
-const toggleAudioPlayback = () => {
-  if (!audioPlayer.value) return;
-  if (isPlaying.value) {
-    audioPlayer.value.pause();
-    isPlaying.value = false;
-  } else {
-    audioPlayer.value.play();
-    isPlaying.value = true;
-  }
-};
-
-const updateAudioProgress = () => {
-  if (!audioPlayer.value) return;
-  currentAudioTime.value = audioPlayer.value.currentTime;
-  const duration = audioPlayer.value.duration || 1;
-  audioProgress.value = (currentAudioTime.value / duration) * 100;
-};
-
-const audioEnded = () => {
-  isPlaying.value = false;
-  audioProgress.value = 0;
-  currentAudioTime.value = 0;
-};
-
-const audioLoaded = () => {
-  if (audioPlayer.value && props.message.attachments?.[0]) {
-    props.message.attachments[0].duration = Math.floor(audioPlayer.value.duration);
-  }
-};
-
-const formatAudioTime = (seconds) => {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  return `${mins}:${secs.toString().padStart(2, "0")}`;
-};
-
-// File size formatter
-const formatFileSize = (bytes) => {
-  if (!bytes || bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-};
-
-// Image viewer (you can implement a modal for this)
-const openImageViewer = (attachment) => {
-  // For now, just open in new tab
-  window.open(attachment.url, "_blank");
-};
-
-onBeforeUnmount(() => {
-  if (audioPlayer.value) audioPlayer.value.pause();
-});
-
-// Search highlight
-const escapeRegex = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const highlightedText = computed(() => {
-  if (!props.searchQuery || props.message.isDeleted) return props.message.text;
-  const regex = new RegExp(`(${escapeRegex(props.searchQuery)})`, "gi");
-  return props.message.text.replace(
-    regex,
-    '<mark class="bg-yellow-300 text-gray-900 rounded px-1">$1</mark>'
-  );
-});
-</script>
 
 <style scoped>
 .ring-4 {

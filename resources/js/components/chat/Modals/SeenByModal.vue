@@ -1,3 +1,7 @@
+<script setup>
+defineProps(["users"]);
+defineEmits(["close"]);
+</script>
 <template>
   <div
     @click="$emit('close')"
@@ -41,11 +45,6 @@
     </div>
   </div>
 </template>
-
-<script setup>
-defineProps(["users"]);
-defineEmits(["close"]);
-</script>
 
 <style scoped>
 button {

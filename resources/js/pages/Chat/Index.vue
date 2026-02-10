@@ -20,6 +20,7 @@ import { generateAvatar } from "../../Utils/Chat/avatarHelper";
 import MediaLibraryModal from "@/Components/Chat/Modals/MediaLibraryModal.vue";
 import MuteModal from "@/Components/Chat/Modals/MuteModal.vue";
 import PinnedMessagesBar from "@/Components/Chat/ChatArea/PinnedMessagesBar.vue";
+import { Head } from "@inertiajs/vue3";
 
 const {
   // State
@@ -249,6 +250,7 @@ watch(
 </script>
 
 <template>
+  <Head title="Chat" />
   <div class="flex h-screen bg-gray-100 overflow-hidden">
     <!-- Sidebar - Conversation List -->
     <ConversationList

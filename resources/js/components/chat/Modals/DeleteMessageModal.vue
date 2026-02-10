@@ -1,10 +1,17 @@
+<script setup>
+defineProps(["message"]);
+defineEmits(["close", "delete-for-me", "delete-for-everyone"]);
+</script>
 <template>
-  <div @click="$emit('close')" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+  <div
+    @click="$emit('close')"
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+  >
     <div @click.stop class="bg-white rounded-lg shadow-xl max-w-sm w-full">
       <div class="p-4 border-b border-gray-200">
         <h3 class="text-lg font-semibold">Delete Message</h3>
       </div>
-      
+
       <div class="p-4">
         <button
           @click="$emit('delete-for-me')"
@@ -12,7 +19,7 @@
         >
           Delete for me
         </button>
-        
+
         <button
           v-if="message?.isMine"
           @click="$emit('delete-for-everyone')"
@@ -25,12 +32,8 @@
   </div>
 </template>
 
-<script setup>
-defineProps(['message']);
-defineEmits(['close', 'delete-for-me', 'delete-for-everyone']);
-</script>
 <style scoped>
-button{
+button {
   cursor: pointer;
 }
 </style>

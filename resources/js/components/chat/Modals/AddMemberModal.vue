@@ -1,3 +1,42 @@
+<script setup>
+import { ref, computed } from "vue";
+
+const props = defineProps({
+  availableUsers: Array,
+  currentGroupMembers: {
+    type: Array,
+    default: () => [],
+  },
+});
+
+const emit = defineEmits(["close", "add-multiple"]);
+
+const search = ref("");
+const selectedUsers = ref(props.currentGroupMembers.map((u) => u.id));
+
+// Filter logic for users based on search input
+const filteredUsers = computed(() => {
+  if (!search.value) return props.availableUsers;
+
+  return props.availableUsers.filter((user) =>
+    user.name.toLowerCase().includes(search.value.toLowerCase())
+  );
+});
+
+const toggleUser = (userId) => {
+  const index = selectedUsers.value.indexOf(userId);
+  if (index > -1) {
+    selectedUsers.value.splice(index, 1);
+  } else {
+    selectedUsers.value.push(userId);
+  }
+};
+
+const handleAdd = () => {
+  emit("add-multiple", selectedUsers.value);
+  selectedUsers.value = [];
+};
+</script>
 <template>
   <div
     @click="$emit('close')"
@@ -78,42 +117,8 @@
   </div>
 </template>
 
-<script setup>
-import { ref, computed } from "vue";
-
-const props = defineProps({
-  availableUsers: Array,
-  currentGroupMembers: {
-    type: Array,
-    default: () => [],
-  },
-});
-
-const emit = defineEmits(["close", "add-multiple"]);
-
-const search = ref("");
-const selectedUsers = ref(props.currentGroupMembers.map((u) => u.id));
-
-// Filter logic for users based on search input
-const filteredUsers = computed(() => {
-  if (!search.value) return props.availableUsers;
-
-  return props.availableUsers.filter((user) =>
-    user.name.toLowerCase().includes(search.value.toLowerCase())
-  );
-});
-
-const toggleUser = (userId) => {
-  const index = selectedUsers.value.indexOf(userId);
-  if (index > -1) {
-    selectedUsers.value.splice(index, 1);
-  } else {
-    selectedUsers.value.push(userId);
-  }
-};
-
-const handleAdd = () => {
-  emit("add-multiple", selectedUsers.value);
-  selectedUsers.value = [];
-};
-</script>
+<style scoped>
+button {
+  cursor: pointer;
+}
+</style>

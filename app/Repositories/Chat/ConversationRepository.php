@@ -334,40 +334,7 @@ class ConversationRepository
         ]);
 
         return ['invite_link' => config("services.invite_url") . "/{$invite->token}"];
-    }
-
-    // public function removeMember(int $userId, int $conversationId, array $memberIds)
-    // {
-    //     if (! $this->canUserManageMembers($conversationId, $userId)) {
-    //         throw new HttpResponseException($this->error(null, 'Only admins can remove members.', 403));
-    //     }
-
-    //     $conversation = $this->find($conversationId);
-
-    //     $members = User::whereIn('id', $memberIds)->get();
-
-    //     $conversation->participants()
-    //         ->whereIn('user_id', $memberIds)
-    //         ->where('is_active', true)
-    //         ->update([
-    //             'is_active'  => false,
-    //             'removed_at' => now(),
-    //         ]);
-    //     $lastMessage = null;
-    //     foreach ($members as $member) {
-    //         $lastMessage = $conversation->messages()->create([
-    //             'sender_id' => $userId,
-    //             'message'   => "{$member->name} was removed from the conversation",
-    //             'message_type' => 'system',
-    //         ]);
-
-    //         event(new MessageEvent('sent', $lastMessage->conversation_id, ['message' => $lastMessage]));
-
-    //         event(new ConversationEvent($conversation, 'removed', $member->id));
-    //     }
-
-    //     return $lastMessage;
-    // }
+    }  
 
     public function removeMember(int $actorId, int $conversationId, array $memberIds)
     {
@@ -423,22 +390,6 @@ class ConversationRepository
         return $participants;
 
     }
-
-    // public function removeGroupAdmins(User $actor, int $conversationId, array $userIds)
-    // {
-    //     if (! $this->canUserManageMembers($conversationId, $actor->id)) {
-    //         throw new HttpResponseException($this->error(null, 'Only admins can remove admins.', 403));
-    //     }
-
-    //     $conversation = $this->find($conversationId);
-
-    //     if ($conversation->type !== 'group') {
-    //         throw new HttpResponseException($this->error(null, 'Admins are allowed only in group conversations.', 403));
-    //     }
-
-    //     $participants = ConversationParticipant::where('conversation_id', $conversationId)->whereIn('user_id', $userIds)->where('role', 'admin')->update(['role' => 'member']);
-    //     return $participants;
-    // }
 
     public function removeGroupAdmins(User $actor, int $conversationId, array $userIds)
     {

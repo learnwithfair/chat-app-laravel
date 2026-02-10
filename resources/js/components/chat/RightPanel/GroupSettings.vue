@@ -1,3 +1,24 @@
+<script setup>
+import { ref, watch } from "vue";
+import SettingSwitch from "./SettingSwitch.vue";
+
+const props = defineProps(["settings"]);
+const emit = defineEmits(["update"]);
+
+const localSettings = ref({ ...props.settings });
+
+watch(
+  () => props.settings,
+  (newSettings) => {
+    localSettings.value = { ...newSettings };
+  },
+  { deep: true }
+);
+
+const updateSettings = () => {
+  emit("update", localSettings.value);
+};
+</script>
 <template>
   <div class="p-4 border-t border-gray-200 mt-6">
     <h3 class="text-lg font-semibold mb-4">Group Settings</h3>
@@ -40,25 +61,3 @@
     </div>
   </div>
 </template>
-
-<script setup>
-import { ref, watch } from "vue";
-import SettingSwitch from "./SettingSwitch.vue";
-
-const props = defineProps(["settings"]);
-const emit = defineEmits(["update"]);
-
-const localSettings = ref({ ...props.settings });
-
-watch(
-  () => props.settings,
-  (newSettings) => {
-    localSettings.value = { ...newSettings };
-  },
-  { deep: true }
-);
-
-const updateSettings = () => {
-  emit("update", localSettings.value);
-};
-</script>

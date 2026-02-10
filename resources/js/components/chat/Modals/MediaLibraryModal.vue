@@ -1,3 +1,82 @@
+<script setup>
+import { ref, computed } from "vue";
+
+const props = defineProps({
+  media: { type: Array, default: () => [] },
+  audio: { type: Array, default: () => [] },
+  files: { type: Array, default: () => [] },
+  links: { type: Array, default: () => [] },
+  loading: { type: Boolean, default: false },
+});
+
+defineEmits(["close"]);
+
+const activeTab = ref("all");
+
+const tabs = [
+  { label: "All", value: "all" },
+  { label: "Images", value: "images" },
+  { label: "Videos", value: "videos" },
+  { label: "Audio", value: "audio" },
+  { label: "Files", value: "files" },
+  { label: "Links", value: "links" },
+];
+
+const mediaImages = computed(() => props.media.filter((item) => item.type === "image"));
+const mediaVideos = computed(() => props.media.filter((item) => item.type === "video"));
+
+const getTabCount = (tabValue) => {
+  switch (tabValue) {
+    case "all":
+      return (
+        props.media.length + props.audio.length + props.files.length + props.links.length
+      );
+    case "images":
+      return mediaImages.value.length;
+    case "videos":
+      return mediaVideos.value.length;
+    case "audio":
+      return props.audio.length;
+    case "files":
+      return props.files.length;
+    case "links":
+      return props.links.length;
+    default:
+      return 0;
+  }
+};
+
+const formatDate = (date) => {
+  if (!date) return "";
+  const d = new Date(date);
+  const now = new Date();
+  const diffInMs = now - d;
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+  if (diffInDays === 0) return "Today";
+  if (diffInDays === 1) return "Yesterday";
+  if (diffInDays < 7) return `${diffInDays} days ago`;
+
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const formatFileSize = (bytes) => {
+  if (!bytes) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+};
+
+const openMediaPreview = (item) => {
+  window.open(item.url, "_blank");
+};
+</script>
+
 <template>
   <div
     class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
@@ -599,85 +678,6 @@
     </div>
   </div>
 </template>
-
-<script setup>
-import { ref, computed } from "vue";
-
-const props = defineProps({
-  media: { type: Array, default: () => [] },
-  audio: { type: Array, default: () => [] },
-  files: { type: Array, default: () => [] },
-  links: { type: Array, default: () => [] },
-  loading: { type: Boolean, default: false },
-});
-
-defineEmits(["close"]);
-
-const activeTab = ref("all");
-
-const tabs = [
-  { label: "All", value: "all" },
-  { label: "Images", value: "images" },
-  { label: "Videos", value: "videos" },
-  { label: "Audio", value: "audio" },
-  { label: "Files", value: "files" },
-  { label: "Links", value: "links" },
-];
-
-const mediaImages = computed(() => props.media.filter((item) => item.type === "image"));
-const mediaVideos = computed(() => props.media.filter((item) => item.type === "video"));
-
-const getTabCount = (tabValue) => {
-  switch (tabValue) {
-    case "all":
-      return (
-        props.media.length + props.audio.length + props.files.length + props.links.length
-      );
-    case "images":
-      return mediaImages.value.length;
-    case "videos":
-      return mediaVideos.value.length;
-    case "audio":
-      return props.audio.length;
-    case "files":
-      return props.files.length;
-    case "links":
-      return props.links.length;
-    default:
-      return 0;
-  }
-};
-
-const formatDate = (date) => {
-  if (!date) return "";
-  const d = new Date(date);
-  const now = new Date();
-  const diffInMs = now - d;
-  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-
-  if (diffInDays === 0) return "Today";
-  if (diffInDays === 1) return "Yesterday";
-  if (diffInDays < 7) return `${diffInDays} days ago`;
-
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-};
-
-const formatFileSize = (bytes) => {
-  if (!bytes) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-};
-
-const openMediaPreview = (item) => {
-  window.open(item.url, "_blank");
-};
-</script>
 
 <style scoped>
 .scrollbar-custom {

@@ -1,3 +1,49 @@
+<script setup>
+import { ref, computed, watch } from "vue";
+
+const props = defineProps({
+  pinnedMessages: {
+    type: Array,
+    required: true,
+  },
+});
+
+const emit = defineEmits(["close", "scroll-to-message"]);
+
+const currentIndex = ref(0);
+
+const currentMessage = computed(() => props.pinnedMessages[currentIndex.value]);
+
+const nextPinned = () => {
+  if (currentIndex.value < props.pinnedMessages.length - 1) {
+    currentIndex.value++;
+    scrollToCurrentPinned();
+  }
+};
+
+const previousPinned = () => {
+  if (currentIndex.value > 0) {
+    currentIndex.value--;
+    scrollToCurrentPinned();
+  }
+};
+
+const scrollToCurrentPinned = () => {
+  const message = currentMessage.value;
+  if (message) {
+    emit("scroll-to-message", message.id);
+  }
+};
+
+// Reset index when pinned messages change
+watch(
+  () => props.pinnedMessages.length,
+  () => {
+    currentIndex.value = 0;
+  }
+);
+</script>
+
 <template>
   <div
     v-if="pinnedMessages.length > 0"
@@ -91,52 +137,6 @@
     </button>
   </div>
 </template>
-
-<script setup>
-import { ref, computed, watch } from "vue";
-
-const props = defineProps({
-  pinnedMessages: {
-    type: Array,
-    required: true,
-  },
-});
-
-const emit = defineEmits(["close", "scroll-to-message"]);
-
-const currentIndex = ref(0);
-
-const currentMessage = computed(() => props.pinnedMessages[currentIndex.value]);
-
-const nextPinned = () => {
-  if (currentIndex.value < props.pinnedMessages.length - 1) {
-    currentIndex.value++;
-    scrollToCurrentPinned();
-  }
-};
-
-const previousPinned = () => {
-  if (currentIndex.value > 0) {
-    currentIndex.value--;
-    scrollToCurrentPinned();
-  }
-};
-
-const scrollToCurrentPinned = () => {
-  const message = currentMessage.value;
-  if (message) {
-    emit("scroll-to-message", message.id);
-  }
-};
-
-// Reset index when pinned messages change
-watch(
-  () => props.pinnedMessages.length,
-  () => {
-    currentIndex.value = 0;
-  }
-);
-</script>
 
 <style scoped>
 button {

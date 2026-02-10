@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
@@ -28,14 +27,14 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:'.User::class],
+            'name'     => ['required', 'string', 'max:255'],
+            'email'    => ['required', 'string', 'email', 'max:255', 'unique:' . User::class],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
         $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
+            'name'     => $validated['name'],
+            'email'    => $validated['email'],
             'password' => Hash::make($validated['password']),
         ]);
 
@@ -59,8 +58,8 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         $validated = $request->validate([
-            'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'email' => [
+            'name'     => ['sometimes', 'required', 'string', 'max:255'],
+            'email'    => [
                 'sometimes',
                 'required',
                 'string',
@@ -70,10 +69,10 @@ class UserController extends Controller
             ],
             'password' => ['sometimes', 'nullable', 'confirmed', Rules\Password::defaults()],
         ]);
-        
+
         // Update the user with validated data
         $user->update($validated);
-        
+
         // Hash password if it's being updated
         if ($request->filled('password')) {
             $user->password = Hash::make($request->password);

@@ -54,8 +54,7 @@ class UserBlockController extends Controller
         return $this->success($users, 'Users Fetched Successfully', 200, true);
     }
 
-    // SHOW IN USER MODEL RELATIONS AS WELL
-    // Toggle block/unblock for a user.
+    // Toggle block/unblock for a user.  SHOW IN USER MODEL RELATIONS AS WELL
     public function toggleBlock(Request $request, User $user)
     {
         $isBlocked = $this->chatService->toggleBlock($request->user(), $user->id);

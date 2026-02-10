@@ -113,19 +113,21 @@ const logout = () => {
     <div class="p-4 pb-0">
       <div class="flex items-center justify-between mb-4">
         <!-- User Info -->
-        <div class="flex items-center space-x-3">
-          <img
-            :src="user?.avatar_path || generateAvatar(user?.name)"
-            :alt="user?.name"
-            class="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
-          />
-          <div>
-            <h1 class="text-lg font-semibold text-gray-800">
-              {{ user?.name || "User" }}
-            </h1>
-            <p class="text-xs text-gray-500">Active now</p>
+        <a href="/settings/profile">
+          <div class="flex items-center space-x-3">
+            <img
+              :src="user?.avatar_path || generateAvatar(user?.name)"
+              :alt="user?.name"
+              class="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
+            />
+            <div>
+              <h1 class="text-lg font-semibold text-gray-800">
+                {{ user?.name || "User" }}
+              </h1>
+              <p class="text-xs text-gray-500">Active now</p>
+            </div>
           </div>
-        </div>
+        </a>
 
         <div class="flex items-center space-x-3">
           <!-- Create Group -->

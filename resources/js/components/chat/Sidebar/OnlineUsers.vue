@@ -1,3 +1,8 @@
+<script setup>
+defineProps(["users"]);
+defineEmits(["start-chat", "open-search"]);
+</script>
+
 <template>
   <div class="p-4 border-b border-gray-100">
     <div class="flex items-center justify-between mb-2">
@@ -41,8 +46,3 @@
     </div>
   </div>
 </template>
-
-<script setup>
-defineProps(["users"]);
-defineEmits(["start-chat", "open-search"]);
-</script>

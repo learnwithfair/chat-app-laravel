@@ -23,14 +23,11 @@ class MarkMessageReadAction
         // Update participant last read message
         ConversationParticipant::where('conversation_id', $conversationId)
             ->where('user_id', $user->id)
-            ->update(['last_read_message_id' => $lastMessage->id,]);
+            ->update(['last_read_message_id' => $lastMessage->id]);
 
         // Optional: update message_status for each unread message
         foreach ($conversation->messages as $msg) {
-            $msg->statuses()->updateOrCreate(
-                ['user_id' => $user->id],
-                ['status' => 'seen']
-            );
+            $msg->statuses()->updateOrCreate(['user_id' => $user->id], ['status' => 'seen']);
         }
 
         // Broadcast

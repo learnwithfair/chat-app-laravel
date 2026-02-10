@@ -1,3 +1,58 @@
+<script setup>
+import { ref, watch } from "vue";
+import { generateAvatar } from "../../../Utils/Chat/avatarHelper";
+
+const props = defineProps({
+  isOpen: Boolean,
+  users: Array,
+  pagination: Object,
+  loading: Boolean,
+});
+
+const emit = defineEmits(["close", "select-user", "search", "load-more"]);
+
+const searchQuery = ref("");
+const userListRef = ref(null);
+let searchTimeout = null;
+
+const closeModal = () => {
+  searchQuery.value = "";
+  emit("close");
+};
+
+const selectUser = (user) => {
+  emit("select-user", user);
+  closeModal();
+};
+
+const handleSearch = () => {
+  // Debounce search
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    emit("search", searchQuery.value);
+  }, 300);
+};
+
+const handleScroll = (e) => {
+  const { scrollTop, scrollHeight, clientHeight } = e.target;
+  const scrolledToBottom = scrollHeight - scrollTop - clientHeight < 100;
+
+  if (scrolledToBottom && props.pagination?.hasMore && !props.pagination?.loading) {
+    emit("load-more");
+  }
+};
+
+// Reset search when modal closes
+watch(
+  () => props.isOpen,
+  (newVal) => {
+    if (!newVal) {
+      searchQuery.value = "";
+    }
+  }
+);
+</script>
+
 <template>
   <div
     v-if="isOpen"
@@ -136,61 +191,6 @@
     </div>
   </div>
 </template>
-
-<script setup>
-import { ref, watch } from "vue";
-import { generateAvatar } from "../../../Utils/Chat/avatarHelper";
-
-const props = defineProps({
-  isOpen: Boolean,
-  users: Array,
-  pagination: Object,
-  loading: Boolean,
-});
-
-const emit = defineEmits(["close", "select-user", "search", "load-more"]);
-
-const searchQuery = ref("");
-const userListRef = ref(null);
-let searchTimeout = null;
-
-const closeModal = () => {
-  searchQuery.value = "";
-  emit("close");
-};
-
-const selectUser = (user) => {
-  emit("select-user", user);
-  closeModal();
-};
-
-const handleSearch = () => {
-  // Debounce search
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    emit("search", searchQuery.value);
-  }, 300);
-};
-
-const handleScroll = (e) => {
-  const { scrollTop, scrollHeight, clientHeight } = e.target;
-  const scrolledToBottom = scrollHeight - scrollTop - clientHeight < 100;
-
-  if (scrolledToBottom && props.pagination?.hasMore && !props.pagination?.loading) {
-    emit("load-more");
-  }
-};
-
-// Reset search when modal closes
-watch(
-  () => props.isOpen,
-  (newVal) => {
-    if (!newVal) {
-      searchQuery.value = "";
-    }
-  }
-);
-</script>
 
 <style scoped>
 /* Scrollbar */
