@@ -19,12 +19,6 @@ export function useChat() {
         { id: 12, name: 'Jordan', avatar: 'https://i.pravatar.cc/150?img=13', isOnline: true }
     ]);
 
-    // const availableUsers = ref([
-    //     { id: 20, name: 'Chris Evans', avatar: 'https://i.pravatar.cc/150?img=33' },
-    //     { id: 21, name: 'Emma Stone', avatar: 'https://i.pravatar.cc/150?img=34' },
-    //     { id: 22, name: 'Ryan Gosling', avatar: 'https://i.pravatar.cc/150?img=35' }
-    // ]);
-
     const availableUsers = ref([]);
     const groupMembers = ref([]);
 
@@ -1283,33 +1277,16 @@ export function useChat() {
 
     // ==================== HELPER FUNCTIONS ====================
 
-    // const formatTime = (datetime) => {
-    //     const date = new Date(datetime);
-    //     const now = new Date();
-    //     const diff = now - date;
-
-    //     if (diff < 60000) return 'Just now';
-    //     if (diff < 3600000) return `${Math.floor(diff / 60000)}m`;
-    //     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h`;
-    //     if (diff < 604800000) return `${Math.floor(diff / 86400000)}d`;
-
-    //     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    // };
 
     const formatTime = (datetime) => {
         const date = parseLocalDateTime(datetime);
+        if (!date) return 'Just now';
 
-        // 🚨 IMPORTANT GUARD
-        if (!date || isNaN(date.getTime())) {
-            return 'Just now';
-        }
+        const diff = Date.now() - date.getTime();
 
-        const now = new Date();
-        const diff = now - date;
-
-        if (diff < 60 * 1000) return 'Just now';
-        if (diff < 60 * 60 * 1000) return `${Math.floor(diff / 60000)}m`;
-        if (diff < 24 * 60 * 60 * 1000) return `${Math.floor(diff / 3600000)}h`;
+        if (diff < 60_000) return 'Just now';
+        if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
+        if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
 
         return date.toLocaleTimeString('en-US', {
             hour: 'numeric',
@@ -1319,30 +1296,22 @@ export function useChat() {
     };
 
 
+
     const parseLocalDateTime = (datetime) => {
         if (!datetime) return null;
 
-        // Already a Date object
+        // Already Date object
         if (datetime instanceof Date) return datetime;
 
-        // Must be a string
         if (typeof datetime !== 'string') return null;
 
-        // Expected: "YYYY-MM-DD HH:mm:ss"
-        if (!datetime.includes(' ')) return null;
+        // Convert: "YYYY-MM-DD HH:mm:ss" → "YYYY-MM-DDTHH:mm:ss"
+        const iso = datetime.replace(' ', 'T');
 
-        const [datePart, timePart] = datetime.split(' ');
-        if (!datePart || !timePart) return null;
+        const date = new Date(iso);
 
-        const [year, month, day] = datePart.split('-').map(Number);
-        const [hour, minute, second = 0] = timePart.split(':').map(Number);
-
-        const date = new Date(year, month - 1, day, hour, minute, second);
         return isNaN(date.getTime()) ? null : date;
     };
-
-
-
 
 
 
@@ -1650,11 +1619,9 @@ export function useChat() {
                     formData.append('message_type', 'text');
                 }
 
-                console.log('📤 Sending FormData');
 
                 sentMsg = await sendMessageWithFilesAPI(formData);
 
-                console.log('✅ Message sent:', sentMsg);
 
                 const newMsg = {
                     id: sentMsg.id,
@@ -1681,8 +1648,6 @@ export function useChat() {
                     attachments: formatAttachments(sentMsg.attachments),
                     seenBy: []
                 };
-
-                console.log('📨 New message object:', newMsg);
 
                 messages.value.push(newMsg);
 
@@ -1877,35 +1842,89 @@ export function useChat() {
         }
     };
 
-    const handleTogglePin = async (message) => {
-        try {
-            await togglePinMessageAPI(message.id);
+    // const handleTogglePin = async (message) => {
+    //     try {
+    //         await togglePinMessageAPI(message.id);
 
-            // Update message in UI
-            const msg = messages.value.find(m => m.id === message.id);
-            if (msg) {
-                msg.isPinned = !msg.isPinned;
+    //         // Update message in UI
+    //         const msg = messages.value.find(m => m.id === message.id);
+
+    //         if (msg) {
+    //             msg.isPinned = !msg.isPinned;
+    //         }
+
+    //         // Update cache
+    //         const cached = messageCache.get(activeConversation.value.id);
+    //         if (cached) {
+    //             const cachedMsg = cached.messages.find(m => m.id === message.id);
+    //             if (cachedMsg) {
+    //                 cachedMsg.isPinned = !cachedMsg.isPinned;
+    //             }
+    //         }
+
+    //         // Refresh pinned messages list
+    //         if (activeConversation.value) {
+    //             await fetchPinnedMessages(activeConversation.value.id);
+    //         }
+
+    //     } catch (error) {
+    //         console.error('Failed to toggle pin:', error);
+    //         alert('Failed to pin/unpin message');
+    //     }
+    // };
+
+    // 🔥 EXACT FIX - এই code টা copy করে আপনার handleTogglePin replace করে দিন
+
+    const handleTogglePin = async (message) => {
+        const previousState = message.isPinned;
+
+        try {
+            // Instant UI update
+            const index = messages.value.findIndex(m => m.id === message.id);
+
+            if (index !== -1) {
+                messages.value[index] = {
+                    ...messages.value[index],
+                    isPinned: !previousState
+                };
             }
 
-            // Update cache
-            const cached = messageCache.get(activeConversation.value.id);
+            // Server update
+            await togglePinMessageAPI(message.id);
+
+            // Cache update
+            const cached = messageCache.get(activeConversation.value?.id);
             if (cached) {
-                const cachedMsg = cached.messages.find(m => m.id === message.id);
-                if (cachedMsg) {
-                    cachedMsg.isPinned = !cachedMsg.isPinned;
+                const cachedIndex = cached.messages.findIndex(m => m.id === message.id);
+                if (cachedIndex !== -1) {
+                    cached.messages[cachedIndex] = {
+                        ...cached.messages[cachedIndex],
+                        isPinned: !previousState
+                    };
                 }
             }
 
-            // Refresh pinned messages list
+            // Refresh pinned list
             if (activeConversation.value) {
                 await fetchPinnedMessages(activeConversation.value.id);
             }
 
         } catch (error) {
             console.error('Failed to toggle pin:', error);
+
+            // Rollback UI state
+            const index = messages.value.findIndex(m => m.id === message.id);
+            if (index !== -1) {
+                messages.value[index] = {
+                    ...messages.value[index],
+                    isPinned: previousState
+                };
+            }
+
             alert('Failed to pin/unpin message');
         }
     };
+
 
     const closePinnedBar = () => {
         showPinnedBar.value = false;

@@ -29,3 +29,8 @@
 defineProps(['message']);
 defineEmits(['close', 'delete-for-me', 'delete-for-everyone']);
 </script>
+<style scoped>
+button{
+  cursor: pointer;
+}
+</style>

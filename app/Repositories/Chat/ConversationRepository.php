@@ -523,7 +523,7 @@ class ConversationRepository
         $conversation  = $message->conversation;
         $systemMessage = $conversation->messages()->create([
             'sender_id'    => $user->id,
-            'message'      => $user->name . ' pinned a message',
+            'message'      => $user->name . ($message->is_pinned ? ' pinned a message' : ' unpinned a message'),
             'message_type' => 'system',
         ]);
 
@@ -531,7 +531,7 @@ class ConversationRepository
         event(new MessageEvent('sent', $systemMessage->conversation_id, ['message' => $systemMessage]));
 
         $data = [
-            'message'      => $message->refresh(),
+            'message'      => $message,
             'last_message' => $systemMessage,
         ];
         return $data;

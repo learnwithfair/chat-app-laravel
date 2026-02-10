@@ -11,7 +11,7 @@ const emit = defineEmits(["reply", "edit", "forward", "delete", "toggle-pin"]);
   <div
     :class="[
       'absolute top-0 hidden group-hover:flex items-center space-x-1 p-1 bg-white rounded-lg shadow-lg border border-gray-200 z-10',
-      isMine ? '-left-30' : '-right-23',
+      isMine ? '-left-37' : '-right-23',
     ]"
   >
     <button
@@ -38,18 +38,10 @@ const emit = defineEmits(["reply", "edit", "forward", "delete", "toggle-pin"]);
     <button
       @click.stop="emit('toggle-pin', message)"
       class="p-1 hover:bg-gray-100 rounded"
+      :class="message.isPinned ? 'bg-gray-100' : ''"
       :title="message.isPinned ? 'Unpin' : 'Pin'"
     >
-      <svg
-        class="w-4 h-4"
-        :class="message.isPinned ? 'text-blue-600' : 'text-gray-600'"
-        fill="currentColor"
-        viewBox="0 0 20 20"
-      >
-        <path
-          d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L11 4.323V3a1 1 0 011-1zm-5 8.274l-.818 2.552c-.25.78-.147 1.638.3 2.245a3.988 3.988 0 002.518.923 3.988 3.988 0 002.518-.923c.447-.607.55-1.465.3-2.245L8 10.274V9a1 1 0 11-2 0v1.274z"
-        />
-      </svg>
+      <span>📌</span>
     </button>
 
     <button

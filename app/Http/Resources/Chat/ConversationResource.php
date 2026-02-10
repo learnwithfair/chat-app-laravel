@@ -79,7 +79,8 @@ class ConversationResource extends JsonResource
             'invite_link'      => $this->inviteLink ? config("services.invite_url") . "/{$this->inviteLink->token}" : null,
             'updated_at' => $this->updated_at->toDateTimeString(),
             'created_by' => $this->creator->name ?? null,
-            'created_at' => $this->created_at->format('Y/m/d h:i:s A'),
+            'created_at' => $this->created_at->toDateTimeString(),
+            // 'created_at' => $this->created_at->format('Y/m/d h:i:s A'),
         ];
     }
 }

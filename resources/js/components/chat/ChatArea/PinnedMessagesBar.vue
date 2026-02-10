@@ -5,15 +5,7 @@
   >
     <div class="flex items-center space-x-3 flex-1 min-w-0">
       <!-- Pin Icon -->
-      <svg
-        class="w-5 h-5 text-blue-600 flex-shrink-0"
-        fill="currentColor"
-        viewBox="0 0 20 20"
-      >
-        <path
-          d="M10 2a1 1 0 011 1v1.323l3.954 1.582 1.599-.8a1 1 0 01.894 1.79l-1.233.616 1.738 5.42a1 1 0 01-.285 1.05A3.989 3.989 0 0115 15a3.989 3.989 0 01-2.667-1.019 1 1 0 01-.285-1.05l1.738-5.42-1.233-.617a1 1 0 01.894-1.788l1.599.799L11 4.323V3a1 1 0 011-1zm-5 8.274l-.818 2.552c-.25.78-.147 1.638.3 2.245a3.988 3.988 0 002.518.923 3.988 3.988 0 002.518-.923c.447-.607.55-1.465.3-2.245L8 10.274V9a1 1 0 11-2 0v1.274z"
-        />
-      </svg>
+      <span>📌</span>
 
       <!-- Message Content (Clickable) -->
       <div class="flex-1 min-w-0 cursor-pointer" @click="scrollToCurrentPinned">
@@ -145,3 +137,9 @@ watch(
   }
 );
 </script>
+
+<style scoped>
+button {
+  cursor: pointer;
+}
+</style>
