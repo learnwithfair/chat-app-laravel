@@ -18,7 +18,7 @@ class AutoUnmuteConversationsQueue extends Command
     {
         $this->info(' Queuing auto-unmute jobs...');
 
-        $chunkSize   = (int) $this->option('chunk');
+        $chunkSize   = (int) $this->option('chunk') ?? 500;
         $totalQueued = 0;
 
         try {
@@ -28,9 +28,8 @@ class AutoUnmuteConversationsQueue extends Command
                 ->whereNotNull('muted_until')
                 ->where('muted_until', '<=', Carbon::now())
                 ->select('id', 'user_id', 'conversation_id')
-                ->chunk($chunkSize, function ($expiredMutes) use (&$totalQueued) {
+                ->chunkById($chunkSize, function ($expiredMutes) use (&$totalQueued) {
                     foreach ($expiredMutes as $participant) {
-                        // Dispatch job to queue
                         UnmuteConversationJob::dispatch(
                             $participant->id,
                             $participant->user_id,
