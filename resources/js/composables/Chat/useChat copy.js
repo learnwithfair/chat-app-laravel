@@ -1,11 +1,11 @@
-import { ref, computed, onMounted, onBeforeUnmount, nextTick, toRaw } from 'vue';
+import { ref, computed, onMounted, nextTick, toRaw } from 'vue';
 import { router } from '@inertiajs/vue3';
 import axios from 'axios';
 import { generateAvatar } from '../../Utils/Chat/avatarHelper';
 
 export function useChat() {
     // ==================== CACHE STORAGE ====================
-    const messageCache = new Map();
+    const messageCache = new Map(); // conversationId -> { messages: [], hasMore: bool, currentPage: int }
     const conversationCache = ref([]);
     const lastConversationFetch = ref(null);
     const CACHE_DURATION = 30000; // 30 seconds
@@ -13,9 +13,15 @@ export function useChat() {
     // State
     const conversations = ref([]);
     const messages = ref([]);
-    const onlineUsers = ref([]);
+    const onlineUsers = ref([
+        { id: 10, name: 'Alex', avatar: 'https://i.pravatar.cc/150?img=11', isOnline: true },
+        { id: 11, name: 'Sam', avatar: 'https://i.pravatar.cc/150?img=12', isOnline: true },
+        { id: 12, name: 'Jordan', avatar: 'https://i.pravatar.cc/150?img=13', isOnline: true }
+    ]);
+
     const availableUsers = ref([]);
     const groupMembers = ref([]);
+
 
     const activeConversation = ref(null);
     const searchQuery = ref('');
@@ -29,11 +35,11 @@ export function useChat() {
     const loading = ref(false);
     const messagesLoading = ref(false);
 
+
     const pendingMembers = ref([]);
 
     const typingUsers = ref({});
     let typingTimeout = null;
-    let globalPresenceChannel = null;
 
     const mediaLibrary = ref({
         media: [],
@@ -77,6 +83,7 @@ export function useChat() {
         loading: false,
     });
 
+
     // Modal states
     const modals = ref({
         createGroup: false,
@@ -91,12 +98,15 @@ export function useChat() {
         mute: false
     });
 
+
+
     const selectedReactionUsers = ref([]);
     const currentSeenBy = ref([]);
     const selectedMessageDetails = ref(null);
     const messageToDelete = ref(null);
     const messageToForward = ref(null);
     const messageContainer = ref(null);
+
 
     const startChatUsers = ref([]);
     const startChatLoading = ref(false);
@@ -114,564 +124,34 @@ export function useChat() {
         users: []
     });
 
+
+
     // API Base URL
     const API_BASE = '/api/v1';
 
-    // ==================== WEBSOCKET STATE ====================
-    let userChannel = null;
-    let conversationChannels = new Map(); // conversationId -> Echo channel
+    // ==================== API CALLS ====================
 
-    // ==================== WEBSOCKET SUBSCRIPTIONS ====================
-
-    const subscribeToUserChannel = () => {
-        const userId = getCurrentUserId();
-
-        // userChannel = window.Echo.private(`user.${userId}`)
-        //     .listen('ConversationEvent', (event) => {
-        //         console.log('📢 ConversationEvent received:', event);
-        //         handleConversationEvent(event);
-        //     });
-
-        // console.log('✅ Subscribed to user channel:', userId);
-    };
-
-    // const subscribeToConversation = (conversationId) => {
-    //     // Avoid duplicate subscriptions
-    //     if (conversationChannels.has(conversationId)) {
-    //         return;
-    //     }
-
-    //     const channel = window.Echo.private(`conversation.${conversationId}`)
-    //         .listen('MessageEvent', (event) => {
-    //             console.log('💬 MessageEvent received:', event);
-    //             handleMessageEvent(conversationId, event);
-    //         })
-    //         .listenForWhisper('typing', (e) => {
-    //             console.log('⌨️ Typing event:', e);
-    //             handleTypingEvent(conversationId, e);
-    //         })
-    //         .here((users) => {
-    //             console.log('👥 Users currently in conversation:', users);
-    //             updateOnlineStatus(conversationId, users);
-    //         })
-    //         .joining((user) => {
-    //             console.log('✅ User joined:', user);
-    //             markUserOnline(user.id);
-    //         })
-    //         .leaving((user) => {
-    //             console.log('❌ User left:', user);
-    //             markUserOffline(user.id);
-    //         });
-
-    //     conversationChannels.set(conversationId, channel);
-    //     console.log('✅ Subscribed to conversation:', conversationId);
-    // };
-
-    const subscribeToConversation = (conversationId) => {
-        // Avoid duplicate subscriptions
-        if (conversationChannels.has(conversationId)) {
-            return;
-        }
-
-        // Use join() for presence channel
-        const channel = window.Echo.join(`conversation.${conversationId}`)
-
-            .listen('.message.sent', (event) => {
-                console.log('💬 MessageEvent received:', event);
-                handleMessageEvent(conversationId, event);
-            })
-
-            .listenForWhisper('typing', (e) => {
-                console.log('⌨️ Typing event:', e);
-                handleTypingEvent(conversationId, e);
-            })
-            .here((users) => {
-                console.log('👥 Users currently in conversation:', users);
-                updateOnlineStatus(conversationId, users);
-            })
-            .joining((user) => {
-                console.log('✅ User joined:', user);
-                markUserOnline(user.id);
-            })
-            .leaving((user) => {
-                console.log('❌ User left:', user);
-                markUserOffline(user.id);
-            });
-
-        conversationChannels.set(conversationId, channel);
-        console.log('✅ Subscribed to conversation:', conversationId);
-    };
-
-    const unsubscribeFromConversation = (conversationId) => {
-        const channel = conversationChannels.get(conversationId);
-        if (channel) {
-            window.Echo.leave(`conversation.${conversationId}`);
-            conversationChannels.delete(conversationId);
-            console.log('❌ Unsubscribed from conversation:', conversationId);
-        }
-    };
-
-    // ==================== WEBSOCKET EVENT HANDLERS ====================
-
-    // Handle ConversationEvent (added, removed, updated, deleted, read)
-    const handleConversationEvent = (event) => {
-        const { action, conversation } = event;
-
-        switch (action) {
-            case 'added':
-                // Someone added you to a conversation
-                addOrUpdateConversation(conversation);
-                break;
-
-            case 'removed':
-                // You were removed from a conversation
-                removeConversation(conversation.id);
-                break;
-
-            case 'left':
-                // Someone left the group
-                if (activeConversation.value?.id === conversation.id) {
-                    fetchGroupMembers(); // Refresh members
-                }
-                break;
-
-            case 'updated':
-                // Conversation info updated (name, avatar, settings)
-                updateConversationInfo(conversation);
-                break;
-
-            case 'deleted':
-                // Conversation deleted
-                removeConversation(conversation.id);
-                break;
-
-            case 'read':
-                // Messages marked as read
-                updateUnreadCount(conversation.id, 0);
-                break;
-        }
-    };
-
-    // Handle MessageEvent (sent, updated, deleted, reaction, delivered, pinned)
-    const handleMessageEvent = (conversationId, event) => {
-        const { type, payload } = event;
-
-        switch (type) {
-            case 'sent':
-                handleNewMessage(payload);
-                break;
-
-            case 'updated':
-                handleMessageUpdate(payload);
-                break;
-
-            case 'deleted_for_everyone':
-                handleMessageDeletedForEveryone(payload);
-                break;
-
-            case 'reaction':
-                handleReactionUpdate(payload);
-                break;
-
-            case 'delivered':
-                handleMessageDelivered(payload);
-                break;
-
-            case 'pinned':
-                handleMessagePinned(payload);
-                break;
-
-            case 'unpinned':
-                handleMessageUnpinned(payload);
-                break;
-        }
-    };
-
-    // Handle typing indicator
-    const handleTypingEvent = (conversationId, event) => {
-        const { userId, userName, isTyping } = event;
-
-        // Don't show own typing
-        if (userId === getCurrentUserId()) return;
-
-        if (!typingUsers.value[conversationId]) {
-            typingUsers.value[conversationId] = [];
-        }
-
-        if (isTyping) {
-            // Add user to typing list
-            const existingUser = typingUsers.value[conversationId].find(u => u.id === userId);
-            if (!existingUser) {
-                typingUsers.value[conversationId].push({
-                    id: userId,
-                    name: userName,
-                    avatar: generateAvatar(userName)
-                });
-            }
-
-            // Auto-remove after 5 seconds
-            setTimeout(() => {
-                typingUsers.value[conversationId] = typingUsers.value[conversationId]
-                    .filter(u => u.id !== userId);
-            }, 5000);
-        } else {
-            // Remove user from typing list
-            typingUsers.value[conversationId] = typingUsers.value[conversationId]
-                .filter(u => u.id !== userId);
-        }
-    };
-
-    // Online user
-
-    const subscribeToGlobalPresence = () => {
-        // globalPresenceChannel = window.Echo.join('online')
-        //     .here((users) => {
-        //         console.log('👥 Online users:', users);
-        //         onlineUsers.value = users.map(user => ({
-        //             id: user.id,
-        //             name: user.name,
-        //             avatar: user.avatar_path || generateAvatar(user.name),
-        //             isOnline: true
-        //         }));
-        //     })
-        //     .joining((user) => {
-        //         console.log('✅ User came online:', user);
-        //         if (!onlineUsers.value.some(u => u.id === user.id)) {
-        //             onlineUsers.value.push({
-        //                 id: user.id,
-        //                 name: user.name,
-        //                 avatar: user.avatar_path || generateAvatar(user.name),
-        //                 isOnline: true
-        //             });
-        //         }
-        //     })
-        //     .leaving((user) => {
-        //         console.log('❌ User went offline:', user);
-        //         onlineUsers.value = onlineUsers.value.filter(u => u.id !== user.id);
-        //     });
-    };
-
-    // ==================== ONLINE STATUS HANDLERS ====================
-
-    const updateOnlineStatus = (conversationId, users) => {
-        const userIds = users.map(u => u.id);
-
-        // Update conversation list
-        const conv = conversations.value.find(c => c.id === conversationId);
-        if (conv && conv.type === 'private' && conv.receiver) {
-            conv.isOnline = userIds.includes(conv.receiver.id);
-        }
-
-        // Update active conversation
-        if (activeConversation.value?.id === conversationId && activeConversation.value.receiver) {
-            activeConversation.value.isOnline = userIds.includes(activeConversation.value.receiver.id);
-        }
-    };
-
-    const markUserOnline = (userId) => {
-        // Update all conversations where this user is the receiver
-        conversations.value.forEach(conv => {
-            if (conv.type === 'private' && conv.receiver?.id === userId) {
-                conv.isOnline = true;
-            }
-        });
-
-        // Update active conversation
-        if (activeConversation.value?.receiver?.id === userId) {
-            activeConversation.value.isOnline = true;
-        }
-    };
-
-    const markUserOffline = (userId) => {
-        conversations.value.forEach(conv => {
-            if (conv.type === 'private' && conv.receiver?.id === userId) {
-                conv.isOnline = false;
-            }
-        });
-
-        if (activeConversation.value?.receiver?.id === userId) {
-            activeConversation.value.isOnline = false;
-        }
-    };
-
-    // ==================== MESSAGE EVENT HELPERS ====================
-
-    const handleNewMessage = (incomingMsg) => {
-        const conversationId = incomingMsg.conversation_id;
-        const myId = 1;
-
-        // Check if message already exists (prevent duplicates)
-        if (messages.value.some(msg => msg.id === incomingMsg.id)) {
-            return;
-        }
-
-        console.log("event incoming");
-        console.log(incomingMsg);
-        const formatted = {
-            id: incomingMsg.id,
-            text: incomingMsg.message,
-            isMine: incomingMsg.sender.id === myId,
-            isPinned: incomingMsg.is_pinned || false,
-            time: formatTime(incomingMsg.created_at),
-            status: incomingMsg.sender.id === myId ? 'sent' : 'delivered',
-            senderName: incomingMsg.sender.id === myId ? 'You' : incomingMsg.sender.name,
-            senderAvatar: incomingMsg.sender.avatar_path || generateAvatar(incomingMsg.sender.name),
-            reactions: formatReactions(incomingMsg.reactions) || [],
-            isDeleted: false,
-            isEdited: false,
-            messageType: incomingMsg.message_type || 'text',
-            replyTo: incomingMsg.reply ? {
-                id: incomingMsg.reply.id,
-                senderName: incomingMsg.reply.sender.name,
-                text: incomingMsg.reply.message
-            } : null,
-            forwardFrom: incomingMsg.forward ? {
-                id: incomingMsg.forward.id,
-                senderName: incomingMsg.forward.sender.name,
-                text: incomingMsg.forward.message
-            } : null,
-            attachments: formatAttachments(incomingMsg.attachments),
-            seenBy: []
-        };
-
-        // Update cache
-        const cached = messageCache.get(conversationId);
-        if (!cached) {
-            messageCache.set(conversationId, {
-                messages: [formatted],
-                currentPage: 1,
-                lastPage: 1,
-                hasMore: false,
-                loading: false
-            });
-        } else {
-            if (!cached.messages.some(m => m.id === formatted.id)) {
-                cached.messages.push(formatted);
-            }
-        }
-
-        // Update UI if active conversation
-        if (activeConversation.value?.id === conversationId) {
-            messages.value.push(formatted);
-            nextTick(() => scrollToBottom());
-        }
-
-        // Update conversation list
-        updateConversationPreview(conversationId, incomingMsg);
-
-        // Increment unread if not active and not mine
-        if (activeConversation.value?.id !== conversationId && !formatted.isMine) {
-            const conv = conversations.value.find(c => c.id === conversationId);
-            if (conv) {
-                conv.unreadCount = (conv.unreadCount || 0) + 1;
-            }
-        }
-
-        // Invalidate conversation cache
-        lastConversationFetch.value = null;
-    };
-
-    const handleMessageUpdate = (messageData) => {
-        const msg = messages.value.find(m => m.id === messageData.id);
-        if (msg) {
-            msg.text = messageData.message;
-            msg.isEdited = true;
-        }
-
-        // Update cache
-        const cached = messageCache.get(messageData.conversation_id);
-        if (cached) {
-            const cachedMsg = cached.messages.find(m => m.id === messageData.id);
-            if (cachedMsg) {
-                cachedMsg.text = messageData.message;
-                cachedMsg.isEdited = true;
-            }
-        }
-
-        // Update conversation preview if it's the last message
-        updateConversationPreview(messageData.conversation_id, messageData);
-    };
-
-    const handleMessageDeletedForEveryone = (messageData) => {
-        const msg = messages.value.find(m => m.id === messageData.id);
-        if (msg) {
-            msg.isDeleted = true;
-            msg.text = 'This message was deleted';
-        }
-
-        // Update cache
-        const cached = messageCache.get(messageData.conversation_id);
-        if (cached) {
-            const cachedMsg = cached.messages.find(m => m.id === messageData.id);
-            if (cachedMsg) {
-                cachedMsg.isDeleted = true;
-                cachedMsg.text = 'This message was deleted';
-            }
-        }
-    };
-
-    const handleReactionUpdate = (reactionData) => {
-        const msg = messages.value.find(m => m.id === reactionData.message_id);
-        if (!msg) return;
-
-        // Rebuild reactions from fresh data
-        msg.reactions = buildGroupedReactions(reactionData.reactions);
-    };
-
-    const handleMessageDelivered = (statusData) => {
-        const msg = messages.value.find(m => m.id === statusData.message_id);
-        if (msg && msg.isMine) {
-            msg.status = 'delivered';
-        }
-    };
-
-    const handleMessagePinned = (messageData) => {
-        const msg = messages.value.find(m => m.id === messageData.id);
-        if (msg) {
-            msg.isPinned = true;
-        }
-
-        // Refresh pinned messages
-        if (activeConversation.value?.id === messageData.conversation_id) {
-            fetchPinnedMessages(messageData.conversation_id);
-        }
-    };
-
-    const handleMessageUnpinned = (messageData) => {
-        const msg = messages.value.find(m => m.id === messageData.id);
-        if (msg) {
-            msg.isPinned = false;
-        }
-
-        // Remove from pinned list
-        pinnedMessages.value = pinnedMessages.value.filter(m => m.id !== messageData.id);
-
-        if (pinnedMessages.value.length === 0) {
-            showPinnedBar.value = false;
-        }
-    };
-
-    // ==================== CONVERSATION EVENT HELPERS ====================
-
-    const addOrUpdateConversation = (convData) => {
-        const existing = conversations.value.find(c => c.id === convData.id);
-
-        if (existing) {
-            // Update existing
-            updateConversationInfo(convData);
-        } else {
-            // Add new conversation
-            const formatted = {
-                id: convData.id,
-                type: convData.type,
-                name: convData.name,
-                avatar: convData.meta?.avatar || generateAvatar(convData.name),
-                lastMessage: 'New conversation',
-                lastMessageTime: 'Just now',
-                unreadCount: 0,
-                isOnline: false,
-                isBlocked: false,
-                blockedByMe: false,
-                blockedByThem: false,
-                members: [],
-                settings: convData.meta || null,
-                isMuted: false,
-                receiver: null,
-                is_admin: false,
-                role: 'member',
-                canSendMessage: true
-            };
-
-            conversations.value.unshift(formatted);
-            lastConversationFetch.value = null;
-
-            // Show notification
-            console.log('🔔 New conversation added:', convData.name);
-        }
-    };
-
-    const removeConversation = (conversationId) => {
-        conversations.value = conversations.value.filter(c => c.id !== conversationId);
-
-        if (activeConversation.value?.id === conversationId) {
-            activeConversation.value = null;
-        }
-
-        messageCache.delete(conversationId);
-        unsubscribeFromConversation(conversationId);
-    };
-
-    const updateConversationInfo = (convData) => {
-        const index = conversations.value.findIndex(c => c.id === convData.id);
-        if (index === -1) return;
-
-        conversations.value[index] = {
-            ...conversations.value[index],
-            name: convData.name || conversations.value[index].name,
-            avatar: convData.meta?.avatar || conversations.value[index].avatar,
-            settings: convData.meta || conversations.value[index].settings
-        };
-
-        // Update active conversation
-        if (activeConversation.value?.id === convData.id) {
-            activeConversation.value = { ...conversations.value[index] };
-        }
-    };
-
-    const updateUnreadCount = (conversationId, count) => {
-        const conv = conversations.value.find(c => c.id === conversationId);
-        if (conv) {
-            conv.unreadCount = count;
-        }
-    };
-
-    // ==================== TYPING INDICATOR ====================
-
-    const sendTypingIndicator = (isTyping) => {
-        if (!activeConversation.value) return;
-
-        const conversationId = activeConversation.value.id;
-        const channel = conversationChannels.get(conversationId);
-
-        if (!channel) return;
-
-        channel.whisper('typing', {
-            userId: getCurrentUserId(),
-            userName: window.authUser?.name || 'User',
-            isTyping
-        });
-
-        console.log('⌨️ Sent typing indicator:', isTyping);
-    };
-
-    // Debounced typing with auto-stop
-    let typingDebounce = null;
-    const handleTypingChange = (isTyping) => {
-        if (isTyping) {
-            sendTypingIndicator(true);
-
-            clearTimeout(typingDebounce);
-            typingDebounce = setTimeout(() => {
-                sendTypingIndicator(false);
-            }, 3000);
-        } else {
-            clearTimeout(typingDebounce);
-            sendTypingIndicator(false);
-        }
-    };
-
-    // ==================== API CALLS (Keep all existing ones) ====================
-
+    // Fetch available users
     const fetchAvailableUsers = async (search = null, page = 1, append = false) => {
         if (append) availableUsersPagination.value.loading = true;
 
         try {
-            const params = { page, per_page: 20 };
-            if (search) params.search = search;
+            const params = {
+                page,
+                per_page: 20,
+            };
+
+            if (search) {
+                params.search = search;
+            }
 
             const response = await axios.get(`${API_BASE}/available-users`, { params });
+
             const data = response.data.data.data;
+
             const meta = response.data.data;
+            console.log("meta");
+            console.log(response.data.data);
 
             const users = data.map(user => ({
                 id: user.id,
@@ -698,7 +178,7 @@ export function useChat() {
             availableUsersPagination.value.loading = false;
         }
     };
-
+    // Fetch users for starting chat
     const fetchStartChatUsers = async (search = null, page = 1, append = false) => {
         if (append) {
             startChatPagination.value.loading = true;
@@ -707,10 +187,17 @@ export function useChat() {
         }
 
         try {
-            const params = { page, per_page: 20 };
-            if (search) params.search = search;
+            const params = {
+                page,
+                per_page: 20,
+            };
+
+            if (search) {
+                params.search = search;
+            }
 
             const response = await axios.get(`${API_BASE}/available-users`, { params });
+
             const data = response.data.data.data;
             const meta = response.data.data;
 
@@ -742,26 +229,53 @@ export function useChat() {
         }
     };
 
+    // Load more available users
     const loadMoreAvailableUsers = async () => {
-        if (!availableUsersPagination.value.hasMore || availableUsersPagination.value.loading) return;
-        await fetchAvailableUsers(searchQuery.value, availableUsersPagination.value.currentPage + 1, true);
+        if (
+            !availableUsersPagination.value.hasMore ||
+            availableUsersPagination.value.loading
+        ) return;
+
+        await fetchAvailableUsers(
+            searchQuery.value,
+            availableUsersPagination.value.currentPage + 1,
+            true
+        );
     };
 
+    // Search available users
     const searchAvailableUsers = async () => {
         availableUsersPagination.value.currentPage = 1;
         await fetchAvailableUsers(searchQuery.value, 1, false);
     };
 
+
+    //* Load more users in start chat modal (infinite scroll)
     const loadMoreStartChatUsers = async () => {
-        if (!startChatPagination.value.hasMore || startChatPagination.value.loading) return;
-        await fetchStartChatUsers(null, startChatPagination.value.currentPage + 1, true);
+        if (
+            !startChatPagination.value.hasMore ||
+            startChatPagination.value.loading
+        ) {
+            return;
+        }
+
+        await fetchStartChatUsers(
+            null,
+            startChatPagination.value.currentPage + 1,
+            true
+        );
     };
 
+    // Search users in start chat modal
     const searchStartChatUsers = async (query) => {
+        // Reset pagination for new search
         startChatPagination.value.currentPage = 1;
+
+        // Fetch users with search query
         await fetchStartChatUsers(query, 1, false);
     };
 
+    // Fetch group members
     const fetchGroupMembers = async (page = 1, append = false) => {
         if (append) groupMembersPagination.value.loading = true;
 
@@ -769,16 +283,18 @@ export function useChat() {
             const conversationId = activeConversation.value?.id;
             if (!conversationId) return;
 
-            const response = await axios.get(`${API_BASE}/group/${conversationId}/members`, {
-                params: { page, per_page: 20 }
-            });
-
+            const response = await axios.get(
+                `${API_BASE}/group/${conversationId}/members`,
+                { params: { page, per_page: 20 } }
+            );
+            // Array of members
             const data = response.data.data || [];
 
+            // Map the members correctly
             const members = data.map(item => ({
                 id: item.user.id,
                 name: item.user.name,
-                role: item.role,
+                role: item.role, // role is at top level
                 avatar: item.user.avatar_path || generateAvatar(item.user.name),
             }));
 
@@ -788,7 +304,8 @@ export function useChat() {
                 groupMembers.value = members;
             }
 
-            const paginationMeta = response.data.meta || {};
+            // Handle pagination safely
+            const paginationMeta = response.data.meta || {}; // adjust if your API returns meta
             groupMembersPagination.value = {
                 currentPage: paginationMeta.current_page || page,
                 lastPage: paginationMeta.last_page || page,
@@ -803,26 +320,25 @@ export function useChat() {
         }
     };
 
-    const fetchOnlineUsers = async () => {
-        try {
-            const response = await axios.get(`${API_BASE}/online-users`);
-            onlineUsers.value = response.data.data.map(user => ({
-                id: user.id,
-                name: user.name,
-                avatar: user.avatar_path || generateAvatar(user.name),
-                isOnline: true
-            }));
-        } catch (error) {
-            console.error('Failed to fetch online users:', error);
-        }
-    };
-
+    // Load more group members
     const loadMoreGroupMembers = async () => {
-        if (!groupMembersPagination.value.hasMore || groupMembersPagination.value.loading) return;
-        await fetchGroupMembers(groupMembersPagination.value.currentPage + 1, true);
+        if (
+            !groupMembersPagination.value.hasMore ||
+            groupMembersPagination.value.loading
+        ) return;
+
+        await fetchGroupMembers(
+            groupMembersPagination.value.currentPage + 1,
+            true
+        );
     };
 
+
+
+
+    // Fetch conversations with CACHING and PAGINATION
     const fetchConversations = async (query = null, page = 1, append = false) => {
+        // Use cache for first page if no query
         const now = Date.now();
         if (
             page === 1 &&
@@ -835,10 +351,12 @@ export function useChat() {
             return;
         }
 
+        // Set loading states
         if (append) conversationPagination.value.loading = true;
         else loading.value = true;
 
         try {
+            // Prepare request params
             const params = { page, per_page: 30 };
             if (query) params.query = query;
 
@@ -847,6 +365,9 @@ export function useChat() {
             const convs = data.data;
             const meta = data.meta;
 
+            console.log("convs");
+            console.log(convs);
+            // Format conversations for frontend
             const formattedConversations = convs.map(conv => {
                 const name = conv.type === 'private' ? conv.receiver?.name : conv.name;
                 const avatar =
@@ -884,14 +405,19 @@ export function useChat() {
                 };
             });
 
+            console.log("formattedConversations");
+            console.log(formattedConversations);
+
+            // Append older conversations or replace
             if (append) {
                 conversations.value = [...conversations.value, ...formattedConversations];
             } else {
                 conversations.value = formattedConversations;
-                conversationCache.value = formattedConversations;
+                conversationCache.value = formattedConversations; // update cache
                 lastConversationFetch.value = Date.now();
             }
 
+            // Update pagination state
             conversationPagination.value = {
                 currentPage: meta.current_page,
                 lastPage: meta.last_page,
@@ -906,10 +432,37 @@ export function useChat() {
         }
     };
 
+    const moveConversationToTop = (conversationId, newMessage) => {
+        // Find conversation
+        const index = conversations.value.findIndex(c => c.id === conversationId);
+
+        if (index !== -1) {
+            // Update last message and time
+            conversations.value[index] = {
+                ...conversations.value[index],
+                lastMessage: newMessage.text || newMessage.message,
+                lastMessageTime: formatTime(newMessage.created_at || new Date())
+            };
+
+            // Move conversation to top
+            const [conv] = conversations.value.splice(index, 1);
+            conversations.value.unshift(conv);
+        } else {
+            // Optional: conversation not in list (maybe new), fetch it or add it
+            fetchConversations(); // or add manually
+        }
+    };
+
+
+    // Load more conversations (for infinite scroll)
     const loadMoreConversations = async () => {
-        if (!conversationPagination.value.hasMore || conversationPagination.value.loading) return;
+        if (!conversationPagination.value.hasMore || conversationPagination.value.loading) {
+            return;
+        }
         await fetchConversations(null, conversationPagination.value.currentPage + 1, true);
     };
+
+    // Fetch messages with CACHING and PAGINATION 
 
     const fetchMessages = async (conversationId, page = 1, append = false) => {
         const cached = messageCache.get(conversationId);
@@ -932,6 +485,9 @@ export function useChat() {
             const data = response.data;
             const meta = data.meta;
 
+            console.log(' Fetched messages:', data);
+
+            // Reverse backend data to have oldest → newest for display
             const formattedMessages = data.data
                 .map(msg => ({
                     id: msg.id,
@@ -951,11 +507,14 @@ export function useChat() {
                         senderName: msg.reply.sender.name,
                         text: msg.reply.message
                     } : null,
+
                     forwardFrom: msg.forward ? {
                         id: msg.forward.id,
                         senderName: msg.forward.sender.name,
                         text: msg.forward.message
                     } : null,
+
+                    //  FIX: Format ALL attachments, not just first one
                     attachments: formatAttachments(msg.attachments),
                     seenBy: msg.statuses
                         ?.filter(s => s.status === 'seen')
@@ -965,8 +524,11 @@ export function useChat() {
                             avatar: s.avatar_path || generateAvatar(s.name || 'User'),
                             seenAt: formatTime(s.created_at || msg.created_at)
                         })) || []
+
                 }))
                 .reverse();
+
+            console.log(" Formatted Messages:", formattedMessages);
 
             if (append) {
                 messages.value = [...formattedMessages, ...messages.value];
@@ -998,12 +560,17 @@ export function useChat() {
         }
     };
 
+    // Fetch pinned messages for a conversation
     const fetchPinnedMessages = async (conversationId) => {
         pinnedMessagesLoading.value = true;
 
         try {
             const response = await axios.get(`${API_BASE}/messages/${conversationId}/pined-messages`);
+
+
             const data = response.data.data;
+            console.log("Pinned Messages");
+            console.log(data);
 
             pinnedMessages.value = data.map(msg => ({
                 id: msg.id,
@@ -1030,6 +597,7 @@ export function useChat() {
                 } : null,
             }));
 
+            // Auto-show pinned bar if there are pinned messages
             showPinnedBar.value = pinnedMessages.value.length > 0;
 
         } catch (error) {
@@ -1040,6 +608,7 @@ export function useChat() {
         }
     };
 
+    // Toggle pin/unpin a message
     const togglePinMessageAPI = async (messageId) => {
         try {
             const response = await axios.post(`${API_BASE}/messages/${messageId}/toggle-pin`);
@@ -1057,6 +626,9 @@ export function useChat() {
             const response = await axios.get(`${API_BASE}/conversations/${conversationId}/media`);
             const data = response.data.data;
 
+            console.log('📚 Media Library Response:', data);
+
+            // Format media (images & videos)
             mediaLibrary.value.media = (data.media || []).map(item => ({
                 id: item.id,
                 type: item.type,
@@ -1065,6 +637,7 @@ export function useChat() {
                 createdAt: item.created_at
             }));
 
+            // Format audio
             mediaLibrary.value.audio = (data.audio || []).map(item => ({
                 id: item.id,
                 type: item.type,
@@ -1074,6 +647,7 @@ export function useChat() {
                 createdAt: item.created_at
             }));
 
+            // Format files
             mediaLibrary.value.files = (data.files || []).map(item => ({
                 id: item.id,
                 type: item.type,
@@ -1083,14 +657,18 @@ export function useChat() {
                 createdAt: item.created_at
             }));
 
+            // Format links
             mediaLibrary.value.links = (data.links || []).map(item => ({
                 message_id: item.message_id,
                 url: item.url,
                 created_at: item.created_at
             }));
 
+            console.log('📚 Formatted Media Library:', mediaLibrary.value);
+
         } catch (error) {
             console.error('Failed to fetch media library:', error);
+            // Reset on error
             mediaLibrary.value = {
                 media: [],
                 audio: [],
@@ -1102,17 +680,26 @@ export function useChat() {
         }
     };
 
+    // 4. ADD HANDLER FUNCTION (add after other handlers, around line 1200):
+
+    // Handle open media library
     const handleOpenMediaLibrary = async () => {
         if (!activeConversation.value) return;
+
         modals.value.mediaLibrary = true;
         await fetchMediaLibrary(activeConversation.value.id);
     };
 
+    // Load more messages (older messages - for infinite scroll UP)
     const loadMoreMessages = async (conversationId) => {
-        if (!messagePagination.value.hasMore || messagePagination.value.loading) return;
+
+        if (!messagePagination.value.hasMore || messagePagination.value.loading) {
+            return;
+        }
         await fetchMessages(conversationId, messagePagination.value.currentPage + 1, true);
     };
 
+    // Start private conversation
     const startPrivateConversationAPI = async (userId) => {
         try {
             const response = await axios.post(`${API_BASE}/conversations/private`, {
@@ -1120,9 +707,9 @@ export function useChat() {
             });
 
             const conv = response.data.data;
+
             const blocked = conv.blocked || { by_me: false, by_them: false };
             const isBlocked = conv.is_blocked || blocked.by_me || blocked.by_them;
-
             const newConv = {
                 id: conv.id,
                 type: conv.type || 'private',
@@ -1151,6 +738,7 @@ export function useChat() {
             const existing = conversations.value.find(c => c.id === newConv.id);
             if (!existing) {
                 conversations.value.unshift(newConv);
+                // Invalidate cache
                 lastConversationFetch.value = null;
             }
 
@@ -1161,18 +749,29 @@ export function useChat() {
         }
     };
 
-    const sendMessageWithFilesAPI = async (formData) => {
+    // Send message
+    const sendMessageAPI = async (conversationId, messageData) => {
         try {
-            const response = await axios.post(`${API_BASE}/messages`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+            const response = await axios.post(`${API_BASE}/messages`, {
+                conversation_id: conversationId,
+                message: messageData.text,
+                reply_to_message_id: messageData.replyToId || null
             });
+
+            // Update cache with new message
+            const cached = messageCache.get(conversationId);
+            if (cached) {
+                // Will be updated by handleSendMessage
+            }
+
             return response.data.data;
         } catch (error) {
-            console.error('Failed to send message with files:', error);
+            console.error('Failed to send message:', error);
             throw error;
         }
     };
 
+    // Update message
     const updateMessageAPI = async (messageId, newText) => {
         try {
             const response = await axios.put(`${API_BASE}/messages/${messageId}`, {
@@ -1185,6 +784,7 @@ export function useChat() {
         }
     };
 
+    // Delete message for me
     const deleteMessageForMeAPI = async (messageIds) => {
         try {
             await axios.delete(`${API_BASE}/messages/delete-for-me`, {
@@ -1196,6 +796,7 @@ export function useChat() {
         }
     };
 
+    // Delete message for everyone
     const deleteMessageForEveryoneAPI = async (messageIds) => {
         try {
             await axios.delete(`${API_BASE}/messages/delete-for-everyone`, {
@@ -1207,10 +808,12 @@ export function useChat() {
         }
     };
 
+    // Mark messages as seen
     const markMessagesAsSeen = async (conversationId) => {
         try {
             await axios.get(`${API_BASE}/messages/seen/${conversationId}`);
 
+            // Update unread count in conversation list
             const conv = conversations.value.find(c => c.id === conversationId);
             if (conv) {
                 conv.unreadCount = 0;
@@ -1220,11 +823,16 @@ export function useChat() {
         }
     };
 
+    // Toggle reaction
     const toggleReactionAPI = async (messageId, emoji) => {
         try {
             const response = await axios.post(`${API_BASE}/messages/${messageId}/reaction`, {
                 reaction: emoji
             });
+
+            console.log("Reactopm");
+            console.log(response.data.data);
+
             return response.data.data;
         } catch (error) {
             console.error('Failed to toggle reaction:', error);
@@ -1232,6 +840,7 @@ export function useChat() {
         }
     };
 
+    // Get reactions for a message
     const getReactionsAPI = async (messageId) => {
         try {
             const response = await axios.get(`${API_BASE}/messages/${messageId}/reaction`);
@@ -1242,7 +851,9 @@ export function useChat() {
         }
     };
 
+    // Create group
     const createGroupAPI = async (groupData) => {
+
         try {
             const response = await axios.post(`${API_BASE}/conversations`, {
                 type: 'group',
@@ -1254,7 +865,9 @@ export function useChat() {
                 }
             });
 
+            // Invalidate conversation cache
             lastConversationFetch.value = null;
+
             return response.data.data;
         } catch (error) {
             console.error('Failed to create group:', error);
@@ -1262,6 +875,8 @@ export function useChat() {
         }
     };
 
+
+    // Add members to group
     const addMembersToGroupAPI = async (conversationId, memberIds) => {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/members/add`, {
@@ -1274,6 +889,7 @@ export function useChat() {
         }
     };
 
+    // Remove member from group
     const removeMemberAPI = async (conversationId, memberIds) => {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/members/remove`, {
@@ -1286,6 +902,7 @@ export function useChat() {
         }
     };
 
+    // Add admin
     const addAdminAPI = async (conversationId, userIds) => {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/admins/add`, {
@@ -1298,11 +915,14 @@ export function useChat() {
         }
     };
 
+    // Remove admin
     const removeAdminAPI = async (conversationId, userIds) => {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/admins/remove`, {
                 member_ids: userIds
             });
+            console.log("response");
+            console.log(response);
             return response.data;
         } catch (error) {
             console.error('Failed to remove admin:', error);
@@ -1310,9 +930,12 @@ export function useChat() {
         }
     };
 
+    // Leave group
     const leaveGroupAPI = async (conversationId) => {
         try {
             await axios.post(`${API_BASE}/group/${conversationId}/leave`);
+
+            // Clear caches
             messageCache.delete(conversationId);
             lastConversationFetch.value = null;
         } catch (error) {
@@ -1321,22 +944,35 @@ export function useChat() {
         }
     };
 
+    // Update group info
     const updateGroupInfoAPI = async (conversationId, data) => {
         try {
             const formData = new FormData();
 
+            // Conversation name
             if (data.name) {
                 formData.append('name', data.name);
             }
 
+            // Group fields
             if (data.group) {
                 Object.keys(data.group).forEach(key => {
                     let value = data.group[key];
+
+                    // Skip null/undefined
                     if (value === null || value === undefined) return;
+
+                    // Booleans must be 1/0 for FormData
                     if (typeof value === 'boolean') {
                         value = value ? 1 : 0;
                     }
-                    formData.append(`group[${key}]`, value);
+
+                    // Special case: avatar file
+                    if (key === 'avatar') {
+                        // formData.append(`group[avatar]`, value); // file object
+                    } else {
+                        formData.append(`group[${key}]`, value);
+                    }
                 });
             }
 
@@ -1353,6 +989,9 @@ export function useChat() {
         }
     };
 
+
+
+    //  Update the muteGroupAPI function to accept minutes parameter:
     const muteGroupAPI = async (conversationId, minutes = 0) => {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/mute`, {
@@ -1365,16 +1004,21 @@ export function useChat() {
         }
     };
 
+    // Toggle block user
     const toggleBlockAPI = async (userId) => {
         try {
             const response = await axios.post(`${API_BASE}/users/${userId}/block-toggle`);
+            console.log("block");
+            console.log(response.data);
             return response.data;
+
         } catch (error) {
             console.error('Failed to toggle block:', error);
             throw error;
         }
     };
 
+    // Toggle restrict user
     const toggleRestrictAPI = async (userId) => {
         try {
             const response = await axios.post(`${API_BASE}/users/${userId}/restrict-toggle`);
@@ -1385,9 +1029,12 @@ export function useChat() {
         }
     };
 
+    // Delete conversation
     const deleteConversationAPI = async (conversationId) => {
         try {
             await axios.delete(`${API_BASE}/conversations/${conversationId}`);
+
+            // Clear caches
             messageCache.delete(conversationId);
             lastConversationFetch.value = null;
         } catch (error) {
@@ -1396,9 +1043,12 @@ export function useChat() {
         }
     };
 
+    // Delete group
     const deleteGroupAPI = async (conversationId) => {
         try {
             await axios.delete(`${API_BASE}/group/${conversationId}/delete-group`);
+
+            // Clear caches
             messageCache.delete(conversationId);
             lastConversationFetch.value = null;
         } catch (error) {
@@ -1407,6 +1057,7 @@ export function useChat() {
         }
     };
 
+    // Toggle mute
     const toggleMuteAPI = async (conversationId, isMuted) => {
         try {
             const response = await axios.post(`${API_BASE}/conversations/${conversationId}/mute`, {
@@ -1419,6 +1070,7 @@ export function useChat() {
         }
     };
 
+    // Update group avatar
     const updateGroupAvatarAPI = async (conversationId, avatarFile) => {
         try {
             const formData = new FormData();
@@ -1437,6 +1089,7 @@ export function useChat() {
         }
     };
 
+    // Update group description
     const updateGroupDescriptionAPI = async (conversationId, description) => {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/update`, {
@@ -1448,7 +1101,7 @@ export function useChat() {
             throw error;
         }
     };
-
+    // Update group description
     const updateGroupNameAPI = async (conversationId, name) => {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/update`, {
@@ -1461,8 +1114,10 @@ export function useChat() {
         }
     };
 
+    // Fetch pending members (for approval system)
     const fetchPendingMembers = async (conversationId) => {
         try {
+            // const response = await axios.get(`${API_BASE}/group/${conversationId}/pending-members`);
             const response = await axios.get(`${API_BASE}/group/${conversationId}/members`);
             pendingMembers.value = response.data.data.map(item => ({
                 id: item.user.id,
@@ -1475,6 +1130,7 @@ export function useChat() {
         }
     };
 
+    // Approve member
     const approveMemberAPI = async (conversationId, userId) => {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/approve-member`, {
@@ -1487,6 +1143,7 @@ export function useChat() {
         }
     };
 
+    // Reject member
     const rejectMemberAPI = async (conversationId, userId) => {
         try {
             const response = await axios.post(`${API_BASE}/group/${conversationId}/reject-member`, {
@@ -1503,16 +1160,123 @@ export function useChat() {
         try {
             const response = await axios.post(
                 `${API_BASE}/messages/${messageId}/forward`,
-                { conversation_ids: conversationIds }
+                {
+                    conversation_ids: conversationIds,
+                }
             );
+
             return response.data.data;
+
         } catch (error) {
             console.error('Failed to forward message:', error);
             throw error;
         }
     };
 
+
+    // ==================== REAL-TIME UPDATE HANDLER  (For websocket to get real-time updates)====================
+
+    const handleNewMessage = (incomingMsg) => {
+        const conversationId = incomingMsg.conversation_id;
+
+        // Check if the message already exists in UI
+        if (
+            activeConversation.value?.id === conversationId &&
+            messages.value.some(msg => msg.id === incomingMsg.id)
+        ) {
+            return; // Ignore duplicate in active conversation
+        }
+
+        const formatted = {
+            id: incomingMsg.id,
+            text: incomingMsg.message,
+            isMine: incomingMsg.sender.id === getCurrentUserId(),
+            isPinned: incomingMsg.is_pinned,
+            time: formatTime(incomingMsg.created_at),
+            status: 'delivered',
+            senderName: incomingMsg.sender.id === getCurrentUserId() ? 'You' : incomingMsg.sender.name,
+            senderAvatar: incomingMsg.sender.avatar_path || generateAvatar(incomingMsg.sender.name),
+            reactions: [],
+            isDeleted: false,
+            isEdited: false,
+            replyTo: incomingMsg.reply
+                ? {
+                    senderName: incomingMsg.reply.sender.name,
+                    text: incomingMsg.reply.message
+                }
+                : null,
+            file: incomingMsg.attachments?.length > 0 ? formatAttachment(incomingMsg.attachments[0]) : null,
+            seenBy: []
+        };
+
+        // --- Update cache ---
+        const cached = messageCache.get(conversationId);
+        if (!cached) {
+            messageCache.set(conversationId, {
+                messages: [formatted],
+                currentPage: 1,
+                lastPage: 1,
+                hasMore: false,
+                loading: false
+            });
+        } else {
+            if (!cached.messages.some(m => m.id === formatted.id)) {
+                cached.messages.push(formatted);
+            }
+            messageCache.set(conversationId, cached);
+        }
+
+        // --- Update UI if active conversation ---
+        if (activeConversation.value?.id === conversationId) {
+            messages.value.push(formatted);
+            nextTick(() => scrollToBottom());
+        }
+
+        // --- Update conversation list ---
+        const index = conversations.value.findIndex(c => c.id === conversationId);
+
+        if (index !== -1) {
+            const conv = conversations.value[index];
+            conv.lastMessage = formatted.text;
+            conv.lastMessageTime = formatted.time;
+
+            // Increment unread if not active
+            if (activeConversation.value?.id !== conversationId) {
+                conv.unreadCount = (conv.unreadCount || 0) + 1;
+            }
+
+            // Move to top
+            conversations.value.splice(index, 1);
+            conversations.value.unshift(conv);
+        } else {
+            // Optional: if conversation is not in the list, add it (useful for brand new convs)
+            conversations.value.unshift({
+                id: conversationId,
+                name: formatted.senderName,
+                avatar: formatted.senderAvatar,
+                lastMessage: formatted.text,
+                lastMessageTime: formatted.time,
+                unreadCount: 1,
+                type: 'private', // adjust as needed
+                members: [formatted.senderName], // adjust as needed
+                isMuted: false,
+                isBlocked: false
+            });
+        }
+
+        // --- Invalidate conversation cache so next fetch refreshes if needed ---
+        lastConversationFetch.value = null;
+    };
+
+    // Clear all caches (for logout or manual refresh)
+    const clearCache = () => {
+        messageCache.clear();
+        conversationCache.value = [];
+        lastConversationFetch.value = null;
+    };
+
     // ==================== HELPER FUNCTIONS ====================
+
 
     const formatTime = (datetime) => {
         const date = parseLocalDateTime(datetime);
@@ -1531,16 +1295,25 @@ export function useChat() {
         });
     };
 
+
+
     const parseLocalDateTime = (datetime) => {
         if (!datetime) return null;
+
+        // Already Date object
         if (datetime instanceof Date) return datetime;
+
         if (typeof datetime !== 'string') return null;
 
+        // Convert: "YYYY-MM-DD HH:mm:ss" → "YYYY-MM-DDTHH:mm:ss"
         const iso = datetime.replace(' ', 'T');
+
         const date = new Date(iso);
 
         return isNaN(date.getTime()) ? null : date;
     };
+
+
 
     const formatReactions = (reactions) => {
         if (!reactions || !reactions.reactions) return [];
@@ -1551,6 +1324,7 @@ export function useChat() {
         }));
     };
 
+    // Update formatAttachment to handle single or multiple files
     const formatAttachment = (attachment) => {
         return {
             id: attachment.id,
@@ -1561,6 +1335,7 @@ export function useChat() {
         };
     };
 
+    // Format multiple attachments
     const formatAttachments = (attachments) => {
         if (!attachments || attachments.length === 0) return null;
         return attachments.map(att => formatAttachment(att));
@@ -1580,66 +1355,6 @@ export function useChat() {
 
     const getCurrentUserId = () => {
         return window.authUser?.id || 1;
-    };
-
-    const buildGroupedReactions = (list) => {
-        const map = {};
-
-        list.forEach(item => {
-            if (!map[item.reaction]) {
-                map[item.reaction] = {
-                    emoji: item.reaction,
-                    count: 0
-                };
-            }
-            map[item.reaction].count++;
-        });
-
-        return Object.values(map);
-    };
-
-    const buildLastMessagePreview = (message) => {
-        if (!message) return '';
-
-        let previewText = message.message || '';
-
-        if (!previewText && message.attachments?.length > 0) {
-            const attachmentTypes = message.attachments.map(a => a.type);
-
-            if (attachmentTypes.includes('image')) previewText = '📷 Photo';
-            else if (attachmentTypes.includes('video')) previewText = '🎥 Video';
-            else if (attachmentTypes.includes('audio')) previewText = '🎵 Audio';
-            else previewText = '📎 File';
-
-            if (message.attachments.length > 1) {
-                previewText += ` +${message.attachments.length - 1}`;
-            }
-        }
-
-        return previewText;
-    };
-
-    const updateConversationPreview = (conversationId, message) => {
-        const index = conversations.value.findIndex(c => c.id === conversationId);
-        if (index === -1) return;
-
-        const conv = conversations.value[index];
-
-        conversations.value[index] = {
-            ...conv,
-            lastMessage: buildLastMessagePreview(message),
-            lastMessageTime: formatTime(message.created_at || new Date())
-        };
-
-        // Move to top
-        const [movedConv] = conversations.value.splice(index, 1);
-        conversations.value.unshift(movedConv);
-    };
-
-    const clearCache = () => {
-        messageCache.clear();
-        conversationCache.value = [];
-        lastConversationFetch.value = null;
     };
 
     // ==================== COMPUTED ====================
@@ -1684,11 +1399,12 @@ export function useChat() {
         return activeConversation.value.avatar || activeConversation.value.members?.[0]?.avatar || '';
     });
 
-    // ==================== UI METHODS ====================
+    // ==================== METHODS ====================
 
     const selectConversation = async (conversation) => {
         activeConversation.value = conversation;
 
+        // Reset pagination for new conversation
         messagePagination.value = {
             currentPage: 1,
             lastPage: 1,
@@ -1697,10 +1413,6 @@ export function useChat() {
         };
 
         await fetchMessages(conversation.id);
-
-        // Subscribe to conversation channel
-        subscribeToConversation(conversation.id);
-
         nextTick(() => {
             scrollToBottom();
         });
@@ -1717,22 +1429,34 @@ export function useChat() {
         } catch (error) {
             console.error('Failed to start chat:', error);
         }
-    };
+    };    
 
+
+    // Updated handleStartChatUserSelect to check for existing conversation
     const handleStartChatUserSelect = async (user) => {
         try {
+            // Check if conversation already exists with this user
             const existingConv = conversations.value.find(
                 c => c.type === 'private' && c.receiver?.id === user.id
             );
 
             if (existingConv) {
+                // Select existing conversation
+                console.log('Opening existing conversation with', user.name);
                 selectConversation(existingConv);
             } else {
+                // Create new private conversation
+                console.log('Creating new conversation with', user.name);
                 const newConv = await startPrivateConversationAPI(user.id);
+
+                // Select the new conversation
                 selectConversation(newConv);
             }
 
+            // Close the modal
             modals.value.startChat = false;
+
+            // Clear search/users state
             startChatUsers.value = [];
 
         } catch (error) {
@@ -1741,6 +1465,7 @@ export function useChat() {
         }
     };
 
+    // Updated handleSendMessage to support file attachments
     const handleSendMessage = async (filesFromInput = null) => {
         const files = filesFromInput || selectedFiles.value;
 
@@ -1781,6 +1506,7 @@ export function useChat() {
                 }
 
                 if (files.length > 0) {
+
                     files.forEach((fileObj, index) => {
                         formData.append(`attachments[${index}][path]`, fileObj.file);
                     });
@@ -1803,9 +1529,10 @@ export function useChat() {
                     formData.append('message_type', 'text');
                 }
 
+
                 sentMsg = await sendMessageWithFilesAPI(formData);
 
-                // Optimistic UI update (will be replaced by WebSocket event)
+
                 const newMsg = {
                     id: sentMsg.id,
                     text: sentMsg.message,
@@ -1832,10 +1559,7 @@ export function useChat() {
                     seenBy: []
                 };
 
-                // Only add if not already exists (WebSocket might have beaten us)
-                if (!messages.value.some(m => m.id === newMsg.id)) {
-                    messages.value.push(newMsg);
-                }
+                messages.value.push(newMsg);
 
                 const cached = messageCache.get(activeConversation.value.id);
                 if (!cached) {
@@ -1850,9 +1574,12 @@ export function useChat() {
                     if (!cached.messages.some(m => m.id === newMsg.id)) {
                         cached.messages.push(newMsg);
                     }
+                    messageCache.set(activeConversation.value.id, cached);
                 }
 
                 replyingTo.value = null;
+
+                // Update conversation list with proper preview
                 updateConversationPreview(activeConversation.value.id, sentMsg);
             }
 
@@ -1864,11 +1591,69 @@ export function useChat() {
             });
 
         } catch (error) {
+            // console.error(' Failed to send message:', error);
             if (error.response) {
                 console.error('Response error:', error.response.data);
             }
         }
     };
+
+
+    //  Update conversation preview in sidebar
+    const updateConversationPreview = (conversationId, message) => {
+        const index = conversations.value.findIndex(c => c.id === conversationId);
+        if (index === -1) return;
+
+        const conv = conversations.value[index];
+
+        conversations.value[index] = {
+            ...conv,
+            lastMessage: buildLastMessagePreview(message),
+            lastMessageTime: formatTime(message.created_at || new Date())
+        };
+
+        // Move conversation to top
+        const [movedConv] = conversations.value.splice(index, 1);
+        conversations.value.unshift(movedConv);
+    };
+
+    const buildLastMessagePreview = (message) => {
+        if (!message) return '';
+
+        let previewText = message.message || '';
+
+        if (!previewText && message.attachments?.length > 0) {
+            const attachmentTypes = message.attachments.map(a => a.type);
+
+            if (attachmentTypes.includes('image')) previewText = '📷 Photo';
+            else if (attachmentTypes.includes('video')) previewText = '🎥 Video';
+            else if (attachmentTypes.includes('audio')) previewText = '🎵 Audio';
+            else previewText = '📎 File';
+
+            if (message.attachments.length > 1) {
+                previewText += ` +${message.attachments.length - 1}`;
+            }
+        }
+
+        return previewText;
+    };
+
+
+    // New API method for sending files
+    const sendMessageWithFilesAPI = async (formData) => {
+        try {
+            const response = await axios.post(`${API_BASE}/messages`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            return response.data.data;
+        } catch (error) {
+            console.error('Failed to send message with files:', error);
+            throw error;
+        }
+    };
+
 
     const replyToMessage = (message) => {
         replyingTo.value = message;
@@ -1914,15 +1699,20 @@ export function useChat() {
                     isEdited: false,
                     messageType: sentMsg.message_type || 'text',
                     replyTo: null,
-                    forwardFrom: sentMsg.forward?.id ? {
-                        id: sentMsg.forward.id,
-                        senderName: sentMsg.forward.sender?.name || '',
-                        text: sentMsg.forward.message || '',
-                    } : null,
+
+                    forwardFrom: sentMsg.forward?.id
+                        ? {
+                            id: sentMsg.forward.id,
+                            senderName: sentMsg.forward.sender?.name || '',
+                            text: sentMsg.forward.message || '',
+                        }
+                        : null,
+
                     attachments: formatAttachments(sentMsg.attachments),
                     seenBy: [],
                 };
 
+                //If currently opened conversation 
                 if (sentMsg.conversation_id === activeConversation.value?.id) {
                     if (!messages.value.some((m) => m.id === newMsg.id)) {
                         messages.value.push(newMsg);
@@ -1933,7 +1723,9 @@ export function useChat() {
                     });
                 }
 
+                // Smart Message Cache Handling 
                 let cached = messageCache.get(sentMsg.conversation_id);
+
                 if (!cached) {
                     cached = {
                         messages: [],
@@ -1949,19 +1741,23 @@ export function useChat() {
                     cached.messages.push(newMsg);
                 }
 
+                // Sidebar Conversation Preview Update 
                 updateConversationPreview(sentMsg.conversation_id, sentMsg);
             });
 
+            // Close modal
             modals.value.forwardMessage = false;
         } catch (error) {
             console.error('Forward failed:', error);
         }
     };
 
+   
     const handleTogglePin = async (message) => {
         const previousState = message.isPinned;
 
         try {
+            // Instant UI update
             const index = messages.value.findIndex(m => m.id === message.id);
 
             if (index !== -1) {
@@ -1971,8 +1767,10 @@ export function useChat() {
                 };
             }
 
+            // Server update
             await togglePinMessageAPI(message.id);
 
+            // Cache update
             const cached = messageCache.get(activeConversation.value?.id);
             if (cached) {
                 const cachedIndex = cached.messages.findIndex(m => m.id === message.id);
@@ -1984,6 +1782,7 @@ export function useChat() {
                 }
             }
 
+            // Refresh pinned list
             if (activeConversation.value) {
                 await fetchPinnedMessages(activeConversation.value.id);
             }
@@ -1991,6 +1790,7 @@ export function useChat() {
         } catch (error) {
             console.error('Failed to toggle pin:', error);
 
+            // Rollback UI state
             const index = messages.value.findIndex(m => m.id === message.id);
             if (index !== -1) {
                 messages.value[index] = {
@@ -2003,6 +1803,7 @@ export function useChat() {
         }
     };
 
+
     const closePinnedBar = () => {
         showPinnedBar.value = false;
     };
@@ -2012,6 +1813,8 @@ export function useChat() {
             showPinnedBar.value = true;
         }
     };
+
+
 
     const showDeleteMenu = (message) => {
         messageToDelete.value = message;
@@ -2023,6 +1826,7 @@ export function useChat() {
             await deleteMessageForMeAPI([messageToDelete.value.id]);
             messages.value = messages.value.filter(m => m.id !== messageToDelete.value.id);
 
+            // Update cache
             const cached = messageCache.get(activeConversation.value.id);
             if (cached) {
                 cached.messages = cached.messages.filter(m => m.id !== messageToDelete.value.id);
@@ -2043,6 +1847,7 @@ export function useChat() {
                 msg.text = 'This message was deleted';
             }
 
+            // Update cache
             const cached = messageCache.get(activeConversation.value.id);
             if (cached) {
                 const cachedMsg = cached.messages.find(m => m.id === messageToDelete.value.id);
@@ -2058,6 +1863,8 @@ export function useChat() {
         }
     };
 
+    // ==================== REACTIONS ====================
+
     const openReactionModal = async ({ message, reactions }) => {
         reactionModalData.value = {
             visible: true,
@@ -2068,6 +1875,7 @@ export function useChat() {
         modals.value.reaction = true;
     };
 
+    // Fetch reaction users
     const handleReactionFetch = async ({ messageId, callback, errorCallback }) => {
         try {
             const response = await getReactionsAPI(messageId);
@@ -2096,6 +1904,7 @@ export function useChat() {
         }
     };
 
+    // ==================== CLOSE REACTION MODAL ====================
     const closeReactionModal = () => {
         modals.value.reaction = false;
         reactionModalData.value = {
@@ -2111,10 +1920,13 @@ export function useChat() {
         selectedMessageDetails.value = message;
         modals.value.messageDetails = true;
     };
+    // old
 
+    // Start Chat
     const openStartChatModal = async () => {
         modals.value.startChat = true;
 
+        // Reset state
         startChatUsers.value = [];
         startChatPagination.value = {
             currentPage: 1,
@@ -2123,6 +1935,7 @@ export function useChat() {
             loading: false,
         };
 
+        // Fetch initial users
         await fetchStartChatUsers(null, 1, false);
     };
 
@@ -2143,19 +1956,33 @@ export function useChat() {
         console.log('Starting video call');
     };
 
+    // Group Management
+    const openCreateGroup = async () => {
+        openCreateGroupModal();
+
+        // reset pagination
+        await fetchAvailableUsers(null, 1, false);
+    };
+
     const openCreateGroupModal = async () => {
         modals.value.createGroup = true;
+
+        // reset & fetch users
         availableUsers.value = [];
         availableUsersPagination.value.currentPage = 1;
+
         await fetchAvailableUsers(null, 1, false);
     };
 
     const openAddMemberModal = async () => {
         modals.value.addMember = true;
+
         availableUsers.value = [];
         availableUsersPagination.value.currentPage = 1;
+
         await fetchAvailableUsers(null, 1, false);
     };
+
 
     const createGroup = async ({ name, description, type, members }) => {
         try {
@@ -2193,6 +2020,7 @@ export function useChat() {
             console.error('Failed to create group:', error);
         }
     };
+   
 
     const addMembersToGroup = async (memberIds) => {
         if (!activeConversation.value) return;
@@ -2214,6 +2042,7 @@ export function useChat() {
                 }
             });
 
+            console.log(`${members.length} members added (realtime)`);
             closeModal('addMember');
 
         } catch (err) {
@@ -2221,11 +2050,13 @@ export function useChat() {
         }
     };
 
+
     const makeAdmin = async (member) => {
         if (!confirm('Are you sure you want to make this admin?')) return;
         try {
             await addAdminAPI(activeConversation.value.id, [member.id]);
 
+            // Update activeConversation members
             const index1 = activeConversation.value.members.findIndex(m => m.id === member.id);
             if (index1 !== -1) {
                 activeConversation.value.members[index1] = {
@@ -2234,6 +2065,7 @@ export function useChat() {
                 };
             }
 
+            // Update groupMembers for GroupMembers.vue
             const index2 = groupMembers.value.findIndex(m => m.id === member.id);
             if (index2 !== -1) {
                 groupMembers.value[index2] = {
@@ -2249,8 +2081,10 @@ export function useChat() {
     const removeAdmin = async (member) => {
         if (!confirm('Are you sure you want to remove this admin?')) return;
         try {
-            await removeAdminAPI(activeConversation.value.id, [member.id]);
+            const res = await removeAdminAPI(activeConversation.value.id, [member.id]);
 
+            console.log(res);
+            // Update activeConversation members
             const index1 = activeConversation.value.members.findIndex(m => m.id === member.id);
             if (index1 !== -1) {
                 activeConversation.value.members[index1] = {
@@ -2259,6 +2093,7 @@ export function useChat() {
                 };
             }
 
+            // Update groupMembers for GroupMembers.vue
             const index2 = groupMembers.value.findIndex(m => m.id === member.id);
             if (index2 !== -1) {
                 groupMembers.value[index2] = {
@@ -2271,16 +2106,23 @@ export function useChat() {
         }
     };
 
+
     const removeMember = async (member) => {
         if (!confirm(`Remove ${member.name} from the group?`)) return;
 
         try {
-            const res = await removeMemberAPI(activeConversation.value.id, [member.id]);
+            const res = await removeMemberAPI(
+                activeConversation.value.id,
+                [member.id]
+            );
 
+            // Optional immediate UI update (actor only)
             const removedMembers = res?.data?.original?.data?.members || [];
 
             removedMembers.forEach(u => {
-                groupMembers.value = groupMembers.value.filter(m => m.id !== u.id);
+                groupMembers.value = groupMembers.value.filter(
+                    m => m.id !== u.id
+                );
             });
 
         } catch (error) {
@@ -2310,6 +2152,8 @@ export function useChat() {
                 group: settings
             });
 
+
+            // merge backend response into reactive object
             activeConversation.value.settings = {
                 ...activeConversation.value.settings,
                 ...updated.group_setting
@@ -2319,12 +2163,14 @@ export function useChat() {
         }
     };
 
+
     const closeModal = (modalName) => {
         modals.value[modalName] = false;
         if (modalName === 'deleteMessage') messageToDelete.value = null;
         if (modalName === 'forwardMessage') messageToForward.value = null;
         if (modalName === 'messageDetails') selectedMessageDetails.value = null;
     };
+   
 
     const handleAddReaction = async ({ messageId, emoji }) => {
         try {
@@ -2333,13 +2179,35 @@ export function useChat() {
             const message = messages.value.find(m => m.id === messageId);
             if (!message) return;
 
+            //  overwrite raw list from backend
             message.reactionList = reactions;
+
+            //  rebuild grouped UI reactions
             message.reactions = buildGroupedReactions(reactions);
 
         } catch (error) {
             console.error("Failed to toggle reaction:", error);
         }
     };
+
+
+    const buildGroupedReactions = (list) => {
+        const map = {};
+
+        list.forEach(item => {
+            if (!map[item.reaction]) {
+                map[item.reaction] = {
+                    emoji: item.reaction,
+                    count: 0
+                };
+            }
+            map[item.reaction].count++;
+        });
+
+        return Object.values(map);
+    };
+
+
 
     const handleRemoveReaction = async ({ messageId, emoji }) => {
         try {
@@ -2363,6 +2231,7 @@ export function useChat() {
         }
     };
 
+    // Voice message handler
     const handleSendVoice = async (audioBlob, duration) => {
         if (!activeConversation.value) return;
 
@@ -2408,6 +2277,7 @@ export function useChat() {
         await uploadVoiceMessage(audioBlob, voiceMsg, activeConversation.value.id);
     };
 
+    // Handle tab change and fetch data accordingly
     const handleTabChange = async (tab) => {
         activeRightTab.value = tab;
 
@@ -2418,9 +2288,15 @@ export function useChat() {
             if (groupMembers.value.length === 0) {
                 await fetchGroupMembers();
             }
+            // Check for pending members if admin
+            if (activeConversation.value.settings?.admins_must_approve_new_members &&
+                (activeConversation.value.role === 'super_admin' || activeConversation.value.role === 'admin')) {
+                // await fetchPendingMembers(conversationId);
+            }
         }
     };
 
+    // Handle toggle block
     const handleToggleBlock = async (conversationId) => {
         try {
             const conv = conversations.value.find(c => c.id === conversationId);
@@ -2428,6 +2304,7 @@ export function useChat() {
 
             await toggleBlockAPI(conv.receiver.id);
 
+            // Update local state        
             conv.isBlocked = !conv.isBlocked;
             conv.blockedByMe = !conv.blockedByMe;
             conv.blockedByThem = !conv.blockedByThem;
@@ -2443,20 +2320,25 @@ export function useChat() {
         }
     };
 
+    // handleToggleMute to open modal instead of direct toggle
     const handleToggleMute = () => {
         modals.value.mute = true;
     };
 
+    // 4. Add new handleMuteAction function:
     const handleMuteAction = async (minutes) => {
         try {
             if (!activeConversation.value) return;
 
             await muteGroupAPI(activeConversation.value.id, minutes);
 
+            // Update local state
             if (minutes === 0) {
+                // Unmute
                 activeConversation.value.isMuted = false;
                 activeConversation.value.mutedUntil = null;
             } else {
+                // Mute
                 activeConversation.value.isMuted = true;
                 if (minutes === -1) {
                     activeConversation.value.mutedUntil = 'forever';
@@ -2467,12 +2349,14 @@ export function useChat() {
                 }
             }
 
+            // Update conversation list
             const conv = conversations.value.find(c => c.id === activeConversation.value.id);
             if (conv) {
                 conv.isMuted = activeConversation.value.isMuted;
                 conv.mutedUntil = activeConversation.value.mutedUntil;
             }
 
+            // Close modal
             modals.value.mute = false;
 
         } catch (error) {
@@ -2481,13 +2365,16 @@ export function useChat() {
         }
     };
 
+    // Handle delete conversation
     const handleDeleteConversation = async (conversationId) => {
         if (!confirm('Are you sure you want to delete this conversation?')) return;
         try {
             await deleteConversationAPI(conversationId);
 
+            // Remove from list
             conversations.value = conversations.value.filter(c => c.id !== conversationId);
 
+            // Clear active conversation if it's the deleted one
             if (activeConversation.value?.id === conversationId) {
                 activeConversation.value = null;
                 showRightPanel.value = false;
@@ -2497,14 +2384,16 @@ export function useChat() {
             alert('Failed to delete conversation');
         }
     };
-
+    // Handle delete conversation
     const handleDeleteGroup = async (conversationId) => {
         if (!confirm('Are you sure you want to delete this group?')) return;
         try {
             await deleteGroupAPI(conversationId);
 
+            // Remove from list
             conversations.value = conversations.value.filter(c => c.id !== conversationId);
 
+            // Clear active conversation if it's the deleted one
             if (activeConversation.value?.id === conversationId) {
                 activeConversation.value = null;
                 showRightPanel.value = false;
@@ -2515,12 +2404,14 @@ export function useChat() {
         }
     };
 
+    // Handle update avatar
     const handleUpdateAvatar = async (file) => {
         try {
             if (!activeConversation.value || activeConversation.value.type !== 'group') return;
 
             const updated = await updateGroupAvatarAPI(activeConversation.value.id, file);
 
+            // Update local state
             const newAvatar = updated.group_setting?.avatar || generateAvatar(activeConversation.value.name);
             activeConversation.value.avatar = newAvatar;
 
@@ -2534,12 +2425,14 @@ export function useChat() {
         }
     };
 
+    // Handle update group description
     const handleUpdateDescription = async (description) => {
         try {
             if (!activeConversation.value || activeConversation.value.type !== 'group') return;
 
-            await updateGroupDescriptionAPI(activeConversation.value.id, description);
+            const updated = await updateGroupDescriptionAPI(activeConversation.value.id, description);
 
+            // Update local state
             if (activeConversation.value.settings) {
                 activeConversation.value.settings.description = description;
             }
@@ -2549,12 +2442,14 @@ export function useChat() {
         }
     };
 
+    // Handle update group name
     const handleUpdateName = async (name) => {
         try {
             if (!activeConversation.value || activeConversation.value.type !== 'group') return;
 
-            await updateGroupNameAPI(activeConversation.value.id, name);
+            const updated = await updateGroupNameAPI(activeConversation.value.id, name);
 
+            // Update local state
             if (activeConversation.value) {
                 activeConversation.value.name = name;
             }
@@ -2564,14 +2459,17 @@ export function useChat() {
         }
     };
 
+    // Approve pending member
     const approveMember = async (userId) => {
         try {
             if (!activeConversation.value) return;
 
             await approveMemberAPI(activeConversation.value.id, userId);
 
+            // Remove from pending list
             pendingMembers.value = pendingMembers.value.filter(m => m.id !== userId);
 
+            // Refresh group members
             await fetchGroupMembers();
         } catch (error) {
             console.error('Failed to approve member:', error);
@@ -2579,12 +2477,14 @@ export function useChat() {
         }
     };
 
+    // Reject pending member
     const rejectMember = async (userId) => {
         try {
             if (!activeConversation.value) return;
 
             await rejectMemberAPI(activeConversation.value.id, userId);
 
+            // Remove from pending list
             pendingMembers.value = pendingMembers.value.filter(m => m.id !== userId);
         } catch (error) {
             console.error('Failed to reject member:', error);
@@ -2622,67 +2522,53 @@ export function useChat() {
         }
     };
 
+    const listenForTyping = (conversationId) => {
+        // Implement with Laravel Echo/Pusher
+        // window.Echo.private(`conversation.${conversationId}`)
+        //     .listenForWhisper('typing', (e) => {
+        //         if (!typingUsers.value[conversationId]) {
+        //             typingUsers.value[conversationId] = [];
+        //         }
+        //         // Add typing user logic
+        //     });
+    };
+
     const scrollToBottom = () => {
         if (messageContainer.value) {
             messageContainer.value.scrollTop = messageContainer.value.scrollHeight;
         }
     };
 
-    // ==================== LIFECYCLE ====================
-
     onMounted(async () => {
         await fetchConversations();
-        await fetchOnlineUsers();
 
         if (window.innerWidth >= 768 && conversations.value.length > 0) {
             selectConversation(conversations.value[0]);
         }
-
-        // Subscribe to user's personal channel
-        subscribeToUserChannel();
-        subscribeToGlobalPresence();
     });
 
-    onBeforeUnmount(() => {
-        if (userChannel) {
-            window.Echo.leave(`user.${getCurrentUserId()}`);
-        }
-
-        if (globalPresenceChannel) {
-            window.Echo.leave('online'); // Add this
-        }
-
-        conversationChannels.forEach((channel, conversationId) => {
-            window.Echo.leave(`conversation.${conversationId}`);
-        });
-
-        conversationChannels.clear();
-        clearTimeout(typingDebounce);
-    });
     return {
         // State
         conversations,
         activeConversation,
         messages,
-        conversationPagination,
-        messagePagination,
-        loadMoreConversations,
-        loadMoreMessages,
         searchQuery,
         activeTab,
         activeRightTab,
         showRightPanel,
         onlineUsers,
+        availableUsers,
         newMessage,
         replyingTo,
         editingMessage,
+        selectedFiles,
         modals,
         selectedReactionUsers,
         currentSeenBy,
         selectedMessageDetails,
         messageToDelete,
         messageToForward,
-        typingUsers,
+        messageContainer,
 
         // Computed
         filteredConversations,
@@ -2694,7 +2580,6 @@ export function useChat() {
         closeChatOnMobile,
         startPrivateChat,
         handleSendMessage,
-        handleSendVoice,
         replyToMessage,
         cancelReply,
         editMessage,
@@ -2704,23 +2589,36 @@ export function useChat() {
         showDeleteMenu,
         deleteMessageForMe,
         deleteMessageForEveryone,
+        openReactionModal,
         openMessageDetails,
         showSeenByModal,
+        handleSearch,
         handleAudioCall,
         handleVideoCall,
         handleAddReaction,
+        handleRemoveReaction,
+        handleSendVoice,
+        typingUsers,
+        listenForTyping,
+        conversationPagination,
+        messagePagination,
+        loadMoreConversations,
+        loadMoreMessages,
+        clearCache,
 
         availableUsers,
         availableUsersPagination,
         fetchAvailableUsers,
         loadMoreAvailableUsers,
+        searchAvailableUsers,
 
         startChatUsers,
         startChatLoading,
         startChatPagination,
         openStartChatModal,
-        searchStartChatUsers,
+        fetchStartChatUsers,
         loadMoreStartChatUsers,
+        searchStartChatUsers,
         handleStartChatUserSelect,
 
         groupMembers,
@@ -2732,11 +2630,13 @@ export function useChat() {
         mediaLibraryLoading,
         handleOpenMediaLibrary,
 
+        // Reaction
         reactionModalData,
         openReactionModal,
         closeReactionModal,
         handleReactionFetch,
 
+        // Group Management
         openCreateGroupModal,
         createGroup,
         openAddMemberModal,
@@ -2747,6 +2647,10 @@ export function useChat() {
         leaveGroup,
         updateGroupSettings,
 
+
+        // New additions
+
+        pendingMembers,
         handleTabChange,
         handleToggleBlock,
         handleToggleMute,
@@ -2760,6 +2664,7 @@ export function useChat() {
         approveMember,
         rejectMember,
 
+        // Pinned Messages
         pinnedMessages,
         pinnedMessagesLoading,
         showPinnedBar,
@@ -2768,11 +2673,8 @@ export function useChat() {
         closePinnedBar,
         openPinnedBar,
 
+        // Modal Management
         closeModal,
-        scrollToBottom,
-
-        // WebSocket
-        handleTypingChange,
-        clearCache,
+        scrollToBottom
     };
-}
+};

@@ -1,11 +1,11 @@
 <?php
 namespace App\Events;
 
-use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Broadcasting\PresenceChannel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Queue\SerializesModels;
 
-class MessageEvent implements ShouldBroadcast
+class MessageEvent implements ShouldBroadcastNow
 {
     use SerializesModels;
 
@@ -20,9 +20,18 @@ class MessageEvent implements ShouldBroadcast
         $this->payload        = $payload;
     }
 
+    // public function broadcastOn()
+    // {
+    //     return new PrivateChannel('conversation.' . $this->conversationId);
+    // }
     public function broadcastOn()
     {
-        return new PrivateChannel('conversation.' . $this->conversationId);
+        return new PresenceChannel('conversation.' . $this->conversationId);
+    }
+
+    public function broadcastAs()
+    {
+        return 'message.sent';
     }
 
     public function broadcastWith(): array

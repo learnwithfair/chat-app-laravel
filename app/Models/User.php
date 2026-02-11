@@ -42,6 +42,9 @@ class User extends Authenticatable
     public function scopeActive($q)
     {return $q->where('is_active', true);}
 
+    public function scopeOnline($query)
+    {return $query->whereNotNull('last_seen_at')->where('last_seen_at', '>', now()->subMinutes(2));}
+
     // Chat relations
     // I blocked them
     public function blockedUsers()

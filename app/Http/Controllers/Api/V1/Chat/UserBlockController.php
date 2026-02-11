@@ -68,4 +68,14 @@ class UserBlockController extends Controller
         $isRestricted = $this->chatService->toggleRestrict($request->user(), $user->id);
         return $this->success($isRestricted, 'User ' . $isRestricted ? 'restricted' : 'unrestricted', 200);
     }
+
+    public function onlineUsers(Request $request)
+    {
+        $users = User::query()->online()
+            ->where('id', '!=', $request->user()->id)
+            ->select('id', 'name', 'avatar_path', 'last_seen_at')->get();
+
+        return $this->success($users, 'Users fetched successfully');
+    }
+
 }

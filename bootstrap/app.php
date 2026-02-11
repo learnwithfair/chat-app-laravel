@@ -40,11 +40,19 @@ return Application::configure(basePath: dirname(__DIR__))
             AddLinkHeadersForPreloadedAssets::class,
         ]);
 
-        $middleware->validateCsrfTokens(except: ['api*']);
+        // $middleware->validateCsrfTokens(except: [
+        //     // 'api*',
+        //     'broadcasting/auth',
+        // ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //
     })
+// ->withBroadcasting(
+//     __DIR__ . '/../routes/channels.php',
+//     ['middleware' => ['web', 'auth']]
+// )
+
     ->withSchedule(function (Schedule $schedule) {
         // Run every minute
         $schedule->command('conversations:auto-unmute')->everyMinute();

@@ -46,7 +46,8 @@ const {
   messageToDelete,
   messageToForward,
   typingUsers,
-  listenForTyping,
+  // listenForTyping,
+  handleTypingChange,
 
   // Computed
   filteredConversations,
@@ -339,6 +340,7 @@ watch(
       <EditPreview v-if="editingMessage" :message="editingMessage" @cancel="cancelEdit" />
 
       <!-- Message Input - UPDATED WITH BLOCK PROPS -->
+      <!--
       <MessageInput
         v-model="newMessage"
         :is-blocked="activeConversation.isBlocked"
@@ -352,6 +354,23 @@ watch(
         @send-voice="handleSendVoice"
         @send-files="handleSendMessage"
         @typing-change="(isTyping) => listenForTyping(activeConversation.id, isTyping)"
+        @unblock-user="handleUnblockUser"
+      />
+       -->
+
+      <MessageInput
+        v-model="newMessage"
+        :is-blocked="activeConversation.isBlocked"
+        :blocked-by-me="activeConversation.blockedByMe"
+        :blocked-by-them="activeConversation.blockedByThem"
+        :can-send-message="activeConversation.canSendMessage"
+        :conversation-type="activeConversation.type"
+        :is-editing="!!editingMessage"
+        :conversation-id="activeConversation.id"
+        @send="handleSendMessage()"
+        @send-voice="handleSendVoice"
+        @send-files="handleSendMessage"
+        @typing-change="handleTypingChange"
         @unblock-user="handleUnblockUser"
       />
     </div>

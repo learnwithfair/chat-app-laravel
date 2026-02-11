@@ -343,6 +343,19 @@ onBeforeUnmount(() => {
 });
 
 // Watch for typing
+// watch(
+//   () => props.modelValue,
+//   (newVal, oldVal) => {
+//     if (!canInteract.value) return;
+
+//     if (newVal && newVal.length > 0) {
+//       emit("typing-change", true);
+//     } else if (oldVal && oldVal.length > 0 && (!newVal || newVal.length === 0)) {
+//       emit("typing-change", false);
+//     }
+//   }
+// );
+
 watch(
   () => props.modelValue,
   (newVal, oldVal) => {

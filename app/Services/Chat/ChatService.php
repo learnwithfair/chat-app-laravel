@@ -73,7 +73,12 @@ class ChatService
     {
         $message = $this->sendMessage->execute($user, $data);
 
-        event(new MessageEvent('sent', $message->conversation_id, ['message' => $message]));
+        // event(new MessageEvent('sent', $message->conversation_id, ['message' => $message]));
+        event(new MessageEvent(
+            'sent',
+            $message->conversation_id,
+            $message->resolve()
+        ));
 
         return $message;
     }

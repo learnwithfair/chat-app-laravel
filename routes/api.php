@@ -6,8 +6,11 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
+// Add broadcast routes HERE (like your working project)
+Broadcast::routes(['middleware' => ['web', 'auth']]);
 /*
 |--------------------------------------------------------------------------
 | API Routes

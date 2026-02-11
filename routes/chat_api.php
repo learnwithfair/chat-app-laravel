@@ -8,7 +8,7 @@ use App\Http\Controllers\Api\V1\Chat\UserBlockController;
 use Illuminate\Support\Facades\Route;
 
 // Route::prefix('v1')->middleware(['auth:sanctum', 'last_seen'])->group(function () {
-Route::prefix('v1')->middleware(['auth', 'last_seen'])->group(function () {
+Route::prefix('v1')->middleware(['auth', 'verified', 'last_seen'])->group(function () {
 
     // -------------------- Conversations --------------------
     // create group & list conversations
@@ -55,6 +55,7 @@ Route::prefix('v1')->middleware(['auth', 'last_seen'])->group(function () {
 
     // -------------------- User Block / Restrict --------------------
     Route::controller(UserBlockController::class)->group(function () {
+        Route::get('online-users', 'onlineUsers');
         Route::get('available-users', 'index'); // ?search=John
         Route::post('users/{user}/block-toggle', 'toggleBlock');
         Route::post('users/{user}/restrict-toggle', 'toggleRestrict');

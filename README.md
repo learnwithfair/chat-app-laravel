@@ -14,6 +14,7 @@ composer dump-autoload
 npm install @tailwindcss/vite --save-dev
 
 ```
+php artisan reverb:start --debug
 
 
 
