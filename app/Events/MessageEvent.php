@@ -28,10 +28,9 @@ class MessageEvent implements ShouldBroadcastNow
     {
         return new PresenceChannel('conversation.' . $this->conversationId);
     }
-
     public function broadcastAs()
     {
-        return 'message.sent';
+        return 'MessageEvent'; // ✅ Simple name
     }
 
     public function broadcastWith(): array

@@ -29,7 +29,11 @@ class ConversationEvent implements ShouldBroadcast
     {
         // Send ONLY to specific user
         return new PrivateChannel('user.' . $this->targetUserId);
-    } 
+    }
+    public function broadcastAs()
+    {
+        return 'ConversationEvent'; // ✅ Simple name
+    }
 
     public function broadcastWith(): array
     {
