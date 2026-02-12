@@ -4,15 +4,15 @@ namespace App\Events;
 use App\Models\Conversation;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Queue\SerializesModels;
 
-class ConversationEvent implements ShouldBroadcast
+class ConversationEvent implements ShouldBroadcastNow
 {
     use InteractsWithSockets, SerializesModels;
 
     public Conversation $conversation;
-    public string $action; // added | removed | left | updated | deleted |read
+    public string $action; // added | removed | left | updated | deleted |read |unblocked|blocked
     public int $targetUserId;
 
     public function __construct(
@@ -25,7 +25,7 @@ class ConversationEvent implements ShouldBroadcast
         $this->targetUserId = $targetUserId;
     }
 
-    public function broadcastOn(): PrivateChannel
+    public function broadcastOn()
     {
         // Send ONLY to specific user
         return new PrivateChannel('user.' . $this->targetUserId);

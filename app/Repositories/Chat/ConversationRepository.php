@@ -129,8 +129,59 @@ class ConversationRepository
         return new ConversationResource($conversation);
     }
 
+    // public function createGroupConversation(array $data, int $creadtedId)
+    // {
+    //     $conversation = Conversation::create([
+    //         'type'       => 'group',
+    //         'name'       => $data['name'] ?? 'New Group',
+    //         'created_by' => $creadtedId,
+    //     ]);
+
+    //     $participants = [];
+
+    //     $participants[] = ['user_id' => $creadtedId, 'role' => 'super_admin'];
+
+    //     // Add other members, skip creator if included
+    //     foreach ($data['participants'] ?? [] as $userId) {
+    //         if ($userId == $creadtedId) {
+    //             continue;
+    //         }
+
+    //         $participants[] = [
+    //             'user_id' => $userId,
+    //             'role'    => 'member',
+    //         ];
+    //     }
+
+    //     $conversation->participants()->createMany($participants);
+    //     app(ChatService::class)->createDefault($conversation->id);
+
+    //     $conversation->groupSetting()->create([
+    //         'description' => $data['group']['description'] ?? null,
+    //         'type'        => $data['group']['type'] ?? 'private',
+    //     ]);
+
+    //     // create invite link
+    //     $this->createInviteLink(Auth::user(), $data, $conversation);
+
+    //     $conversation->load([
+    //         'participants' => function ($q) {
+    //             $q->where('is_active', true)->with('user');
+    //         },
+    //         'lastMessage.sender',
+    //         'groupSetting',
+    //     ]);
+
+    //     $conversation->setRelation('unread_count', 0);
+
+    //     //  Return wrapped in ConversationResource
+    //     return new ConversationResource($conversation);
+    // }
+
     public function createGroupConversation(array $data, int $creadtedId)
     {
+        $creator = $this->findUser($creadtedId);
+
         $conversation = Conversation::create([
             'type'       => 'group',
             'name'       => $data['name'] ?? 'New Group',
@@ -139,21 +190,27 @@ class ConversationRepository
 
         $participants = [];
 
-        $participants[] = ['user_id' => $creadtedId, 'role' => 'super_admin'];
+        // Creator = super admin
+        $participants[] = [
+            'user_id'   => $creadtedId,
+            'role'      => 'super_admin',
+            'is_active' => true,
+        ];
 
-        // Add other members, skip creator if included
         foreach ($data['participants'] ?? [] as $userId) {
             if ($userId == $creadtedId) {
                 continue;
             }
 
             $participants[] = [
-                'user_id' => $userId,
-                'role'    => 'member',
+                'user_id'   => $userId,
+                'role'      => 'member',
+                'is_active' => true,
             ];
         }
 
         $conversation->participants()->createMany($participants);
+
         app(ChatService::class)->createDefault($conversation->id);
 
         $conversation->groupSetting()->create([
@@ -161,8 +218,23 @@ class ConversationRepository
             'type'        => $data['group']['type'] ?? 'private',
         ]);
 
-        // create invite link
+        // invite link
         $this->createInviteLink(Auth::user(), $data, $conversation);
+
+        //  System message: group created
+        $systemMessage = $conversation->messages()->create([
+            'sender_id' => $creadtedId,
+            'message'   => "{$creator->name} created the group",
+            'message_type' => 'system',
+        ]);
+
+        //  Broadcast system message
+        event(new MessageEvent('sent', $conversation->id, $systemMessage->toArray()));
+
+        //  Send realtime conversation to all participants
+        foreach ($participants as $p) {
+            event(new ConversationEvent($conversation, 'added', $p['user_id']));
+        }
 
         $conversation->load([
             'participants' => function ($q) {
@@ -174,7 +246,6 @@ class ConversationRepository
 
         $conversation->setRelation('unread_count', 0);
 
-        //  Return wrapped in ConversationResource
         return new ConversationResource($conversation);
     }
 
@@ -281,12 +352,11 @@ class ConversationRepository
             ]);
 
             // Broadcast message
-            event(new MessageEvent('sent', $conversation->id, ['message' => $lastMessage]));
+            event(new MessageEvent('sent', $conversation->id, $lastMessage->toArray()));
 
             // Send conversation to added user
             event(new ConversationEvent($conversation, 'added', $id));
 
-            // broadcast(new ConversationEvent($conversation->load(['participants', 'groupSetting']), 'added', $id))->toOthers();
         }
 
         return ['members' => $addedMembers, 'message' => $lastMessage, 'conversation_id' => $conversationId];
@@ -336,7 +406,7 @@ class ConversationRepository
         ]);
 
         return ['invite_link' => config("services.invite_url") . "/{$invite->token}"];
-    }  
+    }
 
     public function removeMember(int $actorId, int $conversationId, array $memberIds)
     {
@@ -367,7 +437,7 @@ class ConversationRepository
             ]);
 
             //  Realtime message
-            event(new MessageEvent('sent', $conversation->id, ['message' => $lastMessage]));
+            event(new MessageEvent('sent', $conversation->id,  $lastMessage->toArray()));
 
             //  Realtime member removal
             event(new ConversationEvent($conversation, 'removed', $user->id));
@@ -462,7 +532,7 @@ class ConversationRepository
         ]);
 
         //  Broadcast system message to remaining users
-        event(new MessageEvent('sent', $systemMessage->conversation_id, ['message' => $systemMessage]));
+        event(new MessageEvent('sent', $systemMessage->conversation_id, $systemMessage->toArray()));
 
         //  REMOVE conversation from the user who left
         event(new ConversationEvent($conversation, 'left', $user->id));
@@ -481,7 +551,10 @@ class ConversationRepository
         ]);
 
         //  Broadcast system message to remaining users
-        event(new MessageEvent('sent', $systemMessage->conversation_id, ['message' => $systemMessage]));
+        event(new MessageEvent('sent', $systemMessage->conversation_id, $systemMessage->toArray()));
+
+        //  Broadcast system message to remaining users
+        event(new MessageEvent(($message->is_pinned ? 'pinned' : 'unpinned'), $systemMessage->conversation_id, $message->toArray()));
 
         $data = [
             'message'      => $message,

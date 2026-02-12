@@ -164,11 +164,16 @@ export function useChat() {
     };
 
     const subscribeToUserChannel = () => {
+
+        console.log('✅ Subscribed ==================');
         const userId = getCurrentUserId();
         if (!userId) {
             console.error('❌ Cannot subscribe: No authenticated user');
             return;
         }
+
+
+        console.log("User id" + userId);
 
         userChannel = window.Echo.private(`user.${userId}`)
             .listen('.ConversationEvent', (event) => {

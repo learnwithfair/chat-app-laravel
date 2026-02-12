@@ -343,10 +343,10 @@ class MessageRepository
             ]);
 
             // Broadcast delete-for-me only to requester
-            broadcast(new MessageEvent('deleted_for_me', $message->conversation_id, [
-                'message_id' => $message->id,
-                'user_id'    => $userId,
-            ]));
+            // broadcast(new MessageEvent('deleted_for_me', $message->conversation_id, [
+            //     'message_id' => $message->id,
+            //     'user_id'    => $userId,
+            // ]));
         }
 
         return "Messages deleted for you.";
@@ -379,15 +379,14 @@ class MessageRepository
             $message->update([
                 'is_deleted_for_everyone' => true,
                 'message'                 => "Unsent",
+                'is_pinned'               => false,
             ]);
             // attachments deletion
             deleteFiles($message->attachments->pluck('path')->toArray());
             $message->attachments()->delete();
 
-            broadcast(new MessageEvent('deleted_for_everyone', $message->conversation_id, [
-                'message_id' => $message->id,
-                'unsent'     => true,
-            ]));
+            broadcast(new MessageEvent('deleted_for_everyone', $message->conversation_id, $message->toArray()));
+            broadcast(new MessageEvent('unpinned', $message->conversation_id, $message->toArray()));
         }
 
         return "Messages deleted for everyone.";

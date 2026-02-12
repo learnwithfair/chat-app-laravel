@@ -72,22 +72,13 @@ class ChatService
     public function sendMessage(User $user, array $data)
     {
         $message = $this->sendMessage->execute($user, $data);
-
-        // event(new MessageEvent('sent', $message->conversation_id, ['message' => $message]));
-        event(new MessageEvent(
-            'sent',
-            $message->conversation_id,
-            $message->resolve()
-        ));
-
+        event(new MessageEvent('sent', $message->conversation_id, $message->resolve()));
         return $message;
     }
     public function updateMessage(User $user, array $data, Message $message)
     {
         $updatemessage = $this->sendMessage->update($user, $data, $message);
-
         event(new MessageEvent('updated', $message->conversation_id, $message->toArray()));
-
         return $updatemessage;
     }
     public function pinToggleMessage(User $user, Message $message)
@@ -107,7 +98,7 @@ class ChatService
         // Normalize IDs
         $ids = $data['message_ids'] ?? ($data['message_id'] ? [$data['message_id']] : []);
         if (empty($ids)) {
-            return response()->json(['error' => 'No messages provided'], 422);
+            throw new HttpResponseException($this->error(null, 'No messages provided', 422));
         }
 
         return $this->messageRepo->deleteMessagesForUser($user->id, $ids);
@@ -117,7 +108,7 @@ class ChatService
         // Normalize IDs
         $ids = $data['message_ids'] ?? ($data['message_id'] ? [$data['message_id']] : []);
         if (empty($ids)) {
-            return response()->json(['error' => 'No messages provided'], 422);
+            throw new HttpResponseException($this->error(null, 'No messages provided', 422));
         }
 
         return $this->messageRepo->deleteMessagesForEveryone($user->id, $ids);
@@ -137,11 +128,7 @@ class ChatService
             ->where('status', 'sent')
             ->update(['status' => 'delivered']);
 
-        broadcast(new MessageEvent(
-            'delivered',
-            $conversationId,
-            ['user_id' => $user->id]
-        ));
+        broadcast(new MessageEvent('delivered', $conversationId, ['user_id' => $user->id]));
     }
 
     // -------------------------------

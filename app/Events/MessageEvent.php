@@ -9,7 +9,7 @@ class MessageEvent implements ShouldBroadcastNow
 {
     use SerializesModels;
 
-    public string $type; // sent | updated | deleted | reaction | updated deleted_for_me | deleted_for_everyone | delivered
+    public string $type; // sent | updated | deleted | reaction | updated  | deleted_for_everyone|deleted_permanent | delivered |unpinned|pinned |
     public array $payload;
     public int $conversationId;
 
