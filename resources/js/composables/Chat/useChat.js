@@ -49,6 +49,9 @@ export function useChat() {
     const pinnedMessagesLoading = ref(false);
     const showPinnedBar = ref(false);
 
+    const processedMessageIds = new Set();
+
+
     const page = usePage();
 
     const authUser = computed(() => page.props.auth?.user || null);
@@ -126,12 +129,7 @@ export function useChat() {
     let userChannel = null;
     let conversationChannels = new Map();
 
-    // ==================== HELPER: GET CURRENT USER ID ====================
-    // const getCurrentUserId = () => {
-    //     console.log("window.authUser?.id");
-    //     console.log(window.authUser?.id);
-    //     return window.authUser?.id || 1;
-    // };
+
     const getCurrentUserId = () => authUser.value?.id;
 
     // ==================== WEBSOCKET SUBSCRIPTIONS ====================
@@ -288,8 +286,7 @@ export function useChat() {
                 handleMessageUnpinned(payload);
                 break;
             case 'seen':
-                // Handle seen status if needed
-                console.log('👁️ Message seen:', payload);
+                handleMessageSeen(payload);
                 break;
             default:
                 console.warn('⚠️ Unknown message event type:', type);
@@ -298,10 +295,9 @@ export function useChat() {
 
     const handleTypingEvent = (conversationId, event) => {
         const { userId, userName, isTyping } = event;
-
-        if (userId === getCurrentUserId()) {
-            console.log('⚠️ Ignoring own typing indicator');
-            return;
+        const currentUserId = getCurrentUserId();
+        if (userId === currentUserId) {
+            return; // Don't show own typing
         }
 
         if (!typingUsers.value[conversationId]) {
@@ -384,12 +380,17 @@ export function useChat() {
         const conversationId = parseInt(incomingMsg.conversation_id);
         const myId = getCurrentUserId();
 
-        // Check if message already exists
-        const exists = messages.value.some(msg => msg.id === incomingMsg.id);
-        if (exists) {
-            console.log('⚠️ Duplicate message ignored:', incomingMsg.id);
+        if (processedMessageIds.has(incomingMsg.id)) {
+            console.log('⚠️ Duplicate prevented');
             return;
         }
+        // Check if message already exists
+        if (messages.value.some(msg => msg.id === incomingMsg.id)) {
+            return;
+        }
+
+        processedMessageIds.add(incomingMsg.id);
+
 
         const formatted = {
             id: incomingMsg.id,
@@ -432,6 +433,7 @@ export function useChat() {
             });
         } else {
             if (!cached.messages.some(m => m.id === formatted.id)) {
+                console.log("Cached add=======");
                 cached.messages.push(formatted);
             }
         }
@@ -439,7 +441,7 @@ export function useChat() {
         // Update UI if active conversation
         if (activeConversation.value?.id === conversationId) {
             console.log('✅ Adding message to active conversation');
-            messages.value.push(formatted);
+            messages.value = cached.messages;
             nextTick(() => scrollToBottom());
         } else {
             console.log('ℹ️ Message for inactive conversation:', conversationId);
@@ -463,6 +465,11 @@ export function useChat() {
 
     const handleMessageUpdate = (messageData) => {
         const msg = messages.value.find(m => m.id === messageData.id);
+
+        console.log("Update ============");
+        console.log(msg);
+        console.log("messageData");
+        console.log(messageData);
         if (msg) {
             msg.text = messageData.message;
             msg.isEdited = true;
@@ -535,9 +542,29 @@ export function useChat() {
         }
     };
 
+    // Add this new function
+    const handleMessageSeen = (statusData) => {
+        const msg = messages.value.find(m => m.id === statusData.message_id);
+        if (msg && msg.isMine) {
+            msg.status = 'seen';
+
+            if (statusData.user) {
+                if (!msg.seenBy) msg.seenBy = [];
+                if (!msg.seenBy.some(u => u.id === statusData.user.id)) {
+                    msg.seenBy.push({
+                        id: statusData.user.id,
+                        name: statusData.user.name,
+                        avatar: statusData.user.avatar_path || generateAvatar(statusData.user.name),
+                        seenAt: formatTime(statusData.created_at || new Date())
+                    });
+                }
+            }
+        }
+    };
+
     // ==================== CONVERSATION EVENT HELPERS ====================
 
-    const addOrUpdateConversation = (convData) => {
+    const addOrUpdateConversation = async (convData) => {
         const existing = conversations.value.find(c => c.id === convData.id);
 
         if (existing) {
@@ -567,6 +594,10 @@ export function useChat() {
             conversations.value.unshift(formatted);
             lastConversationFetch.value = null;
 
+            subscribeToConversation(convData.id);
+            if (convData.type === 'group') {
+                await fetchConversations();
+            }
             console.log('🔔 New conversation added:', convData.name);
         }
     };
@@ -918,39 +949,44 @@ export function useChat() {
             const meta = data.meta;
 
             const formattedMessages = data.data
-                .map(msg => ({
-                    id: msg.id,
-                    text: msg.message,
-                    isMine: msg.is_mine,
-                    isPinned: msg.is_pinned,
-                    time: formatTime(msg.created_at),
-                    status: getMessageStatus(msg.statuses),
-                    senderName: msg.sender?.name || 'Unknown',
-                    senderAvatar: msg.sender?.avatar_path || generateAvatar(msg.sender?.name),
-                    reactions: formatReactions(msg.reactions),
-                    isDeleted: msg.is_deleted_for_everyone || false,
-                    isEdited: false,
-                    messageType: msg.message_type || 'text',
-                    replyTo: msg.reply ? {
-                        id: msg.reply.id,
-                        senderName: msg.reply.sender.name,
-                        text: msg.reply.message
-                    } : null,
-                    forwardFrom: msg.forward ? {
-                        id: msg.forward.id,
-                        senderName: msg.forward.sender.name,
-                        text: msg.forward.message
-                    } : null,
-                    attachments: formatAttachments(msg.attachments),
-                    seenBy: msg.statuses
-                        ?.filter(s => s.status === 'seen')
-                        .map(s => ({
-                            id: s.user_id,
-                            name: s.name || 'Unknown',
-                            avatar: s.avatar_path || generateAvatar(s.name || 'User'),
-                            seenAt: formatTime(s.created_at || msg.created_at)
-                        })) || []
-                }))
+
+                .map(msg => {
+                    processedMessageIds.add(msg.id); // ADD THIS LINE
+
+                    return {
+                        id: msg.id,
+                        text: msg.message,
+                        isMine: msg.is_mine,
+                        isPinned: msg.is_pinned,
+                        time: formatTime(msg.created_at),
+                        status: getMessageStatus(msg.statuses),
+                        senderName: msg.sender?.name || 'Unknown',
+                        senderAvatar: msg.sender?.avatar_path || generateAvatar(msg.sender?.name),
+                        reactions: formatReactions(msg.reactions),
+                        isDeleted: msg.is_deleted_for_everyone || false,
+                        isEdited: false,
+                        messageType: msg.message_type || 'text',
+                        replyTo: msg.reply ? {
+                            id: msg.reply.id,
+                            senderName: msg.reply.sender.name,
+                            text: msg.reply.message
+                        } : null,
+                        forwardFrom: msg.forward ? {
+                            id: msg.forward.id,
+                            senderName: msg.forward.sender.name,
+                            text: msg.forward.message
+                        } : null,
+                        attachments: formatAttachments(msg.attachments),
+                        seenBy: msg.statuses
+                            ?.filter(s => s.status === 'seen')
+                            .map(s => ({
+                                id: s.user_id,
+                                name: s.name || 'Unknown',
+                                avatar: s.avatar_path || generateAvatar(s.name || 'User'),
+                                seenAt: formatTime(s.created_at || msg.created_at)
+                            })) || []
+                    };
+                })
                 .reverse();
 
             if (append) {
@@ -1621,6 +1657,7 @@ export function useChat() {
         messageCache.clear();
         conversationCache.value = [];
         lastConversationFetch.value = null;
+        processedMessageIds.clear(); // ADD THIS LINE
     };
 
     // ==================== COMPUTED ====================
@@ -1677,14 +1714,15 @@ export function useChat() {
             loading: false
         };
 
+        processedMessageIds.clear();
         await fetchMessages(conversation.id);
 
+        messages.value.forEach(msg => processedMessageIds.add(msg.id));
         // Subscribe to conversation channel
         subscribeToConversation(conversation.id);
 
-        nextTick(() => {
-            scrollToBottom();
-        });
+        nextTick(() => scrollToBottom());
+
     };
 
     const closeChatOnMobile = () => {
@@ -1723,6 +1761,8 @@ export function useChat() {
     };
 
     const handleSendMessage = async (filesFromInput = null) => {
+
+        console.log("called ==============");
         const files = filesFromInput || selectedFiles.value;
 
         if ((!newMessage.value.trim() && files.length === 0) || !activeConversation.value) return;
@@ -1785,53 +1825,56 @@ export function useChat() {
                 }
 
                 sentMsg = await sendMessageWithFilesAPI(formData);
+                console.log("sentMsg============");
+                console.log(sentMsg);
+                processedMessageIds.add(sentMsg.id);
 
                 // Optimistic UI update (will be replaced by WebSocket event)
-                const newMsg = {
-                    id: sentMsg.id,
-                    text: sentMsg.message,
-                    isMine: true,
-                    isPinned: sentMsg.is_pinned,
-                    time: formatTime(sentMsg.created_at),
-                    status: 'sent',
-                    senderName: 'You',
-                    senderAvatar: '',
-                    reactions: [],
-                    isDeleted: false,
-                    isEdited: false,
-                    messageType: sentMsg.message_type || 'text',
-                    replyTo: replyingTo.value ? {
-                        senderName: replyingTo.value.senderName,
-                        text: replyingTo.value.text
-                    } : null,
-                    forwardFrom: sentMsg.forward ? {
-                        id: sentMsg.forward.id,
-                        senderName: sentMsg.forward.sender.name,
-                        text: sentMsg.forward.message
-                    } : null,
-                    attachments: formatAttachments(sentMsg.attachments),
-                    seenBy: []
-                };
+                // const newMsg = {
+                //     id: sentMsg.id,
+                //     text: sentMsg.message,
+                //     isMine: true,
+                //     isPinned: sentMsg.is_pinned,
+                //     time: formatTime(sentMsg.created_at),
+                //     status: 'sent',
+                //     senderName: 'You',
+                //     senderAvatar: '',
+                //     reactions: [],
+                //     isDeleted: false,
+                //     isEdited: false,
+                //     messageType: sentMsg.message_type || 'text',
+                //     replyTo: replyingTo.value ? {
+                //         senderName: replyingTo.value.senderName,
+                //         text: replyingTo.value.text
+                //     } : null,
+                //     forwardFrom: sentMsg.forward ? {
+                //         id: sentMsg.forward.id,
+                //         senderName: sentMsg.forward.sender.name,
+                //         text: sentMsg.forward.message
+                //     } : null,
+                //     attachments: formatAttachments(sentMsg.attachments),
+                //     seenBy: []
+                // };
 
-                // Only add if not already exists (WebSocket might have beaten us)
-                if (!messages.value.some(m => m.id === newMsg.id)) {
-                    messages.value.push(newMsg);
-                }
+                // // Only add if not already exists (WebSocket might have beaten us)
+                // if (!messages.value.some(m => m.id === newMsg.id)) {
+                //     messages.value.push(newMsg);
+                // }
 
-                const cached = messageCache.get(activeConversation.value.id);
-                if (!cached) {
-                    messageCache.set(activeConversation.value.id, {
-                        messages: [newMsg],
-                        currentPage: 1,
-                        lastPage: 1,
-                        hasMore: false,
-                        loading: false
-                    });
-                } else {
-                    if (!cached.messages.some(m => m.id === newMsg.id)) {
-                        cached.messages.push(newMsg);
-                    }
-                }
+                // const cached = messageCache.get(activeConversation.value.id);
+                // if (!cached) {
+                //     messageCache.set(activeConversation.value.id, {
+                //         messages: [newMsg],
+                //         currentPage: 1,
+                //         lastPage: 1,
+                //         hasMore: false,
+                //         loading: false
+                //     });
+                // } else {
+                //     if (!cached.messages.some(m => m.id === newMsg.id)) {
+                //         cached.messages.push(newMsg);
+                //     }
+                // }
 
                 replyingTo.value = null;
                 updateConversationPreview(activeConversation.value.id, sentMsg);

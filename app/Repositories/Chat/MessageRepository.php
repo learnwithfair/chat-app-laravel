@@ -327,6 +327,7 @@ class MessageRepository
         if ($message->sender_id !== $user->id) {
             throw new HttpResponseException($this->error(null, 'You are not allowed to update this message.', 403));
         }
+        $data['edited_at'] = now();
         $message->update($data);
         return $message->refresh();
     }

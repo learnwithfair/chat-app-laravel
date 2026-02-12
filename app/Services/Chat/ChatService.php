@@ -86,7 +86,7 @@ class ChatService
     {
         $updatemessage = $this->sendMessage->update($user, $data, $message);
 
-        event(new MessageEvent('updated', $message->conversation_id, ['message' => $message]));
+        event(new MessageEvent('updated', $message->conversation_id, $message->toArray()));
 
         return $updatemessage;
     }

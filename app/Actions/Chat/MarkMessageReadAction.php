@@ -37,6 +37,8 @@ class MarkMessageReadAction
             payload: [
                 'user_id'              => $user->id,
                 'last_read_message_id' => $lastMessage->id,
+                'user'                 => $user,
+                'created_at'           => now(),
             ]
         ))->toOthers();
 

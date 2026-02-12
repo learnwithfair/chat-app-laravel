@@ -285,6 +285,8 @@ class ConversationRepository
 
             // Send conversation to added user
             event(new ConversationEvent($conversation, 'added', $id));
+
+            // broadcast(new ConversationEvent($conversation->load(['participants', 'groupSetting']), 'added', $id))->toOthers();
         }
 
         return ['members' => $addedMembers, 'message' => $lastMessage, 'conversation_id' => $conversationId];
