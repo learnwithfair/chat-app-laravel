@@ -63,6 +63,7 @@ class MessageController extends Controller
 
     //  {"message_ids": [12, 13, 14]}
 
+
     public function deleteForEveryone(DeleteMessageRequest $request)
     {
         $result = $this->chatService->deleteForEveryone(Auth::user(), $request->validated());

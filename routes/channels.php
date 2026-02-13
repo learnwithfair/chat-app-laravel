@@ -33,9 +33,9 @@ Broadcast::channel('conversation.{conversationId}', function ($user, $conversati
     try {
         $conversation = Conversation::where('id', $conversationId)
             ->whereHas('participants', function ($q) use ($user) {
-                $q->where('user_id', $user->id);
+                $q->where('user_id', $user->id)
                 // Comment out ->active() temporarily to test
-                // ->active();
+                ->active();
             })
             ->first();
 

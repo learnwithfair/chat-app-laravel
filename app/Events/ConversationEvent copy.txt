@@ -3,7 +3,6 @@ namespace App\Events;
 
 use App\Models\Conversation;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Queue\SerializesModels;
@@ -13,49 +12,39 @@ class ConversationEvent implements ShouldBroadcastNow
     use InteractsWithSockets, SerializesModels;
 
     public Conversation $conversation;
-    public string $action;     // added | removed |admin_removed| left | member_left |unblocked|blocked | updated | deleted |read
-    public ?int $targetUserId; // if null then broadcast to group's all members
-    public ?array $meta;
+    public string $action; // added | removed |admin_removed| left  |unblocked|blocked | updated | deleted |read
+    public int $targetUserId;
 
     public function __construct(
         Conversation $conversation,
         string $action,
-        ?int $targetUserId = null,
-        ?array $meta = null
+        int $targetUserId
     ) {
         $this->conversation = $conversation;
         $this->action       = $action;
         $this->targetUserId = $targetUserId;
-        $this->meta         = $meta;
     }
 
     public function broadcastOn()
     {
         // Send ONLY to specific user
-        if ($this->targetUserId) {
-            return new PrivateChannel('user.' . $this->targetUserId);
-        }
-
-        // if null then broadcast to group's all members
-        return new PresenceChannel('conversation.' . $this->conversation->id);
+        return new PrivateChannel('user.' . $this->targetUserId);
     }
-
     public function broadcastAs()
     {
-        return 'ConversationEvent';
+        return 'ConversationEvent'; // ✅ Simple name
     }
 
     public function broadcastWith(): array
     {
         return [
-            'action'       => $this->action,
+            'action'       => $this->action, // added | removed | left | updated | deleted
             'conversation' => [
                 'id'   => $this->conversation->id,
                 'name' => $this->conversation->name,
                 'type' => $this->conversation->type,
                 'meta' => $this->conversation->meta ?? null,
             ],
-            'meta'         => $this->meta, //  Extra data
         ];
     }
 }

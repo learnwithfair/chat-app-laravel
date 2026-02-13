@@ -437,7 +437,7 @@ class ConversationRepository
             ]);
 
             //  Realtime message
-            event(new MessageEvent('sent', $conversation->id,  $lastMessage->toArray()));
+            event(new MessageEvent('sent', $conversation->id, $lastMessage->toArray()));
 
             //  Realtime member removal
             event(new ConversationEvent($conversation, 'removed', $user->id));
@@ -536,6 +536,14 @@ class ConversationRepository
 
         //  REMOVE conversation from the user who left
         event(new ConversationEvent($conversation, 'left', $user->id));
+
+        event(new ConversationEvent(
+            $conversation->fresh(), 'member_left', null,
+            [
+                'left_user_id'   => $user->id,
+                'left_user_name' => $user->name,
+            ]
+        ));
 
         return true;
     }

@@ -127,7 +127,10 @@ export function useChat() {
 
     // ==================== WEBSOCKET STATE ====================
     let userChannel = null;
+    let conversationChannel = null;
+
     let conversationChannels = new Map();
+
 
 
     const getCurrentUserId = () => authUser.value?.id;
@@ -135,19 +138,57 @@ export function useChat() {
     // ==================== WEBSOCKET SUBSCRIPTIONS ====================
 
 
+    // const subscribeToGlobalPresence = () => {
+    //     globalPresenceChannel = window.Echo.join('online')
+    //         .here((users) => {
+    //             console.log('👥 Online users:', users);
+    //             onlineUsers.value = users.map(user => ({
+    //                 id: user.id,
+    //                 name: user.name,
+    //                 avatar: user.avatar_path || generateAvatar(user.name),
+    //                 isOnline: true
+    //             }));
+    //         })
+    //         .joining((user) => {
+    //             console.log('✅ User came online:', user);
+    //             if (!onlineUsers.value.some(u => u.id === user.id)) {
+    //                 onlineUsers.value.push({
+    //                     id: user.id,
+    //                     name: user.name,
+    //                     avatar: user.avatar_path || generateAvatar(user.name),
+    //                     isOnline: true
+    //                 });
+    //             }
+    //         })
+    //         .leaving((user) => {
+    //             console.log('❌ User went offline:', user);
+    //             onlineUsers.value = onlineUsers.value.filter(u => u.id !== user.id);
+    //         });
+    // };
+
     const subscribeToGlobalPresence = () => {
         globalPresenceChannel = window.Echo.join('online')
             .here((users) => {
+                const myId = getCurrentUserId();
+
                 console.log('👥 Online users:', users);
-                onlineUsers.value = users.map(user => ({
-                    id: user.id,
-                    name: user.name,
-                    avatar: user.avatar_path || generateAvatar(user.name),
-                    isOnline: true
-                }));
+
+                onlineUsers.value = users
+                    .filter(user => user.id !== myId)   // 🔥 remove myself
+                    .map(user => ({
+                        id: user.id,
+                        name: user.name,
+                        avatar: user.avatar_path || generateAvatar(user.name),
+                        isOnline: true
+                    }));
             })
             .joining((user) => {
+                const myId = authUser.value?.id;
+
+                if (user.id === myId) return;   // 🔥 ignore myself
+
                 console.log('✅ User came online:', user);
+
                 if (!onlineUsers.value.some(u => u.id === user.id)) {
                     onlineUsers.value.push({
                         id: user.id,
@@ -162,6 +203,7 @@ export function useChat() {
                 onlineUsers.value = onlineUsers.value.filter(u => u.id !== user.id);
             });
     };
+
 
     const subscribeToUserChannel = () => {
 
@@ -182,6 +224,35 @@ export function useChat() {
             });
 
         console.log('✅ Subscribed to user channel:', userId);
+    };
+
+    //  Join Group Channel
+    const subscribeToConversationChannel = (conversationId) => {
+        // Check if already subscribed
+        if (conversationChannels.has(conversationId)) {
+            console.log('⚠️ Already subscribed to conversation channel:', conversationId);
+            return;
+        }
+
+        console.log(`✅ Subscribing to conversation channel: ${conversationId}`);
+
+        // 🔥 Group conversation channel এ join করো
+        const channel = window.Echo.join(`conversation.${conversationId}`)
+            .listen('.ConversationEvent', (event) => {
+                console.log('📢 ConversationEvent received (group channel):', event);
+                handleConversationEvent(event);
+            })
+            .here((users) => {
+                console.log('👥 Users currently in conversation:', users);
+            })
+            .joining((user) => {
+                console.log('✅ User joined:', user);
+            })
+            .leaving((user) => {
+                console.log('❌ User left:', user);
+            });
+
+        conversationChannels.set(conversationId, channel);
     };
 
     const subscribeToConversation = (conversationId) => {
@@ -232,7 +303,7 @@ export function useChat() {
 
     const handleConversationEvent = (event) => {
         console.log('🎯 handleConversationEvent:', event);
-        const { action, conversation } = event;
+        const { action, conversation, meta } = event;
 
         switch (action) {
             case 'added':
@@ -242,12 +313,25 @@ export function useChat() {
                 removeConversation(conversation.id);
                 break;
             case 'left':
+                // console.log("I left the conversation");
+                // logged user left the conversation
                 if (activeConversation.value?.id === conversation.id) {
-                    fetchGroupMembers();
+                    activeConversation.value = null;
                 }
+                removeConversation(conversation.id);
+                break;
+            case 'member_left':
+                console.log(`${meta?.left_user_name} left the group`);
+                if (activeConversation.value?.id === conversation.id) {
+                    fetchGroupMembers(); // Member list refresh
+                }
+                updateConversationInfo(conversation);
                 break;
             case 'updated':
                 updateConversationInfo(conversation);
+                if (activeConversation.value?.id === conversation.id) {
+                    fetchGroupMembers();
+                }
                 break;
             case 'deleted':
                 removeConversation(conversation.id);
@@ -549,6 +633,7 @@ export function useChat() {
 
     // Add this new function
     const handleMessageSeen = (statusData) => {
+
         const msg = messages.value.find(m => m.id === statusData.message_id);
         if (msg && msg.isMine) {
             msg.status = 'seen';
@@ -1723,11 +1808,16 @@ export function useChat() {
         await fetchMessages(conversation.id);
 
         messages.value.forEach(msg => processedMessageIds.add(msg.id));
-        // Subscribe to conversation channel
+
+        // Subscribe to conversation channel (for messages)
         subscribeToConversation(conversation.id);
 
-        nextTick(() => scrollToBottom());
+        // Subscribe to group channel
+        if (conversation.type === 'group') {
+            subscribeToConversationChannel(conversation.id);
+        }
 
+        nextTick(() => scrollToBottom());
     };
 
     const closeChatOnMobile = () => {
@@ -2229,9 +2319,7 @@ export function useChat() {
         try {
             const conversationId = activeConversation.value.id;
             const res = await addMembersToGroupAPI(conversationId, memberIds);
-
-            const members = res.data?.original?.data?.members || [];
-
+            const members = res.data?.members || [];
             members.forEach(user => {
                 if (!groupMembers.value.some(m => m.id === user.id)) {
                     groupMembers.value.push({
@@ -2688,6 +2776,24 @@ export function useChat() {
         conversationChannels.clear();
         clearTimeout(typingDebounce);
     });
+
+    // onBeforeUnmount(() => {
+    //     if (userChannel) {
+    //         window.Echo.leave(`user.${getCurrentUserId()}`);
+    //     }
+
+    //     if (globalPresenceChannel) {
+    //         window.Echo.leave('online');
+    //     }
+
+    //     // 🔥 সব conversation channels থেকে leave করো
+    //     conversationChannels.forEach((channel, conversationId) => {
+    //         window.Echo.leave(`conversation.${conversationId}`);
+    //     });
+
+    //     conversationChannels.clear();
+    //     clearTimeout(typingDebounce);
+    // });
     return {
         // State
         conversations,
