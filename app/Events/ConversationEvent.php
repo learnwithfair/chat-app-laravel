@@ -13,7 +13,8 @@ class ConversationEvent implements ShouldBroadcastNow
     use InteractsWithSockets, SerializesModels;
 
     public Conversation $conversation;
-    public string $action;     // added | removed |admin_removed| left | member_left |unblocked|blocked | updated | deleted |read
+    public string $action;     // added | removed | left  |unblocked|blocked  |unmuted
+                               // For global broadcast => read|updated|member_added|member_left|updated|deleted |admin_removed |admin_added
     public ?int $targetUserId; // if null then broadcast to group's all members
     public ?array $meta;
 
@@ -53,9 +54,14 @@ class ConversationEvent implements ShouldBroadcastNow
                 'id'   => $this->conversation->id,
                 'name' => $this->conversation->name,
                 'type' => $this->conversation->type,
-                'meta' => $this->conversation->meta ?? null,
+
+                //  Merge dynamic meta here
+                'meta' => array_merge(
+                    $this->conversation->meta ?? [],
+                    $this->meta ?? []
+                ),
             ],
-            'meta'         => $this->meta, //  Extra data
         ];
     }
+
 }

@@ -285,6 +285,83 @@ class ConversationRepository
         return $conversation->participants()->active()->with('user')->get();
     }
 
+    // public function addMembers(User $adder, int $conversationId, array $memberIds)
+    // {
+    //     if (! $this->canUserManageMembers($conversationId, $adder->id)) {
+    //         throw new HttpResponseException($this->error(null, 'Only admins can add members.', 403));
+    //     }
+
+    //     $conversation = $this->find($conversationId);
+
+    //     $addedMembers = [];
+    //     $lastMessage  = null;
+
+    //     foreach ($memberIds as $id) {
+
+    //         // Skip self-add (optional safety)
+    //         if ($id === $adder->id) {continue;}
+
+    //         $participant = $conversation->participants()->where('user_id', $id)->first();
+
+    //         $user = $this->findUser($id);
+
+    //         $wasAdded = false;
+    //         $action   = null;
+
+    //         if ($participant) {
+    //             //  Re-add removed / left users
+    //             if ($participant->removed_at || $participant->left_at || ! $participant->is_active) {
+    //                 $participant->update([
+    //                     'is_active'  => true,
+    //                     'removed_at' => null,
+    //                     'left_at'    => null,
+    //                 ]);
+
+    //                 $wasAdded = true;
+    //                 $action   = 're-added';
+    //             }
+    //         } else {
+    //             // Brand new participant
+    //             $participant = $conversation->participants()->create([
+    //                 'user_id'    => $id,
+    //                 'is_active'  => true,
+    //                 'removed_at' => null,
+    //                 'left_at'    => null,
+    //             ]);
+
+    //             $wasAdded = true;
+    //             $action   = 'added';
+    //         }
+
+    //         // If user was already active, skip everything
+    //         if (! $wasAdded) {continue;}
+
+    //         //  Collect for frontend realtime update
+    //         $addedMembers[] = [
+    //             'id'     => $user->id,
+    //             'name'   => $user->name,
+    //             'avatar' => $user->avatar_path,
+    //             'role'   => $participant->is_admin ? 'admin' : 'member',
+    //         ];
+
+    //         // System message
+    //         $lastMessage = $conversation->messages()->create([
+    //             'sender_id' => $adder->id,
+    //             'message'   => "{$adder->name} {$action} {$user->name} to the conversation",
+    //             'message_type' => 'system',
+    //         ]);
+
+    //         // Broadcast message
+    //         event(new MessageEvent('sent', $conversation->id, $lastMessage->toArray()));
+
+    //         // Send conversation to added user
+    //         event(new ConversationEvent($conversation, 'added', $id));
+
+    //     }
+
+    //     return ['members' => $addedMembers, 'message' => $lastMessage, 'conversation_id' => $conversationId];
+    // }
+
     public function addMembers(User $adder, int $conversationId, array $memberIds)
     {
         if (! $this->canUserManageMembers($conversationId, $adder->id)) {
@@ -297,19 +374,19 @@ class ConversationRepository
         $lastMessage  = null;
 
         foreach ($memberIds as $id) {
-
             // Skip self-add (optional safety)
-            if ($id === $adder->id) {continue;}
+            if ($id === $adder->id) {
+                continue;
+            }
 
             $participant = $conversation->participants()->where('user_id', $id)->first();
-
-            $user = $this->findUser($id);
+            $user        = $this->findUser($id);
 
             $wasAdded = false;
             $action   = null;
 
             if ($participant) {
-                //  Re-add removed / left users
+                // Re-add removed / left users
                 if ($participant->removed_at || $participant->left_at || ! $participant->is_active) {
                     $participant->update([
                         'is_active'  => true,
@@ -334,9 +411,11 @@ class ConversationRepository
             }
 
             // If user was already active, skip everything
-            if (! $wasAdded) {continue;}
+            if (! $wasAdded) {
+                continue;
+            }
 
-            //  Collect for frontend realtime update
+            // Collect for frontend realtime update
             $addedMembers[] = [
                 'id'     => $user->id,
                 'name'   => $user->name,
@@ -354,12 +433,28 @@ class ConversationRepository
             // Broadcast message
             event(new MessageEvent('sent', $conversation->id, $lastMessage->toArray()));
 
-            // Send conversation to added user
+            // Broadcast to the added user
             event(new ConversationEvent($conversation, 'added', $id));
-
         }
 
-        return ['members' => $addedMembers, 'message' => $lastMessage, 'conversation_id' => $conversationId];
+        // Notify other members
+        if (count($addedMembers) > 0) {
+            event(new ConversationEvent(
+                $conversation->fresh(),
+                'member_added',
+                null, // null = group channel
+                [
+                    'added_by' => $adder->name,
+                    'members'  => $addedMembers,
+                ]
+            ));
+        }
+
+        return [
+            'members'         => $addedMembers,
+            'message'         => $lastMessage,
+            'conversation_id' => $conversationId,
+        ];
     }
 
     public function acceptInvite(User $user, string $token)
@@ -459,6 +554,9 @@ class ConversationRepository
         }
 
         $participants = ConversationParticipant::where('conversation_id', $conversationId)->whereIn('user_id', $userIds)->where('role', 'member')->update(['role' => 'admin']);
+
+        event(new ConversationEvent($conversation, 'admin_added'));
+
         return $participants;
 
     }
@@ -505,8 +603,14 @@ class ConversationRepository
             ]);
 
             //  Realtime role update
-            event(new ConversationEvent($conversation, 'admin_removed', $user->id));
+            // event(new ConversationEvent($conversation, 'admin_removed', $user->id));
         }
+
+        event(new ConversationEvent($conversation, 'admin_removed', null, [
+            'added_by' => $actor->name,
+            'members'  => $participants,
+        ]));
+
         $data = [
             'members' => $updatedMembers,
             'message' => $lastMessage,
@@ -622,14 +726,28 @@ class ConversationRepository
         }
 
         $conversation = $conversation->fresh(); // reload
+        $conversation->load('groupSetting');
 
-        return $conversation->load('groupSetting');
+        event(new ConversationEvent(
+            $conversation,
+            'updated',
+            null,
+            [
+                'group_setting' => $conversation->groupSetting,
+                'avatar'        => optional($conversation->groupSetting)->avatar,
+            ]
+        ));
+
+        return $conversation;
     }
 
     public function deleteGroup(int $conversationId)
     {
         $conversation = $this->find($conversationId);
-        return $conversation->delete();
+        $conversation->delete();
+        event(new ConversationEvent($conversation, 'deleted', ));
+
+        return true;
     }
 
     public function createDefault(int $conversationId): GroupSettings

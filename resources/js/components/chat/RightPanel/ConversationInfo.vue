@@ -338,7 +338,7 @@ watch(showShareMenu, (isOpen) => {
         <!-- Action buttons -->
         <div class="absolute right-0 top-0 flex items-center gap-2">
           <!-- Share icon with dropdown -->
-          <div class="relative">
+          <div class="relative" v-if="isGroup">
             <button
               @click="toggleShareMenu"
               class="share-button p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"

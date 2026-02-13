@@ -1,6 +1,8 @@
 <?php
 namespace App\Jobs;
 
+use App\Events\ConversationEvent;
+use App\Models\Conversation;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -76,8 +78,19 @@ class UnmuteConversationJob implements ShouldQueue
                 ]);
 
             if ($updated) {
-                // Broadcast to user (optional)
-                // broadcast(new ConversationUnmuted($this->userId, $this->conversationId));
+                $conversation = Conversation::find($this->conversationId);
+
+                if ($conversation) {
+                    broadcast(new ConversationEvent(
+                        $conversation,
+                        'unmuted',
+                        $this->userId,
+                        [
+                            'participant_id' => $this->participantId,
+                            'is_muted'       => false,
+                        ]
+                    ));
+                }
 
                 Log::info('Conversation unmuted via queue', [
                     'participant_id'  => $this->participantId,

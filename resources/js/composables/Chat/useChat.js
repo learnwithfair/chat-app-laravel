@@ -138,34 +138,6 @@ export function useChat() {
     // ==================== WEBSOCKET SUBSCRIPTIONS ====================
 
 
-    // const subscribeToGlobalPresence = () => {
-    //     globalPresenceChannel = window.Echo.join('online')
-    //         .here((users) => {
-    //             console.log('👥 Online users:', users);
-    //             onlineUsers.value = users.map(user => ({
-    //                 id: user.id,
-    //                 name: user.name,
-    //                 avatar: user.avatar_path || generateAvatar(user.name),
-    //                 isOnline: true
-    //             }));
-    //         })
-    //         .joining((user) => {
-    //             console.log('✅ User came online:', user);
-    //             if (!onlineUsers.value.some(u => u.id === user.id)) {
-    //                 onlineUsers.value.push({
-    //                     id: user.id,
-    //                     name: user.name,
-    //                     avatar: user.avatar_path || generateAvatar(user.name),
-    //                     isOnline: true
-    //                 });
-    //             }
-    //         })
-    //         .leaving((user) => {
-    //             console.log('❌ User went offline:', user);
-    //             onlineUsers.value = onlineUsers.value.filter(u => u.id !== user.id);
-    //         });
-    // };
-
     const subscribeToGlobalPresence = () => {
         globalPresenceChannel = window.Echo.join('online')
             .here((users) => {
@@ -174,7 +146,7 @@ export function useChat() {
                 console.log('👥 Online users:', users);
 
                 onlineUsers.value = users
-                    .filter(user => user.id !== myId)   // 🔥 remove myself
+                    .filter(user => user.id !== myId)   // remove myself
                     .map(user => ({
                         id: user.id,
                         name: user.name,
@@ -229,10 +201,10 @@ export function useChat() {
     //  Join Group Channel
     const subscribeToConversationChannel = (conversationId) => {
         // Check if already subscribed
-        if (conversationChannels.has(conversationId)) {
-            console.log('⚠️ Already subscribed to conversation channel:', conversationId);
-            return;
-        }
+        // if (conversationChannels.has(conversationId)) {
+        //     console.log('⚠️ Already subscribed to conversation channel:', conversationId);
+        //     return;
+        // }
 
         console.log(`✅ Subscribing to conversation channel: ${conversationId}`);
 
@@ -313,13 +285,15 @@ export function useChat() {
                 removeConversation(conversation.id);
                 break;
             case 'left':
-                // console.log("I left the conversation");
                 // logged user left the conversation
                 if (activeConversation.value?.id === conversation.id) {
                     activeConversation.value = null;
                 }
                 removeConversation(conversation.id);
                 break;
+            case 'admin_added':
+            case 'admin_removed':
+            case 'member_added':
             case 'member_left':
                 console.log(`${meta?.left_user_name} left the group`);
                 if (activeConversation.value?.id === conversation.id) {
@@ -338,6 +312,15 @@ export function useChat() {
                 break;
             case 'read':
                 updateUnreadCount(conversation.id, 0);
+                break;
+            case 'blocked':
+                handleBlockedByOther(conversation.id);
+                break;
+            case 'unblocked':
+                handleUnblockedByOther(conversation.id);
+                break;
+            case 'unmuted':
+                UpdateConversation(conversation);
                 break;
         }
     };
@@ -692,6 +675,15 @@ export function useChat() {
         }
     };
 
+    const UpdateConversation = (convData) => {
+        const existing = conversations.value.find(c => c.id === convData.id);
+        if (!existing) return;
+
+        existing.isMuted = false;
+        lastConversationFetch.value = null;
+    };
+
+
     const removeConversation = (conversationId) => {
         conversations.value = conversations.value.filter(c => c.id !== conversationId);
 
@@ -704,6 +696,7 @@ export function useChat() {
     };
 
     const updateConversationInfo = (convData) => {
+
         const index = conversations.value.findIndex(c => c.id === convData.id);
         if (index === -1) return;
 
@@ -711,7 +704,7 @@ export function useChat() {
             ...conversations.value[index],
             name: convData.name || conversations.value[index].name,
             avatar: convData.meta?.avatar || conversations.value[index].avatar,
-            settings: convData.meta || conversations.value[index].settings
+            settings: convData.meta?.group_setting || conversations.value[index].settings
         };
 
         if (activeConversation.value?.id === convData.id) {
@@ -724,6 +717,44 @@ export function useChat() {
         if (conv) {
             conv.unreadCount = count;
         }
+    };
+
+    // ==================== BLOCK/UNBLOCK HANDLERS ====================
+
+    const handleBlockedByOther = (conversationId) => {
+        const conv = conversations.value.find(c => c.id === conversationId);
+        if (!conv) return;
+
+        // Update conversation state
+        conv.isBlocked = true;
+        conv.blockedByThem = true;
+        conv.canSendMessage = false;
+
+        // Update active conversation if it's the same
+        if (activeConversation.value?.id === conversationId) {
+            activeConversation.value.isBlocked = true;
+            activeConversation.value.blockedByThem = true;
+            activeConversation.value.canSendMessage = false;
+        }
+
+    };
+
+    const handleUnblockedByOther = (conversationId) => {
+        const conv = conversations.value.find(c => c.id === conversationId);
+        if (!conv) return;
+
+        // Update conversation state
+        conv.isBlocked = false;
+        conv.blockedByThem = false;
+        conv.canSendMessage = true;
+
+        // Update active conversation if it's the same
+        if (activeConversation.value?.id === conversationId) {
+            activeConversation.value.isBlocked = false;
+            activeConversation.value.blockedByThem = false;
+            activeConversation.value.canSendMessage = true;
+        }
+
     };
 
     // ==================== TYPING INDICATOR ====================
@@ -892,6 +923,7 @@ export function useChat() {
                 groupMembers.value.push(...members);
             } else {
                 groupMembers.value = members;
+
             }
 
             const paginationMeta = response.data.meta || {};
@@ -1440,7 +1472,9 @@ export function useChat() {
                 formData.append('name', data.name);
             }
 
+            // Group fields (switch to FormData)
             if (data.group) {
+                data.group.avatar = null;
                 Object.keys(data.group).forEach(key => {
                     let value = data.group[key];
                     if (value === null || value === undefined) return;
