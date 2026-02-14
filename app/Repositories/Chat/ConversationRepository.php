@@ -602,10 +602,8 @@ class ConversationRepository
                 'message_type' => 'system',
             ]);
 
-            //  Realtime role update
-            // event(new ConversationEvent($conversation, 'admin_removed', $user->id));
         }
-
+        //  Realtime role update
         event(new ConversationEvent($conversation, 'admin_removed', null, [
             'added_by' => $actor->name,
             'members'  => $participants,

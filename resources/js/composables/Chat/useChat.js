@@ -310,9 +310,9 @@ export function useChat() {
             case 'deleted':
                 removeConversation(conversation.id);
                 break;
-            case 'read':
-                updateUnreadCount(conversation.id, 0);
-                break;
+            // case 'read':
+            //     updateUnreadCount(conversation.id, 0);
+            //     break;
             case 'blocked':
                 handleBlockedByOther(conversation.id);
                 break;

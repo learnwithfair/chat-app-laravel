@@ -23,8 +23,8 @@ Route::prefix('v1')->middleware(['auth', 'verified', 'last_seen'])->group(functi
     Route::prefix('messages')->controller(MessageController::class)->group(function () {
         Route::delete('delete-for-me', 'deleteForMe');
         Route::delete('delete-for-everyone', 'deleteForEveryone'); // message unsent with message type system
-        Route::post('mark-seen', 'markSeen');            // meed to work on this
-        Route::get('seen/{conversation}', 'markAsSeen');
+        Route::post('mark-seen', 'markSeen');                      // When conversation already opend
+        Route::get('seen/{conversation}', 'markAsSeen');           // when open conversation
         Route::get('delivered/{conversation}', 'markAsDelivered');
         Route::post('{message}/forward', 'forward');
         Route::post('{message}/toggle-pin', 'pinToggleMessage');

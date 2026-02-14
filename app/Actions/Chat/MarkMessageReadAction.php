@@ -33,9 +33,7 @@ class MarkMessageReadAction
         }
 
         // Broadcast
-        broadcast(new MessageEvent(
-            type: 'seen',
-            conversationId: $conversationId,
+        broadcast(new MessageEvent(type: 'seen', conversationId: $conversationId,
             payload: [
                 'user_id'    => $user->id,
                 'message_id' => $lastMessage->id,
@@ -54,24 +52,17 @@ class MarkMessageReadAction
         $userId         = $user->id;
 
         if (empty($messageIds)) {
-            return [
-                'seen_count'  => 0,
-                'message_ids' => [],
-            ];
+            return ['seen_count' => 0, 'message_ids' => []];
         }
 
         // Fetch valid messages in ONE query
         $messages = Message::where('conversation_id', $conversationId)
             ->whereIn('id', $messageIds)
             ->where('sender_id', '!=', $userId)
-            ->select('id')
-            ->get();
+            ->select('id')->get();
 
         if ($messages->isEmpty()) {
-            return [
-                'seen_count'  => 0,
-                'message_ids' => [],
-            ];
+            return ['seen_count' => 0, 'message_ids' => []];
         }
 
         $messageIds = $messages->pluck('id')->toArray();
@@ -91,11 +82,7 @@ class MarkMessageReadAction
         }
 
         // Bulk UPSERT (fast & scalable)
-        MessageStatus::upsert(
-            $payload,
-            ['message_id', 'user_id'],
-            ['status', 'updated_at']
-        );
+        MessageStatus::upsert($payload, ['message_id', 'user_id'], ['status', 'updated_at']);
 
         // Update participant last_read_message_id (max seen id)
         $lastReadId = max($messageIds);
@@ -107,9 +94,7 @@ class MarkMessageReadAction
             ]);
 
         // Broadcast ONE event instead of N
-        broadcast(new MessageEvent(
-            'seen',
-            $conversationId,
+        broadcast(new MessageEvent('seen', $conversationId,
             [
                 'user_id'    => $user->id,
                 'message_id' => $lastReadId,

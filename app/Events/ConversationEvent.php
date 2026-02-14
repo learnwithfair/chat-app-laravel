@@ -14,7 +14,7 @@ class ConversationEvent implements ShouldBroadcastNow
 
     public Conversation $conversation;
     public string $action;     // added | removed | left  |unblocked|blocked  |unmuted
-                               // For global broadcast => read|updated|member_added|member_left|updated|deleted |admin_removed |admin_added
+                               // For global broadcast => updated|member_added|member_left|updated|deleted |admin_removed |admin_added
     public ?int $targetUserId; // if null then broadcast to group's all members
     public ?array $meta;
 
