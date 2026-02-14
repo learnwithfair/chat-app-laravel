@@ -5,7 +5,6 @@ use App\Actions\Chat\CreateConversationAction;
 use App\Actions\Chat\MarkMessageReadAction;
 use App\Actions\Chat\SendMessageAction;
 use App\Events\MessageEvent;
-use App\Events\UserStatusEvent;
 use App\Models\Message;
 use App\Models\MessageReaction;
 use App\Models\MessageStatus;
@@ -87,12 +86,6 @@ class ChatService
         return $pinmessage;
     }
 
-    public function typing(User $user, int $conversationId, bool $isTyping)
-    {
-        broadcast(new UserStatusEvent('typing', ['user_id' => $user->id, 'conversation_id' => $conversationId]))->toOthers();
-
-        return $isTyping;
-    }
     public function deleteForMe(User $user, array $data)
     {
         // Normalize IDs
@@ -117,6 +110,10 @@ class ChatService
     public function markConversationAsRead(User $user, int $conversationId)
     {
         return $this->markRead->execute($user, $conversationId);
+    }
+    public function markMessagesAsRead(User $user, array $data)
+    {
+        return $this->markRead->markSeen($user, $data);
     }
 
     public function markDelivered(User $user, int $conversationId)

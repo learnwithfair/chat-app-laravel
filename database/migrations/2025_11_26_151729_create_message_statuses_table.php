@@ -17,6 +17,8 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->enum('status', ['sent', 'delivered', 'seen'])->default('sent');
             $table->timestamps();
+            
+            $table->unique(['message_id', 'user_id']);
         });
     }
 

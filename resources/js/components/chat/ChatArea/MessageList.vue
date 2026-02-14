@@ -24,6 +24,7 @@ const emit = defineEmits([
   "add-reaction",
   "loadMore",
   "toggle-pin",
+  "messages-visible",
 ]);
 
 /* ================= COMPUTED ================= */
@@ -81,14 +82,78 @@ const getUsersForMessage = (message) => {
   });
 };
 
+/* ================= AUTO-SEEN OBSERVER ================= */
+
+let messageObserver = null;
+
+const setupMessageObserver = () => {
+  // Cleanup existing observer
+  if (messageObserver) {
+    messageObserver.disconnect();
+  }
+
+  // Only setup if we have an active conversation and container
+  if (!props.conversation || !messageContainer.value) {
+    return;
+  }
+
+  // Create Intersection Observer
+  messageObserver = new IntersectionObserver(
+    (entries) => {
+      const visibleMessageIds = [];
+
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const messageId = parseInt(entry.target.dataset.messageId);
+          const isMine = entry.target.dataset.isMine === "true";
+
+          // Only track messages that are NOT mine
+          if (!isMine) {
+            visibleMessageIds.push(messageId);
+          }
+        }
+      });
+
+      // Emit visible message IDs to parent
+      if (visibleMessageIds.length > 0) {
+        emit("messages-visible", visibleMessageIds);
+      }
+    },
+    {
+      root: messageContainer.value,
+      threshold: 0.5, // Message must be 50% visible
+      rootMargin: "0px",
+    }
+  );
+
+  // Observe all message elements
+  nextTick(() => {
+    const messageElements = messageContainer.value?.querySelectorAll("[data-message-id]");
+    messageElements?.forEach((el) => {
+      messageObserver.observe(el);
+    });
+  });
+};
+
 onMounted(() => {
   updateContainerPosition();
   window.addEventListener("resize", updateContainerPosition);
   scrollToBottom();
+
+  // Setup auto-seen observer after a short delay
+  setTimeout(() => {
+    setupMessageObserver();
+  }, 500);
 });
 
 onUnmounted(() => {
   window.removeEventListener("resize", updateContainerPosition);
+
+  // Cleanup message observer
+  if (messageObserver) {
+    messageObserver.disconnect();
+    messageObserver = null;
+  }
 });
 
 const onScroll = (e) => {
@@ -186,7 +251,11 @@ watch(
     }
 
     if (newLen > oldLen && !isLoadingMore.value) {
-      nextTick(scrollToBottom);
+      nextTick(() => {
+        scrollToBottom();
+        // Re-setup observer when new messages arrive
+        setupMessageObserver();
+      });
     }
 
     isLoadingMore.value = false;
@@ -208,6 +277,16 @@ watch(
   }
 );
 
+// Re-setup observer when conversation changes
+watch(
+  () => props.conversation?.id,
+  () => {
+    nextTick(() => {
+      setupMessageObserver();
+    });
+  }
+);
+
 function scrollToBottom() {
   if (!messageContainer.value) return;
 
@@ -218,7 +297,7 @@ function scrollToBottom() {
   });
 }
 
-defineExpose({ scrollToBottom, scrollToMessage });
+defineExpose({ scrollToBottom, scrollToMessage, messageContainer });
 </script>
 <template>
   <div
@@ -301,6 +380,8 @@ defineExpose({ scrollToBottom, scrollToMessage });
         v-for="message in messages"
         :key="message.id"
         :id="`message-${message.id}`"
+        :data-message-id="message.id"
+        :data-is-mine="message.isMine"
         :message="message"
         :is-group="isGroup"
         :search-query="searchQuery"

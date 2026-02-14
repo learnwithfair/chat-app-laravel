@@ -241,7 +241,7 @@ app/
 
 1. `MessageEvent` – messages sent, edited, deleted, or reacted
 2. `ConversationEvent` – conversation updates (added, removed, left, updated, deleted)
-3. `UserStatusEvent` – typing & online/offline status
+3. `MessageEvent` – typing & online/offline status
 
 ### Channels
 
@@ -254,8 +254,8 @@ app/
 
 ## Real-Time Features
 
-* Typing indicator (`UserTypingEvent`)
-* Online/offline indicator (`UserStatusEvent`)
+* Typing indicator (`MessageEvent`)
+* Online/offline indicator (`MessageEvent`)
 * Reactions broadcast in real-time
 * Conversation list updates for unread counts
 

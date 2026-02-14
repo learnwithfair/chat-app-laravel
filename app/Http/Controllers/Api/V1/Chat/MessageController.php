@@ -47,13 +47,6 @@ class MessageController extends Controller
         return $this->success($result, $result['message']->is_pinned ? 'Message Pinned Successfully' : 'Message Unpinned Successfully', 201);
     }
 
-    public function typing(Request $request, int $conversationId)
-    {
-        $request->validate(['is_typing' => 'required|boolean']);
-        $isTyping = $this->chatService->typing(Auth::user(), $conversationId, $request->is_typing);
-        return $this->success($isTyping, 'Message Updated Successfully', 201);
-    }
-
     //  {"message_ids": [12, 13, 14]}
     public function deleteForMe(DeleteMessageRequest $request)
     {
@@ -63,17 +56,30 @@ class MessageController extends Controller
 
     //  {"message_ids": [12, 13, 14]}
 
-
     public function deleteForEveryone(DeleteMessageRequest $request)
     {
         $result = $this->chatService->deleteForEveryone(Auth::user(), $request->validated());
         return $this->success($result, 'Message Deleted Successfully', 201);
     }
+
+    // When open conversation
     public function markAsSeen($conversationId)
     {
         $this->chatService->markConversationAsRead(Auth::user(), $conversationId);
         return $this->success(null, 'Conversation marked as seen.');
     }
+
+    // When already open conversation
+    public function markSeen(Request $request)
+    {
+        $request->validate([
+            'conversation_id' => 'required|integer|exists:conversations,id',
+            'message_ids'     => 'required|array',
+            'message_ids.*'   => 'integer|exists:messages,id',
+        ]);
+        $result = $this->chatService->markMessagesAsRead(Auth::user(), $request->all());
+        return $this->success($result, 'Messages marked as seen.');
+    }    
 
     public function markAsDelivered(int $conversationId)
     {

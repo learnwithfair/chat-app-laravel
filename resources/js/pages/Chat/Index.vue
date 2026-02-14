@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, nextTick } from "vue";
+import axios from "axios";
 import ConversationList from "@/Components/Chat/Sidebar/ConversationList.vue";
 import ChatHeader from "@/Components/Chat/ChatArea/ChatHeader.vue";
 import MessageList from "@/Components/Chat/ChatArea/MessageList.vue";
@@ -46,7 +47,6 @@ const {
   messageToDelete,
   messageToForward,
   typingUsers,
-  // listenForTyping,
   handleTypingChange,
 
   // Computed
@@ -125,7 +125,7 @@ const {
   handleUpdateDescription,
   handleUpdateName,
 
-  // BLOCK/UNBLOCK - This should come from useChat
+  // BLOCK/UNBLOCK
   handleUnblockUser,
 
   // Pinned Messages
@@ -141,7 +141,112 @@ const {
   closeModal,
 } = useChat();
 
-// Search functionality (UI-specific logic, stays here)
+/* ================= AUTO-SEEN FUNCTIONALITY ================= */
+
+const unseenMessageIds = ref(new Set());
+
+// Called when messages become visible in viewport
+const handleMessagesVisible = async (visibleMessageIds) => {
+  if (!activeConversation.value) return;
+
+  // Filter out messages that have already been processed
+  const newlyVisibleIds = visibleMessageIds.filter((id) =>
+    unseenMessageIds.value.has(id)
+  );
+
+  if (newlyVisibleIds.length === 0) return;
+
+  // Remove from unseen set
+  newlyVisibleIds.forEach((id) => {
+    unseenMessageIds.value.delete(id);
+  });
+
+  console.log(`🔍 Marking ${newlyVisibleIds.length} messages as seen:`, newlyVisibleIds);
+
+  // Call backend to mark as seen
+  try {
+    await axios.post("/api/v1/messages/mark-seen", {
+      conversation_id: activeConversation.value.id,
+      message_ids: newlyVisibleIds,
+    });
+
+    console.log(`✅ Marked ${newlyVisibleIds.length} messages as seen`);
+
+    // Update local message status
+    newlyVisibleIds.forEach((msgId) => {
+      const msg = messages.value.find((m) => m.id === msgId);
+      if (msg) {
+        msg.status = "seen";
+      }
+    });
+  } catch (error) {
+    console.error("Failed to mark messages as seen:", error);
+    // Add back to unseen set on error
+    newlyVisibleIds.forEach((id) => {
+      unseenMessageIds.value.add(id);
+    });
+  }
+};
+
+// Initialize unseen messages when conversation loads
+const initializeUnseenMessages = () => {
+  unseenMessageIds.value.clear();
+
+  messages.value.forEach((msg) => {
+    if (!msg.isMine && msg.status !== "seen") {
+      unseenMessageIds.value.add(msg.id);
+    }
+  });
+
+  console.log(`📊 Initialized ${unseenMessageIds.value.size} unseen messages`);
+};
+
+// Watch for conversation changes
+watch(
+  () => activeConversation.value?.id,
+  async (newId, oldId) => {
+    if (!newId) return;
+
+    // Initialize unseen messages for this conversation
+    await nextTick();
+    initializeUnseenMessages();
+
+    // Fetch group members if needed
+    if (activeConversation.value?.type === "group") {
+      groupMembers.value = [];
+      groupMembersPagination.value = {
+        current_page: 0,
+        last_page: 1,
+        per_page: 20,
+      };
+      fetchGroupMembers(activeConversation.value.id);
+    }
+
+    // Fetch pinned messages for this conversation
+    await fetchPinnedMessages(newId);
+  },
+  { immediate: true }
+);
+
+// Watch for new messages
+watch(
+  () => messages.value.length,
+  (newLen, oldLen) => {
+    if (newLen > oldLen) {
+      // Add new unseen messages to the set
+      const newMessages = messages.value.slice(oldLen);
+      newMessages.forEach((msg) => {
+        if (!msg.isMine && msg.status !== "seen") {
+          unseenMessageIds.value.add(msg.id);
+          console.log(`📬 New unseen message added: ${msg.id}`);
+        }
+      });
+    }
+  }
+);
+
+/* ================= SEARCH FUNCTIONALITY ================= */
+
 const chatHeaderRef = ref(null);
 const messageListRef = ref(null);
 const messageSearchQuery = ref("");
@@ -206,6 +311,8 @@ const triggerSearchFromRightPanel = () => {
   chatHeaderRef.value?.openSearch();
 };
 
+/* ================= TYPING USERS ================= */
+
 const getTypingUsers = computed(() => {
   if (!activeConversation.value) return [];
 
@@ -219,6 +326,8 @@ const getTypingUsers = computed(() => {
   }));
 });
 
+/* ================= PINNED MESSAGES ================= */
+
 const handleScrollToPinnedMessage = (messageId) => {
   // Highlight
   highlightedMessageId.value = messageId;
@@ -226,28 +335,11 @@ const handleScrollToPinnedMessage = (messageId) => {
   // Scroll
   messageListRef.value?.scrollToMessage(messageId);
 
-  // remove highlight
+  // Remove highlight after 2 seconds
   setTimeout(() => {
     highlightedMessageId.value = null;
   }, 2000);
 };
-
-watch(
-  activeConversation,
-  async (conv) => {
-    if (!conv) return;
-
-    if (conv.type === "group") {
-      groupMembers.value = [];
-      groupMembersPagination.value = { current_page: 0, last_page: 1, per_page: 20 };
-      fetchGroupMembers(conv.id);
-    }
-
-    // Fetch pinned messages for this conversation
-    await fetchPinnedMessages(conv.id);
-  },
-  { immediate: true }
-);
 </script>
 
 <template>
@@ -311,7 +403,7 @@ watch(
         @scroll-to-message="handleScrollToPinnedMessage"
       />
 
-      <!-- Message List with Highlighted Search Results -->
+      <!-- Message List with Auto-Seen and Search -->
       <MessageList
         ref="messageListRef"
         :messages="messages"
@@ -321,6 +413,7 @@ watch(
         :typing-users="getTypingUsers"
         :message-pagination="messagePagination"
         :conversation="activeConversation"
+        @messages-visible="handleMessagesVisible"
         @reply="replyToMessage"
         @edit="editMessage"
         @forward="forwardMessage"
@@ -339,25 +432,7 @@ watch(
       <!-- Edit Preview -->
       <EditPreview v-if="editingMessage" :message="editingMessage" @cancel="cancelEdit" />
 
-      <!-- Message Input - UPDATED WITH BLOCK PROPS -->
-      <!--
-      <MessageInput
-        v-model="newMessage"
-        :is-blocked="activeConversation.isBlocked"
-        :blocked-by-me="activeConversation.blockedByMe"
-        :blocked-by-them="activeConversation.blockedByThem"
-        :can-send-message="activeConversation.canSendMessage"
-        :conversation-type="activeConversation.type"
-        :is-editing="!!editingMessage"
-        :conversation-id="activeConversation.id"
-        @send="handleSendMessage()"
-        @send-voice="handleSendVoice"
-        @send-files="handleSendMessage"
-        @typing-change="(isTyping) => listenForTyping(activeConversation.id, isTyping)"
-        @unblock-user="handleUnblockUser"
-      />
-       -->
-
+      <!-- Message Input -->
       <MessageInput
         v-model="newMessage"
         :is-blocked="activeConversation.isBlocked"
