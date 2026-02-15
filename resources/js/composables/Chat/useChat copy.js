@@ -201,10 +201,10 @@ export function useChat() {
     //  Join Group Channel
     const subscribeToConversationChannel = (conversationId) => {
         // Check if already subscribed
-        // if (conversationChannels.has(conversationId)) {
-        //     console.log('⚠️ Already subscribed to conversation channel:', conversationId);
-        //     return;
-        // }
+        if (conversationChannels.has(conversationId)) {
+            console.log('⚠️ Already subscribed to conversation channel:', conversationId);
+            return;
+        }
 
         console.log(`✅ Subscribing to conversation channel: ${conversationId}`);
 
@@ -640,16 +640,14 @@ export function useChat() {
     const addOrUpdateConversation = async (convData) => {
         const existing = conversations.value.find(c => c.id === convData.id);
 
-        console.log("RRRRRRRRR-----------------------");
-        console.log(convData);
         if (existing) {
             updateConversationInfo(convData);
         } else {
             const formatted = {
                 id: convData.id,
                 type: convData.type,
-                name: convData.name || convData.meta?.user?.name,
-                avatar: convData.meta?.avatar || convData.meta?.user?.avatar_path || generateAvatar(convData.name || convData.meta?.user?.name),
+                name: convData.name,
+                avatar: convData.meta?.avatar || generateAvatar(convData.name),
                 lastMessage: 'New conversation',
                 lastMessageTime: 'Just now',
                 unreadCount: 0,
@@ -663,8 +661,7 @@ export function useChat() {
                 receiver: null,
                 is_admin: false,
                 role: 'member',
-                canSendMessage: true,
-                last_seen: null
+                canSendMessage: true
             };
 
             conversations.value.unshift(formatted);
@@ -1829,8 +1826,8 @@ export function useChat() {
 
         return activeConversation.value.isOnline
             ? 'Online'
-            : activeConversation.value.receiver?.last_seen
-                ? 'Offline • ' + activeConversation.value.receiver?.last_seen
+            : activeConversation.value.receiver.last_seen
+                ? 'Offline • ' + activeConversation.value.receiver.last_seen
                 : 'Offline';
     });
 

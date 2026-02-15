@@ -1,7 +1,9 @@
 <?php
 namespace App\Repositories\Chat;
 
+use App\Events\ConversationEvent;
 use App\Events\MessageEvent;
+use App\Http\Resources\Chat\ConversationResource;
 use App\Http\Resources\Chat\MediaLibraryResource;
 use App\Http\Resources\Chat\MessageResource;
 use App\Jobs\SendPushNotificationJob;
@@ -191,35 +193,174 @@ class MessageRepository
         return $links;
     }
 
+    // public function storeMessage(User $user, array $data)
+    // {
+    //     // 1. Auto-create private conversation
+    //     if (empty($data['conversation_id']) && ! empty($data['receiver_id'])) {
+    //         $data['conversation_id'] = app(ChatService::class)->startConversation($user, $data['receiver_id'])->id;
+    //     }
+
+    //     // 2. Validate membership
+    //     $participant = ConversationParticipant::where('conversation_id', $data['conversation_id'])->where('user_id', $user->id)->active()->first();
+
+    //     if (! $participant) {
+    //         throw new HttpResponseException($this->error(null, 'You are no longer a member of this conversation.', 403));
+    //     }
+    //     $conversation = Conversation::findOrFail($data['conversation_id']);
+
+    //     // 3. Block check (receiver blocked sender)
+    //     if (
+    //         $conversation->type === 'private' &&
+    //         $conversation->otherParticipant($user)?->hasBlocked($user)
+    //     ) {
+    //         throw new HttpResponseException($this->error(null, 'You cannot send message to this user.', 403));
+    //     }
+
+    //     // 3.1. Check allow_members_to_send_messages
+    //     if (! $conversation->canUserSendMessage($participant)) {
+    //         throw new HttpResponseException($this->error(null, 'You are not allowed to send messages.', 403));
+    //     }
+
+    //     // 4. Create message
+    //     $message = Message::create([
+    //         'conversation_id'       => $data['conversation_id'],
+    //         'sender_id'             => $user->id,
+    //         'receiver_id'           => $data['receiver_id'] ?? null,
+    //         'message'               => $data['message'] ?? null,
+    //         'message_type'          => $data['message_type'] ?? 'text',
+    //         'reply_to_message_id'   => $data['reply_to_message_id'] ?? null,
+    //         'forward_to_message_id' => $data['forward_to_message_id'] ?? null,
+    //         'is_restricted'         => ! empty($data['receiver_id']) &&
+    //         $user->restrictedByUsers()->where('users.id', $data['receiver_id'])->exists(),
+    //     ]);
+
+    //     // 5. Attachments (forwarded messages & new messages)
+    //     if (! empty($data['forward_to_message_id'])) {
+
+    //         $original = Message::findOrFail($data['forward_to_message_id']);
+    //         $this->cloneAttachments($original, $message);
+    //     } elseif (! empty($data['attachments'])) {
+
+    //         foreach ($data['attachments'] as $file) {
+    //             /** @var \Illuminate\Http\UploadedFile $uploadedFile */
+    //             $uploadedFile = $file['path'];
+
+    //             $originalName = $uploadedFile->getClientOriginalName();
+    //             $media_path   = uploadFile($file['path'], 'uploads/messages', (string) Str::uuid());
+    //             $message->attachments()->create([
+    //                 'path' => $media_path,
+    //                 'type' => getFileType($media_path),
+    //                 'name' => $originalName,
+    //                 'size' => file_exists(public_path($media_path)) ? filesize(public_path($media_path)) : null,
+    //             ]);
+    //         }
+    //     }
+
+    //     // 6. Update last read
+    //     $participant->update(['last_read_message_id' => $message->id]);
+
+    //     // If previously deleted conversation, reactivate it
+    //     $deletedParticipants = ConversationParticipant::where('conversation_id', $data['conversation_id'])
+    //         ->whereNotNull('deleted_at')
+    //         ->get();
+
+    //     if ($deletedParticipants->isNotEmpty()) {
+    //         ConversationParticipant::whereIn('id', $deletedParticipants->pluck('id'))
+    //             ->update([
+    //                 'is_active'  => true,
+    //                 'deleted_at' => null,
+    //             ]);
+    //     }
+
+    //     // 7. Create message statuses (bulk)
+    //     $participants = ConversationParticipant::where('conversation_id', $data['conversation_id'])->active()->get();
+
+    //     $statuses = $participants->map(fn($p) => [
+    //         'message_id' => $message->id,
+    //         'user_id'    => $p->user_id,
+    //         'status'     => $p->user_id === $user->id ? 'seen' : 'sent',
+    //         'created_at' => now(),
+    //         'updated_at' => now(),
+    //     ])->toArray();
+
+    //     MessageStatus::insert($statuses);
+
+    //     // 8. Touch conversation for last activity
+    //     $conversation->touch();
+
+    //     // 9. Push notification
+    //     $this->sendMessagePushNotification($conversation, $message, $user);
+
+    //     // 10. Load relationships before returning (SAME AS getByConversation)
+    //     $message->load([
+    //         'sender:id,name',
+    //         'reactions',
+    //         'attachments',
+    //         'statuses',
+    //         'replyTo.sender:id,name',
+    //         'forwardedFrom.sender:id,name',
+    //         'forwardedFrom.conversation:id,name,type',
+    //     ]);
+    //     // Broadcast rejoin event for deleted participants (AFTER everything is done)
+    //     if (! empty($deletedParticipants) && $deletedParticipants->isNotEmpty()) {
+    //         $conversationResource = new ConversationResource($conversation);
+    //         $conversationResource->toArray();
+
+    //         foreach ($deletedParticipants as $participant) {
+    //             event(new ConversationEvent(
+    //                 $conversation,
+    //                 'added',
+    //                 $participant->user_id,
+    //                 $conversationResource,
+    //             ));
+    //         }
+    //     }
+
+    //     return new MessageResource($message);
+    // }
+
     public function storeMessage(User $user, array $data)
     {
         // 1. Auto-create private conversation
         if (empty($data['conversation_id']) && ! empty($data['receiver_id'])) {
-            $data['conversation_id'] = app(ChatService::class)->startConversation($user, $data['receiver_id'])->id;
+            $data['conversation_id'] = app(ChatService::class)
+                ->startConversation($user, $data['receiver_id'])
+                ->id;
         }
 
         // 2. Validate membership
-        $participant = ConversationParticipant::where('conversation_id', $data['conversation_id'])->where('user_id', $user->id)->active()->first();
+        $participant = ConversationParticipant::where('conversation_id', $data['conversation_id'])
+            ->where('user_id', $user->id)
+            ->active()
+            ->first();
 
         if (! $participant) {
-            throw new HttpResponseException($this->error(null, 'You are no longer a member of this conversation.', 403));
+            throw new HttpResponseException(
+                $this->error(null, 'You are no longer a member of this conversation.', 403)
+            );
         }
+
+        // 3. Load conversation
         $conversation = Conversation::findOrFail($data['conversation_id']);
 
-        // 3. Block check (receiver blocked sender)
+        // 4. Block check (receiver blocked sender)
         if (
             $conversation->type === 'private' &&
             $conversation->otherParticipant($user)?->hasBlocked($user)
         ) {
-            throw new HttpResponseException($this->error(null, 'You cannot send message to this user.', 403));
+            throw new HttpResponseException(
+                $this->error(null, 'You cannot send message to this user.', 403)
+            );
         }
 
-        // 3.1. Check allow_members_to_send_messages
+        // 5. Permission check
         if (! $conversation->canUserSendMessage($participant)) {
-            throw new HttpResponseException($this->error(null, 'You are not allowed to send messages.', 403));
+            throw new HttpResponseException(
+                $this->error(null, 'You are not allowed to send messages.', 403)
+            );
         }
 
-        // 4. Create message
+        // 6. Create message
         $message = Message::create([
             'conversation_id'       => $data['conversation_id'],
             'sender_id'             => $user->id,
@@ -229,62 +370,79 @@ class MessageRepository
             'reply_to_message_id'   => $data['reply_to_message_id'] ?? null,
             'forward_to_message_id' => $data['forward_to_message_id'] ?? null,
             'is_restricted'         => ! empty($data['receiver_id']) &&
-            $user->restrictedByUsers()->where('users.id', $data['receiver_id'])->exists(),
+            $user->restrictedByUsers()
+                ->where('users.id', $data['receiver_id'])
+                ->exists(),
         ]);
 
-        // 5. Attachments (forwarded messages & new messages)
+        // 7. Attachments (forwarded + new uploads)
         if (! empty($data['forward_to_message_id'])) {
 
             $original = Message::findOrFail($data['forward_to_message_id']);
             $this->cloneAttachments($original, $message);
+
         } elseif (! empty($data['attachments'])) {
 
             foreach ($data['attachments'] as $file) {
-                /** @var \Illuminate\Http\UploadedFile $uploadedFile */
-                $uploadedFile = $file['path'];
 
-                $originalName = $uploadedFile->getClientOriginalName();
-                $media_path   = uploadFile($file['path'], 'uploads/messages', (string) Str::uuid());
+                $uploadedFile = $file['path'];
+                $mediaPath    = uploadFile(
+                    $uploadedFile,
+                    'uploads/messages',
+                    (string) Str::uuid()
+                );
+
                 $message->attachments()->create([
-                    'path' => $media_path,
-                    'type' => getFileType($media_path),
-                    'name' => $originalName,
-                    'size' => file_exists(public_path($media_path)) ? filesize(public_path($media_path)) : null,
+                    'path' => $mediaPath,
+                    'type' => getFileType($mediaPath),
+                    'name' => $uploadedFile->getClientOriginalName(),
+                    'size' => file_exists(public_path($mediaPath))
+                        ? filesize(public_path($mediaPath))
+                        : null,
                 ]);
             }
         }
 
-        // 6. Update last read
+        // 8. Update sender last-read
         $participant->update(['last_read_message_id' => $message->id]);
 
-        // If previously deleted conversation, reactivate it
-        ConversationParticipant::where('conversation_id', $data['conversation_id'])
+        // 9. Reactivate deleted participants (bulk)
+        $deletedParticipants = ConversationParticipant::where('conversation_id', $conversation->id)
             ->whereNotNull('deleted_at')
-            ->update([
-                'is_active'  => true,
-                'deleted_at' => null,
-            ]);
+            ->get(['id', 'user_id']);
 
-        // 7. Create message statuses (bulk)
-        $participants = ConversationParticipant::where('conversation_id', $data['conversation_id'])->active()->get();
+        if ($deletedParticipants->isNotEmpty()) {
+            ConversationParticipant::whereIn('id', $deletedParticipants->pluck('id'))
+                ->update([
+                    'is_active'  => true,
+                    'deleted_at' => null,
+                ]);
+        }
 
-        $statuses = $participants->map(fn($p) => [
+        // 10. Bulk insert message statuses (HIGH SCALE SAFE)
+        $participantIds = ConversationParticipant::where('conversation_id', $conversation->id)
+            ->active()
+            ->pluck('user_id');
+
+        $now = now();
+
+        $statuses = $participantIds->map(fn($uid) => [
             'message_id' => $message->id,
-            'user_id'    => $p->user_id,
-            'status'     => $p->user_id === $user->id ? 'seen' : 'sent',
-            'created_at' => now(),
-            'updated_at' => now(),
+            'user_id'    => $uid,
+            'status'     => $uid === $user->id ? 'seen' : 'sent',
+            'created_at' => $now,
+            'updated_at' => $now,
         ])->toArray();
 
         MessageStatus::insert($statuses);
 
-        // 8. Touch conversation for last activity
+        // 11. Touch conversation
         $conversation->touch();
 
-        // 9. Push notification
+        // 12. Push notification (async job recommended)
         $this->sendMessagePushNotification($conversation, $message, $user);
 
-        // 10. Load relationships before returning (SAME AS getByConversation)
+        // 13. Load message relations (NO N+1)
         $message->load([
             'sender:id,name',
             'reactions',
@@ -294,6 +452,32 @@ class MessageRepository
             'forwardedFrom.sender:id,name',
             'forwardedFrom.conversation:id,name,type',
         ]);
+
+        // 14. Broadcast rejoin event (Enterprise-grade realtime pipeline)
+        if ($deletedParticipants->isNotEmpty()) {
+
+            // Eager load to prevent N+1 inside ConversationResource
+            $conversation->load([
+                'participants.user:id,name,avatar_path',
+                'lastMessage.sender:id,name,avatar_path',
+                'lastMessage.attachments',
+                'creator:id,name',
+                'groupSetting',
+                'activeInvites',
+            ]);
+
+            $conversationResource = (new ConversationResource($conversation))->toArray(request());
+
+            foreach ($deletedParticipants as $participant) {
+                event(new ConversationEvent(
+                    $conversation,
+                    'added',
+                    $participant->user_id,
+                    $conversationResource
+                ));
+            }
+        }
+
         return new MessageResource($message);
     }
 
