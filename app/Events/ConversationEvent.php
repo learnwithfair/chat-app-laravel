@@ -51,12 +51,13 @@ class ConversationEvent implements ShouldBroadcastNow
         return [
             'action'       => $this->action,
             'conversation' => [
-                'id'   => $this->conversation->id,
-                'name' => $this->conversation->name,
-                'type' => $this->conversation->type,
+                'id'     => $this->conversation->id,
+                'name'   => $this->conversation->name,
+                'type'   => $this->conversation->type,
+                'avatar' => $this->conversation?->group_setting->avatar ?? null,
 
                 //  Merge dynamic meta here
-                'meta' => array_merge(
+                'meta'   => array_merge(
                     $this->conversation->meta ?? [],
                     $this->meta ?? []
                 ),

@@ -40,6 +40,8 @@ class ConversationResource extends JsonResource
                     'id'          => $this->lastMessage->sender->id,
                     'name'        => $this->lastMessage->sender->name,
                     'avatar_path' => $this->lastMessage->sender->avatar_path,
+                    'is_online'   => $this->lastMessage->sender->isOnline(),
+                    'last_seen'   => $this->lastMessage->sender->last_seen_at?->diffForHumans(),
                 ],
                 'created_at'  => $this->lastMessage->created_at->toDateTimeString(),
             ] : null,

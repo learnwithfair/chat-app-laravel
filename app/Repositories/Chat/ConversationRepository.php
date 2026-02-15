@@ -69,6 +69,7 @@ class ConversationRepository
                         ->with('user');
                 },
                 'lastMessage.sender',
+                'lastMessage.attachments',
                 'groupSetting',
                 'activeInvites',
             ])

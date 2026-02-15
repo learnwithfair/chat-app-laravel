@@ -642,29 +642,44 @@ export function useChat() {
 
         console.log("RRRRRRRRR-----------------------");
         console.log(convData);
+
+        const conv = convData.meta || convData;
+        const name = conv.type === 'private' ? conv.last_message?.sender?.name : conv.name;
+        const avatar =
+            conv.type === 'private'
+                ? conv.last_message?.sender?.avatar_path ?? generateAvatar(conv.last_message?.sender?.name)
+                : conv.avatar ?? generateAvatar(conv.name);
+
+        const blocked = conv.blocked || { by_me: false, by_them: false };
+        const isBlocked = conv.is_blocked || blocked.by_me || blocked.by_them;
+
         if (existing) {
             updateConversationInfo(convData);
         } else {
             const formatted = {
                 id: convData.id,
                 type: convData.type,
-                name: convData.name || convData.meta?.user?.name,
-                avatar: convData.meta?.avatar || convData.meta?.user?.avatar_path || generateAvatar(convData.name || convData.meta?.user?.name),
-                lastMessage: 'New conversation',
-                lastMessageTime: 'Just now',
-                unreadCount: 0,
-                isOnline: false,
-                isBlocked: false,
-                blockedByMe: false,
-                blockedByThem: false,
-                members: [],
-                settings: convData.meta || null,
-                isMuted: false,
-                receiver: null,
-                is_admin: false,
-                role: 'member',
-                canSendMessage: true,
-                last_seen: null
+                name: name || 'Unknown',
+                avatar: avatar,
+                lastMessage: buildLastMessagePreview(conv.last_message) || 'No preview available',
+                lastMessageTime: conv.last_message?.created_at
+                    ? formatTime(conv.last_message.created_at)
+                    : '',
+                unreadCount: conv.unread_count || 0,
+                isOnline: conv.last_message?.sender?.is_online || false,
+                isBlocked,
+                blockedByMe: blocked.by_me,
+                blockedByThem: blocked.by_them,
+                createdBy: conv.created_by,
+                createdAt: conv.created_at,
+                members: conv.participants || [],
+                settings: conv.group_setting || null,
+                isMuted: conv.is_muted || false,
+                receiver: conv.receiver || null,
+                is_admin: conv.is_admin,
+                role: conv.role,
+                canSendMessage: conv.can_send_message,
+                inviteLink: conv.invite_link
             };
 
             conversations.value.unshift(formatted);
@@ -707,7 +722,7 @@ export function useChat() {
             ...conversations.value[index],
             name: convData.name || conversations.value[index].name,
             avatar: convData.meta?.avatar || conversations.value[index].avatar,
-            settings: convData.meta?.group_setting || conversations.value[index].settings
+            settings: convData.meta?.group_setting || convData.meta?.settings || conversations.value[index].settings
         };
 
         if (activeConversation.value?.id === convData.id) {
