@@ -93,6 +93,7 @@ php artisan storage:link
 
 php artisan serve
 php artisan reverb:start
+php artisan reverb:start --debug
 npm run dev
 ```
 
