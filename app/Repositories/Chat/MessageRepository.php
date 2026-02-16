@@ -24,9 +24,7 @@ class MessageRepository
     public function getByConversation(User $user, int $conversationId, ?string $query = null, int $perPage = 20)
     {
         $participant = ConversationParticipant::where('conversation_id', $conversationId)
-            ->where('user_id', $user->id)
-            ->active()
-            ->firstOrFail();
+            ->where('user_id', $user->id)->active()->firstOrFail();
 
         $messages = Message::where('conversation_id', $conversationId)
             ->when($participant->last_deleted_message_id, function ($q) use ($participant) {
@@ -56,9 +54,7 @@ class MessageRepository
     public function getPinedMessagesByConversation(User $user, int $conversationId, ?string $query = null, int $perPage = 20)
     {
         $participant = ConversationParticipant::where('conversation_id', $conversationId)
-            ->where('user_id', $user->id)
-            ->active()
-            ->firstOrFail();
+            ->where('user_id', $user->id)->active()->firstOrFail();
 
         $messages = Message::where('conversation_id', $conversationId)
             ->pinned()
@@ -88,11 +84,7 @@ class MessageRepository
 
     public function find(int $messageId): ?Message
     {
-        return Message::with([
-            'sender',
-            'reactions',
-            'attachments',
-        ])->find($messageId);
+        return Message::with(['sender', 'reactions', 'attachments'])->find($messageId);
     }
 
     // mediaLibrary
@@ -100,9 +92,7 @@ class MessageRepository
     public function mediaLibrary(User $user, $conversationId, int $perPage)
     {
         $participant = ConversationParticipant::where('conversation_id', $conversationId)
-            ->where('user_id', $user->id)
-            ->active()
-            ->firstOrFail();
+            ->where('user_id', $user->id)->active()->firstOrFail();
 
         $attachments = MessageAttachment::whereHas('message', function ($q) use ($conversationId, $participant, $user) {
 
@@ -174,9 +164,7 @@ class MessageRepository
                 $q->where('user_id', $userId);
             })
 
-            ->select('id', 'message', 'created_at')
-            ->latest()
-            ->get();
+            ->select('id', 'message', 'created_at')->latest()->get();
 
         $links = [];
 
@@ -212,18 +200,17 @@ class MessageRepository
         $conversation = Conversation::findOrFail($data['conversation_id']);
 
         // 4. Block check (receiver blocked sender)
-        if (
-            $conversation->type === 'private' &&
-            $conversation->otherParticipant($user)?->hasBlocked($user)
-        ) {
+        if ($conversation->type === 'private' && $conversation->otherParticipant($user)?->hasBlocked($user)) {
             throw new HttpResponseException($this->error(null, 'You cannot send message to this user.', 403));
         }
 
         // 5. Permission check
         if (! $conversation->canUserSendMessage($participant)) {
-            throw new HttpResponseException($this->error(null, 'You are not allowed to send messages.', 403)
-            );
+            throw new HttpResponseException($this->error(null, 'You are not allowed to send messages.', 403));
         }
+
+        //  detect first message scenario
+        $hadMessagesBefore = Message::where('conversation_id', $conversation->id)->lockForUpdate()->exists();
 
         // 6. Create message
         $message = Message::create([
@@ -266,8 +253,7 @@ class MessageRepository
 
         // 9. Reactivate deleted participants (bulk)
         $deletedParticipants = ConversationParticipant::where('conversation_id', $conversation->id)
-            ->whereNotNull('deleted_at')
-            ->get(['id', 'user_id']);
+            ->whereNotNull('deleted_at')->get(['id', 'user_id']);
 
         if ($deletedParticipants->isNotEmpty()) {
             ConversationParticipant::whereIn('id', $deletedParticipants->pluck('id'))
@@ -319,13 +305,43 @@ class MessageRepository
                 'activeInvites',
             ]);
 
-            $conversationResource = (new ConversationResource($conversation))->toArray(request());
-
             foreach ($deletedParticipants as $participant) {
+
+                $targetUser           = User::find($participant->user_id);
+                $conversationResource = (new ConversationResource($conversation))->forUser($targetUser)->toArray(request());
+
                 event(new ConversationEvent(
                     $conversation,
                     'added',
                     $participant->user_id,
+                    $conversationResource
+                ));
+            }
+
+        }
+
+        // 15. FIRST PRIVATE MESSAGE REALTIME FIX
+        if ($conversation->type === 'private' && ! $hadMessagesBefore) {
+            $receiver = $conversation->otherParticipant($user);
+
+            if ($receiver) {
+                // Load full conversation data once
+                $conversation->load([
+                    'participants.user',
+                    'lastMessage.sender',
+                    'lastMessage.attachments',
+                    'creator:id,name',
+                    'groupSetting',
+                    'activeInvites',
+                ]);
+
+                $conversationResource = (new ConversationResource($conversation))->forUser($receiver)->toArray(request());
+
+                // Add conversation to receiver realtime chatlist
+                event(new ConversationEvent(
+                    $conversation,
+                    'added',
+                    $receiver->id,
                     $conversationResource
                 ));
             }
@@ -375,9 +391,7 @@ class MessageRepository
 
         foreach ($messages as $message) {
             // Soft delete for user
-            $message->deletions()->firstOrCreate([
-                'user_id' => $userId,
-            ]);
+            $message->deletions()->firstOrCreate(['user_id' => $userId]);
 
             // Broadcast delete-for-me only to requester
             // broadcast(new MessageEvent('deleted_for_me', $message->conversation_id, [
@@ -405,9 +419,7 @@ class MessageRepository
                 $deletedId      = $message->id;
                 $message->delete();
 
-                broadcast(new MessageEvent('deleted_permanent', $conversationId, [
-                    'message_id' => $deletedId,
-                ]));
+                broadcast(new MessageEvent('deleted_permanent', $conversationId, ['message_id' => $deletedId]));
 
                 continue;
             }

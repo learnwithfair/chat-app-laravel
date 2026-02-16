@@ -161,7 +161,7 @@ const handleMessagesVisible = async (visibleMessageIds) => {
     unseenMessageIds.value.delete(id);
   });
 
-  console.log(`🔍 Marking ${newlyVisibleIds.length} messages as seen:`, newlyVisibleIds);
+  console.log(`Marking ${newlyVisibleIds.length} messages as seen:`, newlyVisibleIds);
 
   // Call backend to mark as seen
   try {
@@ -170,7 +170,7 @@ const handleMessagesVisible = async (visibleMessageIds) => {
       message_ids: newlyVisibleIds,
     });
 
-    console.log(`✅ Marked ${newlyVisibleIds.length} messages as seen`);
+    console.log(`Marked ${newlyVisibleIds.length} messages as seen`);
 
     // Update local message status
     newlyVisibleIds.forEach((msgId) => {
@@ -198,7 +198,7 @@ const initializeUnseenMessages = () => {
     }
   });
 
-  console.log(`📊 Initialized ${unseenMessageIds.value.size} unseen messages`);
+  console.log(`Initialized ${unseenMessageIds.value.size} unseen messages`);
 };
 
 // Watch for conversation changes
@@ -238,7 +238,7 @@ watch(
       newMessages.forEach((msg) => {
         if (!msg.isMine && msg.status !== "seen") {
           unseenMessageIds.value.add(msg.id);
-          console.log(`📬 New unseen message added: ${msg.id}`);
+          console.log(`New unseen message added: ${msg.id}`);
         }
       });
     }

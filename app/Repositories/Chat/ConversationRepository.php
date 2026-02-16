@@ -20,10 +20,7 @@ class ConversationRepository
     use ApiResponse;
     public function find(int $conversationId): ?Conversation
     {
-        return Conversation::with([
-            'participants.user',
-            'messages.sender',
-        ])->find($conversationId);
+        return Conversation::with(['participants.user', 'messages.sender'])->find($conversationId);
     }
 
     public function findUser(int $userId)
@@ -35,24 +32,21 @@ class ConversationRepository
     {
         $conversations = Conversation::query()
             ->whereHas('participants', function ($q) use ($user) {
-                $q->where('user_id', $user->id)
-                    ->where('is_active', true);
+                $q->where('user_id', $user->id)->where('is_active', true);
             })
             ->when($query, function ($q) use ($query, $user) {
                 $q->where(function ($q2) use ($query, $user) {
 
                     //  Group conversation → search by group name
                     $q2->where(function ($group) use ($query) {
-                        $group->where('type', 'group')
-                            ->where('name', 'like', "%{$query}%");
+                        $group->where('type', 'group')->where('name', 'like', "%{$query}%");
                     })
 
                     //  Private conversation → search by other user's name
                         ->orWhere(function ($private) use ($query, $user) {
                             $private->where('type', 'private')
                                 ->whereHas('participants.user', function ($u) use ($query, $user) {
-                                    $u->where('users.id', '!=', $user->id)
-                                        ->where('users.name', 'like', "%{$query}%");
+                                    $u->where('users.id', '!=', $user->id)->where('users.name', 'like', "%{$query}%");
                                 });
                         });
                 });
@@ -62,8 +56,7 @@ class ConversationRepository
                     $q->where(function ($q) {
                         $q->whereNotNull('deleted_at') // for conversation removed
                             ->orWhere(function ($q) {
-                                $q->whereNull('deleted_at')
-                                    ->where('is_active', true);
+                                $q->whereNull('deleted_at')->where('is_active', true);
                             });
                     })
                         ->with('user');
@@ -71,15 +64,13 @@ class ConversationRepository
                 'lastMessage.sender',
                 'lastMessage.attachments',
                 'groupSetting',
+                'creator:id,name',
                 'activeInvites',
             ])
             ->withCount([
                 'unreadMessages as unread_count' => function ($q) use ($user) {
                     $q->where('sender_id', '!=', $user->id)
-                        ->whereColumn(
-                            'messages.id',
-                            '>',
-                            'conversation_participants.last_read_message_id'
+                        ->whereColumn('messages.id', '>', 'conversation_participants.last_read_message_id'
                         )
                         ->join('conversation_participants', function ($join) use ($user) {
                             $join->on('conversation_participants.conversation_id', '=', 'messages.conversation_id')
@@ -104,9 +95,7 @@ class ConversationRepository
     public function createPrivateConversation(int $userId1, int $userId2): ConversationResource
     {
         // Create the conversation
-        $conversation = Conversation::create([
-            'type' => 'private',
-        ]);
+        $conversation = Conversation::create(['type' => 'private']);
 
         // Create participants
         $participants = [
@@ -130,59 +119,10 @@ class ConversationRepository
         return new ConversationResource($conversation);
     }
 
-    // public function createGroupConversation(array $data, int $creadtedId)
-    // {
-    //     $conversation = Conversation::create([
-    //         'type'       => 'group',
-    //         'name'       => $data['name'] ?? 'New Group',
-    //         'created_by' => $creadtedId,
-    //     ]);
-
-    //     $participants = [];
-
-    //     $participants[] = ['user_id' => $creadtedId, 'role' => 'super_admin'];
-
-    //     // Add other members, skip creator if included
-    //     foreach ($data['participants'] ?? [] as $userId) {
-    //         if ($userId == $creadtedId) {
-    //             continue;
-    //         }
-
-    //         $participants[] = [
-    //             'user_id' => $userId,
-    //             'role'    => 'member',
-    //         ];
-    //     }
-
-    //     $conversation->participants()->createMany($participants);
-    //     app(ChatService::class)->createDefault($conversation->id);
-
-    //     $conversation->groupSetting()->create([
-    //         'description' => $data['group']['description'] ?? null,
-    //         'type'        => $data['group']['type'] ?? 'private',
-    //     ]);
-
-    //     // create invite link
-    //     $this->createInviteLink(Auth::user(), $data, $conversation);
-
-    //     $conversation->load([
-    //         'participants' => function ($q) {
-    //             $q->where('is_active', true)->with('user');
-    //         },
-    //         'lastMessage.sender',
-    //         'groupSetting',
-    //     ]);
-
-    //     $conversation->setRelation('unread_count', 0);
-
-    //     //  Return wrapped in ConversationResource
-    //     return new ConversationResource($conversation);
-    // }
-
+    // Create group conversation
     public function createGroupConversation(array $data, int $creadtedId)
     {
-        $creator = $this->findUser($creadtedId);
-
+        $creator      = $this->findUser($creadtedId);
         $conversation = Conversation::create([
             'type'       => 'group',
             'name'       => $data['name'] ?? 'New Group',
@@ -229,14 +169,6 @@ class ConversationRepository
             'message_type' => 'system',
         ]);
 
-        //  Broadcast system message
-        event(new MessageEvent('sent', $conversation->id, $systemMessage->toArray()));
-
-        //  Send realtime conversation to all participants
-        foreach ($participants as $p) {
-            event(new ConversationEvent($conversation, 'added', $p['user_id']));
-        }
-
         $conversation->load([
             'participants' => function ($q) {
                 $q->where('is_active', true)->with('user');
@@ -246,6 +178,16 @@ class ConversationRepository
         ]);
 
         $conversation->setRelation('unread_count', 0);
+
+        //  Broadcast system message
+        event(new MessageEvent('sent', $conversation->id, $systemMessage->toArray()));
+
+        //  Send realtime conversation to all participants
+        foreach ($participants as $p) {
+            $targetUser           = User::find($p['user_id']);
+            $conversationResource = (new ConversationResource($conversation))->forUser($targetUser)->toArray(request());
+            event(new ConversationEvent($conversation, 'added', $p['user_id'], $conversationResource));
+        }
 
         return new ConversationResource($conversation);
     }
@@ -286,83 +228,7 @@ class ConversationRepository
         return $conversation->participants()->active()->with('user')->get();
     }
 
-    // public function addMembers(User $adder, int $conversationId, array $memberIds)
-    // {
-    //     if (! $this->canUserManageMembers($conversationId, $adder->id)) {
-    //         throw new HttpResponseException($this->error(null, 'Only admins can add members.', 403));
-    //     }
-
-    //     $conversation = $this->find($conversationId);
-
-    //     $addedMembers = [];
-    //     $lastMessage  = null;
-
-    //     foreach ($memberIds as $id) {
-
-    //         // Skip self-add (optional safety)
-    //         if ($id === $adder->id) {continue;}
-
-    //         $participant = $conversation->participants()->where('user_id', $id)->first();
-
-    //         $user = $this->findUser($id);
-
-    //         $wasAdded = false;
-    //         $action   = null;
-
-    //         if ($participant) {
-    //             //  Re-add removed / left users
-    //             if ($participant->removed_at || $participant->left_at || ! $participant->is_active) {
-    //                 $participant->update([
-    //                     'is_active'  => true,
-    //                     'removed_at' => null,
-    //                     'left_at'    => null,
-    //                 ]);
-
-    //                 $wasAdded = true;
-    //                 $action   = 're-added';
-    //             }
-    //         } else {
-    //             // Brand new participant
-    //             $participant = $conversation->participants()->create([
-    //                 'user_id'    => $id,
-    //                 'is_active'  => true,
-    //                 'removed_at' => null,
-    //                 'left_at'    => null,
-    //             ]);
-
-    //             $wasAdded = true;
-    //             $action   = 'added';
-    //         }
-
-    //         // If user was already active, skip everything
-    //         if (! $wasAdded) {continue;}
-
-    //         //  Collect for frontend realtime update
-    //         $addedMembers[] = [
-    //             'id'     => $user->id,
-    //             'name'   => $user->name,
-    //             'avatar' => $user->avatar_path,
-    //             'role'   => $participant->is_admin ? 'admin' : 'member',
-    //         ];
-
-    //         // System message
-    //         $lastMessage = $conversation->messages()->create([
-    //             'sender_id' => $adder->id,
-    //             'message'   => "{$adder->name} {$action} {$user->name} to the conversation",
-    //             'message_type' => 'system',
-    //         ]);
-
-    //         // Broadcast message
-    //         event(new MessageEvent('sent', $conversation->id, $lastMessage->toArray()));
-
-    //         // Send conversation to added user
-    //         event(new ConversationEvent($conversation, 'added', $id));
-
-    //     }
-
-    //     return ['members' => $addedMembers, 'message' => $lastMessage, 'conversation_id' => $conversationId];
-    // }
-
+    // addMembers
     public function addMembers(User $adder, int $conversationId, array $memberIds)
     {
         if (! $this->canUserManageMembers($conversationId, $adder->id)) {
@@ -371,23 +237,36 @@ class ConversationRepository
 
         $conversation = $this->find($conversationId);
 
-        $addedMembers = [];
-        $lastMessage  = null;
+        $memberIds = collect($memberIds)->unique()->reject(fn($id) => $id == $adder->id)->values();
+
+        if ($memberIds->isEmpty()) {
+            return ['members' => [], 'message' => null, 'conversation_id' => $conversationId];
+        }
+
+        // Preload users in ONE query
+        $users = User::whereIn('id', $memberIds)->get()->keyBy('id');
+
+        // Preload existing participants in ONE query
+        $existingParticipants = $conversation->participants()->whereIn('user_id', $memberIds)->get()->keyBy('user_id');
+
+        $now = now();
+
+        $addedMembers   = [];
+        $systemMessages = [];
 
         foreach ($memberIds as $id) {
-            // Skip self-add (optional safety)
-            if ($id === $adder->id) {
+
+            $user = $users->get($id);
+            if (! $user) {
                 continue;
             }
 
-            $participant = $conversation->participants()->where('user_id', $id)->first();
-            $user        = $this->findUser($id);
+            $participant = $existingParticipants->get($id);
 
             $wasAdded = false;
             $action   = null;
 
             if ($participant) {
-                // Re-add removed / left users
                 if ($participant->removed_at || $participant->left_at || ! $participant->is_active) {
                     $participant->update([
                         'is_active'  => true,
@@ -399,7 +278,6 @@ class ConversationRepository
                     $action   = 're-added';
                 }
             } else {
-                // Brand new participant
                 $participant = $conversation->participants()->create([
                     'user_id'    => $id,
                     'is_active'  => true,
@@ -411,12 +289,10 @@ class ConversationRepository
                 $action   = 'added';
             }
 
-            // If user was already active, skip everything
             if (! $wasAdded) {
                 continue;
             }
 
-            // Collect for frontend realtime update
             $addedMembers[] = [
                 'id'     => $user->id,
                 'name'   => $user->name,
@@ -424,26 +300,48 @@ class ConversationRepository
                 'role'   => $participant->is_admin ? 'admin' : 'member',
             ];
 
-            // System message
-            $lastMessage = $conversation->messages()->create([
-                'sender_id' => $adder->id,
-                'message'   => "{$adder->name} {$action} {$user->name} to the conversation",
+            $systemMessages[] = [
+                'conversation_id' => $conversationId,
+                'sender_id'       => $adder->id,
+                'message'         => "{$adder->name} {$action} {$user->name} to the conversation",
                 'message_type' => 'system',
-            ]);
-
-            // Broadcast message
-            event(new MessageEvent('sent', $conversation->id, $lastMessage->toArray()));
-
-            // Broadcast to the added user
-            event(new ConversationEvent($conversation, 'added', $id));
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
         }
 
-        // Notify other members
-        if (count($addedMembers) > 0) {
+        // Bulk insert system messages
+        if (! empty($systemMessages)) {
+            Message::insert($systemMessages);
+        }
+
+        // Reload conversation ONCE
+        $conversation->load([
+            'participants.user',
+            'lastMessage.sender',
+            'lastMessage.attachments',
+            'creator:id,name',
+            'groupSetting',
+            'activeInvites',
+        ]);
+
+        // Broadcast per added member
+        foreach ($addedMembers as $member) {
+            $targetUser = $users->get($member['id']);
+
+            $conversationResource = (new ConversationResource($conversation))
+                ->forUser($targetUser)
+                ->toArray(request());
+
+            event(new ConversationEvent($conversation, 'added', $targetUser->id, $conversationResource));
+        }
+
+        // Broadcast group update
+        if (! empty($addedMembers)) {
             event(new ConversationEvent(
-                $conversation->fresh(),
+                $conversation,
                 'member_added',
-                null, // null = group channel
+                null,
                 [
                     'added_by' => $adder->name,
                     'members'  => $addedMembers,
@@ -453,7 +351,7 @@ class ConversationRepository
 
         return [
             'members'         => $addedMembers,
-            'message'         => $lastMessage,
+            'message'         => last($systemMessages),
             'conversation_id' => $conversationId,
         ];
     }
@@ -507,9 +405,7 @@ class ConversationRepository
     public function removeMember(int $actorId, int $conversationId, array $memberIds)
     {
         if (! $this->canUserManageMembers($conversationId, $actorId)) {
-            throw new HttpResponseException(
-                $this->error(null, 'Only admins can remove members.', 403)
-            );
+            throw new HttpResponseException($this->error(null, 'Only admins can remove members.', 403));
         }
 
         $conversation = $this->find($conversationId);
@@ -565,23 +461,17 @@ class ConversationRepository
     public function removeGroupAdmins(User $actor, int $conversationId, array $userIds)
     {
         if (! $this->canUserManageMembers($conversationId, $actor->id)) {
-            throw new HttpResponseException(
-                $this->error(null, 'Only admins can remove admins.', 403)
-            );
+            throw new HttpResponseException($this->error(null, 'Only admins can remove admins.', 403));
         }
 
         $conversation = $this->find($conversationId);
 
         if ($conversation->type !== 'group') {
-            throw new HttpResponseException(
-                $this->error(null, 'Admins are allowed only in group conversations.', 403)
-            );
+            throw new HttpResponseException($this->error(null, 'Admins are allowed only in group conversations.', 403));
         }
 
         $participants = ConversationParticipant::where('conversation_id', $conversationId)
-            ->whereIn('user_id', $userIds)
-            ->where('role', 'admin')
-            ->get();
+            ->whereIn('user_id', $userIds)->where('role', 'admin')->get();
 
         $updatedMembers = [];
         $lastMessage    = null;
@@ -592,10 +482,7 @@ class ConversationRepository
 
             $user = $this->findUser($participant->user_id);
 
-            $updatedMembers[] = [
-                'id'   => $user->id,
-                'role' => 'member',
-            ];
+            $updatedMembers[] = ['id' => $user->id, 'role' => 'member'];
 
             $lastMessage = $conversation->messages()->create([
                 'sender_id' => $actor->id,
@@ -642,10 +529,7 @@ class ConversationRepository
 
         event(new ConversationEvent(
             $conversation->fresh(), 'member_left', null,
-            [
-                'left_user_id'   => $user->id,
-                'left_user_name' => $user->name,
-            ]
+            ['left_user_id' => $user->id, 'left_user_name' => $user->name]
         ));
 
         return true;
@@ -667,11 +551,7 @@ class ConversationRepository
         //  Broadcast system message to remaining users
         event(new MessageEvent(($message->is_pinned ? 'pinned' : 'unpinned'), $systemMessage->conversation_id, $message->toArray()));
 
-        $data = [
-            'message'      => $message,
-            'last_message' => $systemMessage,
-        ];
-        return $data;
+        return ['message' => $message, 'last_message' => $systemMessage];
     }
 
     public function muteGroup(int $userId, int $conversationId, int $minutes = 0)
@@ -694,25 +574,18 @@ class ConversationRepository
 
     public function updateGroupInfo(int $userId, int $conversationId, array $data)
     {
-        $participant = ConversationParticipant::where('conversation_id', $conversationId)
-            ->where('user_id', $userId)
-            ->firstOrFail();
+        $participant = ConversationParticipant::where('conversation_id', $conversationId)->where('user_id', $userId)->firstOrFail();
 
         $setting = GroupSettings::where('conversation_id', $conversationId)->firstOrFail();
 
         // Only admins can change group info if restricted
-        if (
-            ! $setting->allow_members_to_change_group_info &&
-            ! in_array($participant->role, ['admin', 'super_admin'])
-        ) {
+        if (! $setting->allow_members_to_change_group_info && ! in_array($participant->role, ['admin', 'super_admin'])) {
             throw new HttpResponseException($this->error(null, 'Only admins can update group info.', 403));
         }
 
         $conversation = $this->find($conversationId);
 
-        $conversation->update([
-            'name' => $data['name'] ?? $conversation->name,
-        ]);
+        $conversation->update(['name' => $data['name'] ?? $conversation->name]);
 
         if (isset($data['group'])) {
 
@@ -731,10 +604,7 @@ class ConversationRepository
             $conversation,
             'updated',
             null,
-            [
-                'group_setting' => $conversation->groupSetting,
-                'avatar'        => optional($conversation->groupSetting)->avatar,
-            ]
+            ['group_setting' => $conversation->groupSetting, 'avatar' => optional($conversation->groupSetting)->avatar]
         ));
 
         return $conversation;
@@ -744,31 +614,25 @@ class ConversationRepository
     {
         $conversation = $this->find($conversationId);
         $conversation->delete();
-        event(new ConversationEvent($conversation, 'deleted', ));
+        event(new ConversationEvent($conversation, 'deleted'));
 
         return true;
     }
 
     public function createDefault(int $conversationId): GroupSettings
     {
-        return GroupSettings::create([
-            'conversation_id' => $conversationId,
-        ]);
+        return GroupSettings::create(['conversation_id' => $conversationId]);
     }
 
     public function updateSetting(int $conversationId, int $userId, array $data): GroupSettings
     {
         $participant = ConversationParticipant::where('conversation_id', $conversationId)
-            ->where('user_id', $userId)
-            ->firstOrFail();
+            ->where('user_id', $userId)->firstOrFail();
 
         $setting = GroupSettings::where('conversation_id', $conversationId)->firstOrFail();
 
         // Only admins can change group info if restricted
-        if (
-            ! $setting->allow_members_to_change_group_info &&
-            ! in_array($participant->role, ['admin', 'super_admin'])
-        ) {
+        if (! $setting->allow_members_to_change_group_info && ! in_array($participant->role, ['admin', 'super_admin'])) {
             throw new HttpResponseException($this->error(null, 'Only admins can update group info.', 403));
         }
 
@@ -828,9 +692,7 @@ class ConversationRepository
         }
 
         return ConversationParticipant::where('conversation_id', $conversationId)
-            ->where('user_id', $userId)
-            ->whereIn('role', ['admin', 'super_admin'])
-            ->exists();
+            ->where('user_id', $userId)->whereIn('role', ['admin', 'super_admin'])->exists();
     }
 
     public function canUserManageMembers(int $conversationId, int $userId): bool
@@ -846,9 +708,7 @@ class ConversationRepository
         }
 
         return ConversationParticipant::where('conversation_id', $conversationId)
-            ->where('user_id', $userId)
-            ->whereIn('role', ['admin', 'super_admin'])
-            ->exists();
+            ->where('user_id', $userId)->whereIn('role', ['admin', 'super_admin'])->exists();
     }
 
     public function canUserPermit(int $conversationId, int $userId): bool
@@ -858,8 +718,7 @@ class ConversationRepository
     public function canGroupDeletePermit(int $userId, int $conversationId): bool
     {
         $participant = ConversationParticipant::where('conversation_id', $conversationId)
-            ->where('user_id', $userId)
-            ->firstOrFail();
+            ->where('user_id', $userId)->firstOrFail();
 
         if (! in_array($participant->role, ['super_admin'])) {
             throw new HttpResponseException($this->error(null, 'Only super admins can delete the group.', 403));

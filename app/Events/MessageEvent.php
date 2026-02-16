@@ -9,7 +9,7 @@ class MessageEvent implements ShouldBroadcastNow
 {
     use SerializesModels;
 
-    public string $type; // sent | updated | deleted | reaction  | deleted_for_everyone|deleted_permanent | delivered | unpinned |pinned |seen
+    public string $type; // sent | updated | deleted | reaction  | deleted_for_everyone | deleted_permanent | delivered | unpinned | pinned | seen
     public array $payload;
     public int $conversationId;
 
@@ -30,14 +30,11 @@ class MessageEvent implements ShouldBroadcastNow
     }
     public function broadcastAs()
     {
-        return 'MessageEvent'; // ✅ Simple name
+        return 'MessageEvent'; // Simple name
     }
 
     public function broadcastWith(): array
     {
-        return [
-            'type'    => $this->type,
-            'payload' => $this->payload,
-        ];
+        return ['type' => $this->type, 'payload' => $this->payload];
     }
 }

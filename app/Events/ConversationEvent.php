@@ -13,8 +13,8 @@ class ConversationEvent implements ShouldBroadcastNow
     use InteractsWithSockets, SerializesModels;
 
     public Conversation $conversation;
-    public string $action;     // added | removed | left  |unblocked|blocked  |unmuted
-                               // For global broadcast => updated|member_added|member_left|updated|deleted |admin_removed |admin_added
+    public string $action;     // added | removed | left  | unblocked | blocked  | unmuted
+                               // For global broadcast => updated | member_added | member_left | updated | deleted | admin_removed |admin_added
     public ?int $targetUserId; // if null then broadcast to group's all members
     public ?array $meta;
 

@@ -157,7 +157,7 @@ export function useChat() {
             .joining((user) => {
                 const myId = authUser.value?.id;
 
-                if (user.id === myId) return;   // 🔥 ignore myself
+                if (user.id === myId) return;   //  ignore myself
 
                 console.log('✅ User came online:', user);
 
@@ -643,12 +643,15 @@ export function useChat() {
         console.log("RRRRRRRRR-----------------------");
         console.log(convData);
 
+        // const myId = getCurrentUserId();
+
         const conv = convData.meta || convData;
         const name = conv.type === 'private' ? conv.last_message?.sender?.name : conv.name;
         const avatar =
             conv.type === 'private'
                 ? conv.last_message?.sender?.avatar_path ?? generateAvatar(conv.last_message?.sender?.name)
                 : conv.avatar ?? generateAvatar(conv.name);
+
 
         const blocked = conv.blocked || { by_me: false, by_them: false };
         const isBlocked = conv.is_blocked || blocked.by_me || blocked.by_them;
@@ -666,7 +669,7 @@ export function useChat() {
                     ? formatTime(conv.last_message.created_at)
                     : '',
                 unreadCount: conv.unread_count || 0,
-                isOnline: conv.last_message?.sender?.is_online || false,
+                isOnline: conv.receiver?.is_online || false,
                 isBlocked,
                 blockedByMe: blocked.by_me,
                 blockedByThem: blocked.by_them,
@@ -686,12 +689,14 @@ export function useChat() {
             lastConversationFetch.value = null;
 
             subscribeToConversation(convData.id);
-            if (convData.type === 'group') {
-                await fetchConversations();
-            }
+            // if (convData.type === 'group') {
+            //     await fetchConversations();
+            // }
             console.log('🔔 New conversation added:', convData.name);
         }
     };
+
+
 
     const UpdateConversation = (convData) => {
         const existing = conversations.value.find(c => c.id === convData.id);
@@ -2839,23 +2844,6 @@ export function useChat() {
         clearTimeout(typingDebounce);
     });
 
-    // onBeforeUnmount(() => {
-    //     if (userChannel) {
-    //         window.Echo.leave(`user.${getCurrentUserId()}`);
-    //     }
-
-    //     if (globalPresenceChannel) {
-    //         window.Echo.leave('online');
-    //     }
-
-    //     // 🔥 সব conversation channels থেকে leave করো
-    //     conversationChannels.forEach((channel, conversationId) => {
-    //         window.Echo.leave(`conversation.${conversationId}`);
-    //     });
-
-    //     conversationChannels.clear();
-    //     clearTimeout(typingDebounce);
-    // });
     return {
         // State
         conversations,

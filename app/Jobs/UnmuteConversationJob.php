@@ -51,9 +51,7 @@ class UnmuteConversationJob implements ShouldQueue
      */
     protected $conversationId;
 
-    /**
-     * Create a new job instance.
-     */
+    // Constructor
     public function __construct($participantId, $userId, $conversationId)
     {
         $this->participantId  = $participantId;
@@ -61,9 +59,7 @@ class UnmuteConversationJob implements ShouldQueue
         $this->conversationId = $conversationId;
     }
 
-    /**
-     * Execute the job.
-     */
+    // Unmute the conversation
     public function handle(): void
     {
         try {
@@ -71,11 +67,7 @@ class UnmuteConversationJob implements ShouldQueue
             $updated = DB::table('conversation_participants')
                 ->where('id', $this->participantId)
                 ->where('is_muted', true) // Double-check still muted
-                ->update([
-                    'is_muted'    => false,
-                    'muted_until' => null,
-                    'updated_at'  => Carbon::now(),
-                ]);
+                ->update(['is_muted' => false, 'muted_until' => null, 'updated_at' => Carbon::now()]);
 
             if ($updated) {
                 $conversation = Conversation::find($this->conversationId);
@@ -85,18 +77,10 @@ class UnmuteConversationJob implements ShouldQueue
                         $conversation,
                         'unmuted',
                         $this->userId,
-                        [
-                            'participant_id' => $this->participantId,
-                            'is_muted'       => false,
-                        ]
+                        ['participant_id' => $this->participantId, 'is_muted' => false]
                     ));
                 }
 
-                Log::info('Conversation unmuted via queue', [
-                    'participant_id'  => $this->participantId,
-                    'user_id'         => $this->userId,
-                    'conversation_id' => $this->conversationId,
-                ]);
             }
 
         } catch (\Exception $e) {
@@ -112,9 +96,7 @@ class UnmuteConversationJob implements ShouldQueue
         }
     }
 
-    /**
-     * Handle a job failure.
-     */
+    // Handle failure
     public function failed(\Throwable $exception): void
     {
         Log::error('Unmute job failed permanently', [

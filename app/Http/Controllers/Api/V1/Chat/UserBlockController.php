@@ -27,23 +27,18 @@ class UserBlockController extends Controller
 
         // I blocked them
             ->whereNotIn('id', function ($q) use ($authUser) {
-                $q->select('blocked_id')
-                    ->from('user_blocks')
-                    ->where('user_id', $authUser->id);
+                $q->select('blocked_id')->from('user_blocks')->where('user_id', $authUser->id);
             })
 
         // They blocked me
             ->whereNotIn('id', function ($q) use ($authUser) {
-                $q->select('user_id')
-                    ->from('user_blocks')
-                    ->where('blocked_id', $authUser->id);
+                $q->select('user_id')->from('user_blocks')->where('blocked_id', $authUser->id);
             })
 
         // Optional search
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($qq) use ($search) {
-                    $qq->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
+                    $qq->where('name', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%");
                 });
             })
 
@@ -71,9 +66,7 @@ class UserBlockController extends Controller
 
     public function onlineUsers(Request $request)
     {
-        $users = User::query()->online()
-            ->where('id', '!=', $request->user()->id)
-            ->select('id', 'name', 'avatar_path', 'last_seen_at')->get();
+        $users = User::query()->online()->where('id', '!=', $request->user()->id)->select('id', 'name', 'avatar_path', 'last_seen_at')->get();
 
         return $this->success($users, 'Users fetched successfully');
     }

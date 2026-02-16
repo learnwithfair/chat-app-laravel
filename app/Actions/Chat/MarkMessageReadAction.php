@@ -89,9 +89,7 @@ class MarkMessageReadAction
 
         ConversationParticipant::where('conversation_id', $conversationId)
             ->where('user_id', $userId)
-            ->update([
-                'last_read_message_id' => $lastReadId,
-            ]);
+            ->update(['last_read_message_id' => $lastReadId]);
 
         // Broadcast ONE event instead of N
         broadcast(new MessageEvent('seen', $conversationId,

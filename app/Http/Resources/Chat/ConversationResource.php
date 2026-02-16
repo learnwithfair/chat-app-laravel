@@ -1,13 +1,22 @@
 <?php
 namespace App\Http\Resources\Chat;
 
+use App\Models\User;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class ConversationResource extends JsonResource
 {
+    protected ?User $forUser = null;
+
+    public function forUser(User $user): static
+    {
+        $this->forUser = $user;
+        return $this;
+    }
+
     public function toArray($request): array
     {
-        $authUser    = $request->user();
+        $authUser    = $this->forUser ?? $request->user();
         $participant = $this->participants->firstWhere('user_id', $authUser->id);
 
         $receiver  = null;
@@ -46,8 +55,18 @@ class ConversationResource extends JsonResource
                 'created_at'  => $this->lastMessage->created_at->toDateTimeString(),
             ] : null,
 
-            'participants'     => $this->type === 'group'
-                ? $this->participants
+            // 'participants'     => $this->type === 'group'
+            //     ? $this->participants
+            //     ->take(3)
+            //     ->map(fn($p) => [
+            //         'id'          => $p->user_id,
+            //         'name'        => $p->user->name,
+            //         'role'        => $p->role,
+            //         'avatar_path' => $p->user->avatar_path,
+            //         'is_muted'    => $p->is_muted,
+            //     ])
+            //     : null,
+            'participants'     => $this->participants
                 ->take(3)
                 ->map(fn($p) => [
                     'id'          => $p->user_id,
@@ -55,8 +74,8 @@ class ConversationResource extends JsonResource
                     'role'        => $p->role,
                     'avatar_path' => $p->user->avatar_path,
                     'is_muted'    => $p->is_muted,
-                ])
-                : null,
+                    'is_online'   => $p->user->isOnline(),
+                ]),
 
             'receiver'         => $receiver ? [
                 'id'          => $receiver->id,

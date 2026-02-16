@@ -37,7 +37,6 @@ Route::prefix('v1')->middleware(['auth', 'verified', 'last_seen'])->group(functi
     });
 
     // -------------------- Group Management --------------------
-    // Custom group routes
     Route::prefix('group/{conversation}')->controller(GroupController::class)->group(function () {
         Route::post('update', 'update')->name('group.update');
         Route::post('members/add', 'addMembers')->name('group.members.add');
@@ -48,7 +47,6 @@ Route::prefix('v1')->middleware(['auth', 'verified', 'last_seen'])->group(functi
         Route::post('mute', 'muteToggleGroup')->name('group.mute'); // 0 = unmute, -1 = Unlimited mute, otherwise specify miniutes
         Route::post('leave', 'leaveGroup')->name('group.leave');
         Route::delete('delete-group', 'deleteGroup')->name('group.delete');
-
         Route::post('regenerate-invite', 'regenerateInvite');
     });
 

@@ -121,9 +121,7 @@ class ChatService
         MessageStatus::where('user_id', $user->id)
             ->whereHas('message', fn($q) =>
                 $q->where('conversation_id', $conversationId)
-            )
-            ->where('status', 'sent')
-            ->update(['status' => 'delivered']);
+            )->where('status', 'sent')->update(['status' => 'delivered']);
 
         broadcast(new MessageEvent('delivered', $conversationId, ['user_id' => $user->id]));
     }
@@ -137,7 +135,7 @@ class ChatService
         $message = $this->messageRepo->find($messageId);
 
         if (! $message) {
-            throw new \Exception("Message not found");
+            throw new HttpResponseException($this->error(null, 'Message not found', 404));
         }
 
         $existing = $message->reactions()->where('user_id', $user->id)->first();
@@ -146,23 +144,15 @@ class ChatService
             $message->reactions()->where('user_id', $user->id)->delete();
         } else {
             $message->reactions()->updateOrCreate(
-                [
-                    'user_id'    => $user->id,
-                    'message_id' => $messageId,
-                ],
-                [
-                    'reaction' => $reaction,
-                ]
+                ['user_id' => $user->id, 'message_id' => $messageId],
+                ['reaction' => $reaction]
             );
         }
 
         $reactions = $message->reactions()->with('user')->get();
 
         // Broadcast reaction update
-        broadcast(new MessageEvent('reaction', $message->conversation_id, [
-            'message_id' => $message->id,
-            'reactions'  => $reactions,
-        ]));
+        broadcast(new MessageEvent('reaction', $message->conversation_id, ['message_id' => $message->id, 'reactions' => $reactions]));
 
         return $reactions;
     }
@@ -171,9 +161,7 @@ class ChatService
     public function listReaction(int $messageId)
     {
         // Fetch reactions with user info (eager loading)
-        $reactions = MessageReaction::where('message_id', $messageId)
-            ->with(['user:id,name,avatar_path'])
-            ->get();
+        $reactions = MessageReaction::where('message_id', $messageId)->with(['user:id,name,avatar_path'])->get();
 
         // Group reactions by type with count
         $grouped = $reactions->groupBy('reaction')->map(function ($items, $reaction) {
@@ -190,10 +178,7 @@ class ChatService
             ];
         });
 
-        return [
-            'total_reactions' => $reactions->count(),
-            'grouped'         => $grouped,
-        ];
+        return ['total_reactions' => $reactions->count(), 'grouped' => $grouped];
     }
 
     // -------------------------------

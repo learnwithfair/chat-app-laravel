@@ -79,7 +79,7 @@ class MessageController extends Controller
         ]);
         $result = $this->chatService->markMessagesAsRead(Auth::user(), $request->all());
         return $this->success($result, 'Messages marked as seen.');
-    }    
+    }
 
     public function markAsDelivered(int $conversationId)
     {
@@ -94,8 +94,7 @@ class MessageController extends Controller
             'conversation_ids.*' => ['integer', 'exists:conversations,id'],
         ]);
 
-        $user = $request->user();
-
+        $user    = $request->user();
         $results = [];
 
         foreach ($data['conversation_ids'] as $conversationId) {

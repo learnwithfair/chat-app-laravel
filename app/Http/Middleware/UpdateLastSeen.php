@@ -9,9 +9,7 @@ class UpdateLastSeen
     public function handle(Request $request, Closure $next)
     {
         if ($user = $request->user()) {
-            $user->updateQuietly([
-                'last_seen_at' => now(),
-            ]);
+            $user->updateQuietly(['last_seen_at' => now()]);
         }
 
         return $next($request);
