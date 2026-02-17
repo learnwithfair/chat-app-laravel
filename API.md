@@ -1546,7 +1546,7 @@ Before testing any endpoint, log in via the browser at `http://localhost:8000/lo
 
 Create folders inside your collection:
 --------------------------------------
-
+```
 Chat System API/
 ├── Conversations/
 │   ├── List Conversations
@@ -1590,7 +1590,7 @@ Chat System API/
 ## 8. Quick Test Sequence
 
 Run endpoints in this order for a complete end-to-end test:
-
+```
 ** User Management Endpoints
 -----------------------------
 01.  GET  /online-users                           Get list of users who are currently online.
