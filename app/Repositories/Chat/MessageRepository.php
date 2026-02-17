@@ -382,7 +382,17 @@ class MessageRepository
         }
         $data['edited_at'] = now();
         $message->update($data);
-        return $message->refresh();
+
+        $message->load([
+            'sender:id,name',
+            'reactions',
+            'attachments',
+            'statuses',
+            'replyTo.sender:id,name',
+            'forwardedFrom.sender:id,name',
+            'forwardedFrom.conversation:id,name,type',
+        ]);
+        return new MessageResource($message);
     }
 
     public function deleteMessagesForUser(int $userId, array $messageIds)

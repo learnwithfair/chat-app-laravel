@@ -17,6 +17,8 @@ A professional real-time chat application built with Laravel 12 and Vue 3, featu
 | :------------------------------------------------: | :------------------------------------------------: |
 |                 Backend Structure                  |  Frontend Structure          |           
 | ![Backend Structure](/screenshort/backend-structure.png) |![Frontend Structure](/screenshort/frontend-structure.png) |
+|                 API Structure                  |  API Endpoints           |           
+| ![Backend Structure](/screenshort/api-structure.png) |![Frontend Structure](/screenshort/api.png) |
 
 
 ### Frontend APP
