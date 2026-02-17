@@ -2352,28 +2352,28 @@ export function useChat() {
                 members
             });
 
-            conversations.value.unshift({
-                id: newGroup.id,
-                type: 'group',
-                name: newGroup.name,
-                avatar: generateAvatar(newGroup.name),
-                lastMessage: 'Group created',
-                lastMessageTime: 'Just now',
-                unreadCount: 0,
-                isOnline: false,
-                isBlocked: false,
-                createdBy: newGroup.created_by,
-                createdAt: newGroup.created_at,
-                members: newGroup.participants || [],
-                settings: newGroup.group_setting || null,
-                isMuted: false,
-                receiver: null,
-                is_admin: newGroup.is_admin || false,
-                role: newGroup.role,
-                canSendMessage: newGroup.can_send_message,
-            });
+            // conversations.value.unshift({
+            //     id: newGroup.id,
+            //     type: 'group',
+            //     name: newGroup.name,
+            //     avatar: generateAvatar(newGroup.name),
+            //     lastMessage: 'Group created',
+            //     lastMessageTime: 'Just now',
+            //     unreadCount: 0,
+            //     isOnline: false,
+            //     isBlocked: false,
+            //     createdBy: newGroup.created_by,
+            //     createdAt: newGroup.created_at,
+            //     members: newGroup.participants || [],
+            //     settings: newGroup.group_setting || null,
+            //     isMuted: false,
+            //     receiver: null,
+            //     is_admin: newGroup.is_admin || false,
+            //     role: newGroup.role,
+            //     canSendMessage: newGroup.can_send_message,
+            // });
 
-            selectConversation(conversations.value[0]);
+            // selectConversation(conversations.value[0]);
             closeModal('createGroup');
         } catch (error) {
             console.error('Failed to create group:', error);

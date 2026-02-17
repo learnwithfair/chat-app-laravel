@@ -164,7 +164,7 @@ app/
 ### Step 1: Clone and Install Dependencies
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/learnwithfair/chat-app-laravel.git
 cd chat-app-laravel
 
 composer install
@@ -373,6 +373,11 @@ resources/js/
     └── Chat/
         └── useChat.js             // Main composable with all logic
 ```
+
+### API Documentaion
+
+- [Postman Documentation](https://documenter.getpostman.com/view/39751280/2sBXVcjroe)
+
 
 ### Echo Configuration
 
@@ -910,15 +915,7 @@ All channels require authentication. Laravel automatically handles authorization
 
 ## Response
 
-### Conversations Response
-```json
-
-```
-
-### Messages Response
-```json
-
-```
+- [API Response](/API.md)
 
 
 ## Feature Implementation
@@ -1329,6 +1326,7 @@ ls -la public/storage
 
 ### Official Documentation
 
+- [Postman Documentation](https://documenter.getpostman.com/view/39751280/2sBXVcjroe)
 - [Laravel Documentation](https://laravel.com/docs)
 - [Vue 3 Documentation](https://vuejs.org/guide/introduction.html)
 - [Inertia.js Documentation](https://inertiajs.com/)

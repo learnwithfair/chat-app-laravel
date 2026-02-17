@@ -295,6 +295,7 @@ class MessageRepository
         // 14. Broadcast rejoin event (Enterprise-grade realtime pipeline)
         if ($deletedParticipants->isNotEmpty()) {
 
+            $conversation->fresh();
             // Eager load to prevent N+1 inside ConversationResource
             $conversation->load([
                 'participants.user',
